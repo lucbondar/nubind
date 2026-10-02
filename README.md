@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lucbondar/nubind/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/lucbondar/nubind?style=for-the-badge&color=2A8DE0"></a>
+  <a href="https://github.com/lucbondar/nubind/releases"><img alt="Release" src="https://img.shields.io/github/v/release/lucbondar/nubind?include_prereleases&sort=date&style=for-the-badge&color=2A8DE0"></a>
   <a href="https://github.com/lucbondar/nubind/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/lucbondar/nubind/build.yml?branch=main&style=for-the-badge&label=build"></a>
   <a href="https://github.com/lucbondar/nubind/releases"><img alt="Descargas" src="https://img.shields.io/github/downloads/lucbondar/nubind/total?style=for-the-badge&color=0A2F5C"></a>
   <img alt="Último commit" src="https://img.shields.io/github/last-commit/lucbondar/nubind?style=for-the-badge&color=4D616C">
