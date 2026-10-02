@@ -199,9 +199,9 @@ object AppIcons {
         ).build()
 
     /**
-     * Logo de la app (mismo dibujo que el icono del launcher): nube blanca con
-     * una carpeta dentro, en estilo plano. Lleva colores propios: usar con
-     * Image, no con Icon. El grupo recorta el margen del lienzo adaptable.
+     * Logo de la app (mismo dibujo que el icono del launcher): nube plana azul
+     * claro. Lleva color propio: usar con Image, no con Icon. Va sobre un
+     * fondo azul (0xFF2A8DE0), como el icono.
      */
     val Logo: ImageVector by lazy(LazyThreadSafetyMode.NONE) {
         ImageVector.Builder(
@@ -210,11 +210,7 @@ object AppIcons {
             defaultHeight = 108.dp,
             viewportWidth = 108f,
             viewportHeight = 108f
-        ).addGroup(scaleX = 1.5f, scaleY = 1.5f, pivotX = 54f, pivotY = 50f, translationX = 0f, translationY = 4f)
-            .addPath(pathData = addPathNodes("M33,72A8,8 0 0 1 28.49,57.39A12,12 0 0 1 38.43,42.1A18,18 0 0 1 74,46.2A11,11 0 0 1 79.98,56.58A8,8 0 0 1 77,72Z"), fill = SolidColor(Color.White))
-            .addPath(pathData = addPathNodes("M42,49.5A2.5,2.5 0 0 1 44.5,47H51.2A2.5,2.5 0 0 1 53,47.8L55,50H65.5A2.5,2.5 0 0 1 68,52.5V63.5A2.5,2.5 0 0 1 65.5,66H44.5A2.5,2.5 0 0 1 42,63.5Z"), fill = SolidColor(Color(0xFF7FD6E0)))
-            .addPath(pathData = addPathNodes("M42,56.5A2.5,2.5 0 0 1 44.5,54H65.5A2.5,2.5 0 0 1 68,56.5V63.5A2.5,2.5 0 0 1 65.5,66H44.5A2.5,2.5 0 0 1 42,63.5Z"), fill = SolidColor(Color(0xFF1594A8)))
-            .clearGroup()
+        ).addPath(pathData = addPathNodes("M23.59,47.07C23.87,45.88 23.96,44.58 24.39,43.41C27.31,35.48 34.7,33.38 42.32,35.36C44.64,31.91 46.25,28.94 49.85,26.49C52.44,24.74 55.41,23.79 58.46,23.25C72.12,20.81 83.23,31.63 83.46,44.92C85.03,45.4 86.8,45.7 88.39,46.39C93.25,48.48 96.27,52.84 97.49,57.84C99.14,64.58 95.79,72.96 89.25,75.92C87.79,76.59 86.13,77.3 84.52,77.48C81.38,77.84 78.2,77.66 75.04,77.7C68.15,77.78 61.26,77.68 54.37,77.7C48.06,77.72 41.74,77.71 35.43,77.72C30.12,77.72 24.82,78.18 19.71,76.58C14.73,75.03 11.38,69.8 10.51,64.94C8.86,55.68 14.89,48.82 23.59,47.07Z"), fill = SolidColor(Color(0xFFBCD1E6)))
             .build()
     }
 

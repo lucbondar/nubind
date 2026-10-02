@@ -89,11 +89,11 @@ fun AboutScreen(vm: BindViewModel) {
                 Box(
                     Modifier
                         .size(96.dp)
-                        .clip(RoundedCornerShape(30.dp))
-                        .background(Color(0xFF0A4657)),
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Color(0xFF2A8DE0)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Image(AppIcons.Logo, contentDescription = null, modifier = Modifier.size(64.dp))
+                    Image(AppIcons.Logo, contentDescription = null, modifier = Modifier.size(96.dp))
                 }
                 Text("Nubind", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                 Text(
