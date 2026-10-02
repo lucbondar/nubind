@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="docs/banner.svg" alt="Nubind: FTP, Google Drive y S3 como carpetas en Android. Oracle Cloud, Amazon S3, Cloudflare R2 y compatibles. Requiere KernelSU." width="100%">
+  <img src="docs/banner.svg" alt="Nubind, la nube que se monta como carpeta: FTP, Google Drive y S3 en Android. Oracle Cloud, Amazon S3, Cloudflare R2 y compatibles. Requiere KernelSU." width="100%">
 </p>
 
 <p align="center">
-  <a href="https://github.com/lucbondar/nubind/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/lucbondar/nubind?style=for-the-badge&color=1594A8"></a>
+  <a href="https://github.com/lucbondar/nubind/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/lucbondar/nubind?style=for-the-badge&color=2A8DE0"></a>
   <a href="https://github.com/lucbondar/nubind/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/lucbondar/nubind/build.yml?branch=main&style=for-the-badge&label=build"></a>
-  <a href="https://github.com/lucbondar/nubind/releases"><img alt="Descargas" src="https://img.shields.io/github/downloads/lucbondar/nubind/total?style=for-the-badge&color=0A4657"></a>
+  <a href="https://github.com/lucbondar/nubind/releases"><img alt="Descargas" src="https://img.shields.io/github/downloads/lucbondar/nubind/total?style=for-the-badge&color=0A2F5C"></a>
   <img alt="Último commit" src="https://img.shields.io/github/last-commit/lucbondar/nubind?style=for-the-badge&color=4D616C">
 </p>
 
@@ -13,7 +13,7 @@
   <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white">
   <img alt="arm64" src="https://img.shields.io/badge/arquitectura-arm64-555?style=flat-square">
   <img alt="KernelSU" src="https://img.shields.io/badge/KernelSU-m%C3%B3dulo-orange?style=flat-square">
-  <img alt="rclone" src="https://img.shields.io/badge/rclone-mount-1594A8?style=flat-square">
+  <img alt="rclone" src="https://img.shields.io/badge/rclone-mount-2A8DE0?style=flat-square">
   <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white">
   <img alt="Jetpack Compose" src="https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white">
   <img alt="Material 3" src="https://img.shields.io/badge/Material%203-6750A4?style=flat-square&logo=materialdesign&logoColor=white">
@@ -37,9 +37,9 @@ flowchart LR
     C --> F["Gestores de archivos"]
     C --> G["Cualquier app"]
 
-    style R fill:#1594A8,color:#fff,stroke:#0A4657
-    style M fill:#0A4657,color:#fff,stroke:#0A4657
-    style C fill:#CBC1E9,color:#1D1736,stroke:#615A7D
+    style R fill:#2A8DE0,color:#fff,stroke:#0A2F5C
+    style M fill:#0A2F5C,color:#fff,stroke:#0A2F5C
+    style C fill:#BCD1E6,color:#0A2F5C,stroke:#2A8DE0
 ```
 
 Iniciar sesión con Google se hace en el propio teléfono, sin PC:
@@ -154,6 +154,7 @@ La app puede llevar integrado tu propio cliente OAuth de Google para no depender
 - Material 3 con **color dinámico** (Material You) en Android 12 o superior.
 - Modo **claro y oscuro** según el sistema, a pantalla completa.
 - Esquinas amplias, animaciones con resorte y efecto de desenfoque.
+- En **Acerca de**, la nube del logo da un saltito con rebote cada pocos segundos (tocarla lo repite; se desactiva si las animaciones del sistema están apagadas).
 - Ancho del contenido adaptable: crece en pantallas anchas en vez de dejar franjas vacías a los costados.
 - Inicio también arma **doble panel** en pantalla ancha: montaje (servidor, carpeta, botón) a la izquierda, ajustes (autostart y rendimiento) a la derecha.
 - Icono adaptable con versión monocromática para el tema de íconos.

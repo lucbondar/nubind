@@ -1,48 +1,62 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520" width="1600" height="520" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1600 520" width="1600" height="520" role="img" aria-labelledby="title desc">
   <title id="title">Nubind — FTP, Google Drive y S3 en Android</title>
   <desc id="desc">Monta tus remotos como carpetas del teléfono. Compatible con Oracle Cloud, Amazon S3, Cloudflare R2 y otros servicios S3. Montaje automático, caché configurable y pruebas de rendimiento. Requiere KernelSU; Android 8.0 o superior, arm64.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1594A8"/><stop offset="1" stop-color="#083C4C"/></linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1F78CC"/><stop offset="1" stop-color="#0A2F5C"/></linearGradient>
     <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".18"/><stop offset="1" stop-color="#FFFFFF" stop-opacity=".07"/></linearGradient>
+    <clipPath id="frame"><rect width="1600" height="520" rx="36"/></clipPath>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#04182F" flood-opacity=".35"/></filter>
+    <!-- La nube del icono de la app (docs/icon.svg), reutilizada en todo el banner. -->
+    <path id="cloud" d="M23.59,47.07C23.87,45.88 23.96,44.58 24.39,43.41C27.31,35.48 34.7,33.38 42.32,35.36C44.64,31.91 46.25,28.94 49.85,26.49C52.44,24.74 55.41,23.79 58.46,23.25C72.12,20.81 83.23,31.63 83.46,44.92C85.03,45.4 86.8,45.7 88.39,46.39C93.25,48.48 96.27,52.84 97.49,57.84C99.14,64.58 95.79,72.96 89.25,75.92C87.79,76.59 86.13,77.3 84.52,77.48C81.38,77.84 78.2,77.66 75.04,77.7C68.15,77.78 61.26,77.68 54.37,77.7C48.06,77.72 41.74,77.71 35.43,77.72C30.12,77.72 24.82,78.18 19.71,76.58C14.73,75.03 11.38,69.8 10.51,64.94C8.86,55.68 14.89,48.82 23.59,47.07Z"/>
   </defs>
-  <rect width="1600" height="520" rx="36" fill="url(#bg)"/>
-  <circle cx="1450" cy="40" r="260" fill="#FFFFFF" opacity=".045"/>
-  <circle cx="1570" cy="500" r="205" fill="#FFFFFF" opacity=".04"/>
-  <g font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
-    <!-- Tarjetas de remotos y carpeta de destino: ilustración vectorial. -->
-    <g transform="translate(65 75)">
-      <rect width="270" height="152" rx="25" fill="#B4CAD6"/>
-      <text x="25" y="38" font-size="20" font-weight="700" fill="#133E4C">FTP</text>
-      <rect y="53" width="270" height="152" rx="25" fill="#CBC1E9"/>
-      <text x="25" y="91" font-size="20" font-weight="700" fill="#342F50">Google Drive</text>
-      <rect y="106" width="270" height="170" rx="25" fill="#FFFFFF"/>
-      <text x="25" y="148" font-size="23" font-weight="800" fill="#0A4657">S3 / Object Storage</text>
-      <circle cx="238" cy="140" r="8" fill="#1594A8"/>
-      <text x="25" y="182" font-size="17" fill="#42616C">Oracle · AWS · R2</text>
-      <rect x="25" y="205" width="185" height="8" rx="4" fill="#DCE8EB"/>
-      <rect x="25" y="225" width="124" height="8" rx="4" fill="#DCE8EB"/>
-      <path d="M135 292v25m-9-9 9 9 9-9" fill="none" stroke="#B8E9E6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M52 335h61l16 16h89a12 12 0 0 1 12 12v39a12 12 0 0 1-12 12H52a12 12 0 0 1-12-12v-55a12 12 0 0 1 12-12z" fill="#B8E9E6"/>
-      <text x="135" y="390" text-anchor="middle" font-size="20" font-weight="700" fill="#0A4657">Tu carpeta</text>
+  <g clip-path="url(#frame)">
+    <rect width="1600" height="520" fill="url(#bg)"/>
+    <!-- Nubes de fondo: la misma silueta del icono, muy tenue. -->
+    <use xlink:href="#cloud" href="#cloud" fill="#FFFFFF" opacity=".05" transform="translate(1130 -50) scale(5.6)"/>
+    <use xlink:href="#cloud" href="#cloud" fill="#FFFFFF" opacity=".04" transform="translate(1290 330) scale(3.4)"/>
+    <g font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+      <!-- Remotos (tarjetas como las de la app) que bajan a una carpeta con la nube. -->
+      <g transform="translate(65 75)">
+        <rect width="270" height="152" rx="25" fill="#B4CAD6"/>
+        <text x="25" y="38" font-size="20" font-weight="700" fill="#133E4C">FTP</text>
+        <rect y="53" width="270" height="152" rx="25" fill="#CBC1E9"/>
+        <text x="25" y="91" font-size="20" font-weight="700" fill="#342F50">Google Drive</text>
+        <rect y="106" width="270" height="170" rx="25" fill="#FFFFFF"/>
+        <text x="25" y="148" font-size="21" font-weight="800" fill="#0A2F5C">S3 / Object Storage</text>
+        <circle cx="244" cy="141" r="8" fill="#2A8DE0"/>
+        <text x="25" y="182" font-size="17" fill="#42616C">Oracle · AWS · R2</text>
+        <rect x="25" y="205" width="185" height="8" rx="4" fill="#DCE8EB"/>
+        <rect x="25" y="225" width="124" height="8" rx="4" fill="#DCE8EB"/>
+        <path d="M135 292v25m-9-9 9 9 9-9" fill="none" stroke="#BCD1E6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M52 335h61l16 16h89a12 12 0 0 1 12 12v39a12 12 0 0 1-12 12H52a12 12 0 0 1-12-12v-55a12 12 0 0 1 12-12z" fill="#BCD1E6"/>
+        <use xlink:href="#cloud" href="#cloud" fill="#2A8DE0" transform="translate(52.2 354.2) scale(.55)"/>
+        <text x="116" y="389" font-size="20" font-weight="700" fill="#0A2F5C">Tu carpeta</text>
+      </g>
+      <!-- Cabecera: icono de la app + nombre, como en la pantalla Acerca de. -->
+      <text x="395" y="78" font-size="17" font-weight="700" fill="#BCD1E6" letter-spacing="2.6">TUS REMOTOS, EN TU ANDROID</text>
+      <g filter="url(#lift)" transform="translate(395 98) scale(.926)">
+        <rect width="108" height="108" rx="24" fill="#2A8DE0"/>
+        <rect x=".75" y=".75" width="106.5" height="106.5" rx="23.25" fill="none" stroke="#FFFFFF" stroke-opacity=".35" stroke-width="1.5"/>
+        <use xlink:href="#cloud" href="#cloud" fill="#BCD1E6"/>
+      </g>
+      <text x="519" y="177" font-size="76" font-weight="800" fill="#FFFFFF" letter-spacing="-1.5">Nubind</text>
+      <text x="395" y="237" font-size="28" fill="#FFFFFF">FTP, Google Drive y S3 como carpetas del teléfono.</text>
+      <text x="395" y="272" font-size="23" fill="#D4E6F7">Elige dónde montarlos y accede desde tus apps.</text>
+      <g font-size="20" font-weight="600" fill="#FFFFFF" text-anchor="middle">
+        <rect x="395" y="300" width="180" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
+        <text x="485" y="329">Oracle Cloud</text>
+        <rect x="588" y="300" width="162" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
+        <text x="669" y="329">Amazon S3</text>
+        <rect x="763" y="300" width="192" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
+        <text x="859" y="329">Cloudflare R2</text>
+        <rect x="968" y="300" width="198" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
+        <text x="1067" y="329">S3 compatibles</text>
+      </g>
+      <text x="395" y="388" font-size="21" font-weight="600" fill="#FFFFFF">Montaje automático · Caché configurable · Precarga</text>
+      <text x="395" y="420" font-size="21" fill="#D4E6F7">Perfiles Equilibrado / Máximo · Pruebas de rendimiento</text>
+      <path d="M395 442h1125" stroke="#FFFFFF" stroke-opacity=".18"/>
+      <text x="395" y="482" font-size="19" font-weight="600" fill="#BCD1E6">rclone + KernelSU</text>
+      <text x="1520" y="482" text-anchor="end" font-size="19" fill="#BCD1E6">Requiere root · Android 8.0+ · arm64</text>
     </g>
-    <text x="395" y="78" font-size="17" font-weight="700" fill="#C6EFEC" letter-spacing="2.6">TUS REMOTOS, EN TU ANDROID</text>
-    <text x="391" y="159" font-size="72" font-weight="800" fill="#FFFFFF" letter-spacing="-1.5">Nubind</text>
-    <text x="395" y="207" font-size="28" fill="#FFFFFF">FTP, Google Drive y S3 como carpetas del teléfono.</text>
-    <text x="395" y="244" font-size="23" fill="#D6ECEF">Elige dónde montarlos y accede desde tus apps.</text>
-    <g font-size="20" font-weight="600" fill="#FFFFFF" text-anchor="middle">
-      <rect x="395" y="277" width="180" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
-      <text x="485" y="306">Oracle Cloud</text>
-      <rect x="588" y="277" width="162" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
-      <text x="669" y="306">Amazon S3</text>
-      <rect x="763" y="277" width="192" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
-      <text x="859" y="306">Cloudflare R2</text>
-      <rect x="968" y="277" width="198" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
-      <text x="1067" y="306">S3 compatibles</text>
-    </g>
-    <text x="395" y="367" font-size="21" font-weight="600" fill="#FFFFFF">Montaje automático · Caché configurable · Precarga</text>
-    <text x="395" y="400" font-size="21" fill="#D6ECEF">Perfiles Equilibrado / Máximo · Pruebas de rendimiento</text>
-    <path d="M395 432h1125" stroke="#FFFFFF" stroke-opacity=".18"/>
-    <text x="395" y="472" font-size="19" font-weight="600" fill="#C6EFEC">rclone + KernelSU</text>
-    <text x="1520" y="472" text-anchor="end" font-size="19" fill="#C6EFEC">Requiere root · Android 8.0+ · arm64</text>
   </g>
 </svg>
