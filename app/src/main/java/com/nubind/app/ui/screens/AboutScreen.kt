@@ -21,8 +21,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -35,8 +35,8 @@ import androidx.compose.ui.unit.dp
 import com.nubind.app.BindViewModel
 import com.nubind.app.BuildConfig
 import com.nubind.app.root.RootShell
+import com.nubind.app.ui.components.AnimatedLogo
 import com.nubind.app.ui.components.AppIcons
-import com.nubind.app.ui.components.AnimatedAboutLogo
 import com.nubind.app.ui.components.DualPaneContentWidth
 import com.nubind.app.ui.components.ScreenContainer
 import com.nubind.app.ui.components.SectionCard
@@ -82,7 +82,7 @@ fun AboutScreen(vm: BindViewModel) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                AnimatedAboutLogo()
+                AnimatedLogo()
                 Text("Nubind", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
                 Text(
                     "Versión ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
