@@ -1,16 +1,12 @@
 <p align="center">
-  <img src="docs/icon.png" alt="Nubind" width="96">
-</p>
-
-<p align="center">
   <img src="docs/banner.svg" alt="Nubind: FTP, Google Drive y S3 como carpetas en Android. Oracle Cloud, Amazon S3, Cloudflare R2 y compatibles. Requiere KernelSU." width="100%">
 </p>
 
 <p align="center">
-  <a href="https://github.com/TU_USUARIO/nubind/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/TU_USUARIO/nubind?style=for-the-badge&color=1594A8"></a>
-  <a href="https://github.com/TU_USUARIO/nubind/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/TU_USUARIO/nubind/build.yml?branch=main&style=for-the-badge&label=build"></a>
-  <a href="https://github.com/TU_USUARIO/nubind/releases"><img alt="Descargas" src="https://img.shields.io/github/downloads/TU_USUARIO/nubind/total?style=for-the-badge&color=0A4657"></a>
-  <img alt="Último commit" src="https://img.shields.io/github/last-commit/TU_USUARIO/nubind?style=for-the-badge&color=4D616C">
+  <a href="https://github.com/lucbondar/nubind/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/lucbondar/nubind?style=for-the-badge&color=1594A8"></a>
+  <a href="https://github.com/lucbondar/nubind/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/lucbondar/nubind/build.yml?branch=main&style=for-the-badge&label=build"></a>
+  <a href="https://github.com/lucbondar/nubind/releases"><img alt="Descargas" src="https://img.shields.io/github/downloads/lucbondar/nubind/total?style=for-the-badge&color=0A4657"></a>
+  <img alt="Último commit" src="https://img.shields.io/github/last-commit/lucbondar/nubind?style=for-the-badge&color=4D616C">
 </p>
 
 <p align="center">

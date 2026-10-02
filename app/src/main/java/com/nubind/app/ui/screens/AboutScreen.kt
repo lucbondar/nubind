@@ -48,7 +48,7 @@ import com.nubind.app.ui.components.rememberIsDualPane
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private const val REPO_URL = "https://github.com/TU_USUARIO/nubind"
+private const val REPO_URL = "https://github.com/lucbondar/nubind"
 private const val RCLONE_URL = "https://rclone.org"
 private const val X_URL = "https://x.com/cruzmartinlbdt"
 private const val TELEGRAM_URL = "https://t.me/lcruz_23"
