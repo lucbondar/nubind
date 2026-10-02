@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Evita el destello blanco antes de que Compose dibuje, en claro y en oscuro. -->
+    <style name="Theme.Nubind" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F6FAFE</item>
+    </style>
+</resources>

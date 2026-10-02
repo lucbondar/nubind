@@ -1,0 +1,13 @@
+.gradle/
+.kotlin/
+**/build/
+local.properties
+.idea/
+*.iml
+__pycache__/
+*.pyc
+module/bin/rclone
+module/bin/fusermount3
+module/app.apk
+*.jks
+# La clave debug existente se conserva intencionalmente; no añadir claves privadas.

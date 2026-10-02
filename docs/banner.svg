@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520" width="1600" height="520" role="img" aria-labelledby="title desc">
+  <title id="title">Nubind — FTP, Google Drive y S3 en Android</title>
+  <desc id="desc">Monta tus remotos como carpetas del teléfono. Compatible con Oracle Cloud, Amazon S3, Cloudflare R2 y otros servicios S3. Montaje automático, caché configurable y pruebas de rendimiento. Requiere KernelSU; Android 8.0 o superior, arm64.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1594A8"/><stop offset="1" stop-color="#083C4C"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".18"/><stop offset="1" stop-color="#FFFFFF" stop-opacity=".07"/></linearGradient>
+  </defs>
+  <rect width="1600" height="520" rx="36" fill="url(#bg)"/>
+  <circle cx="1450" cy="40" r="260" fill="#FFFFFF" opacity=".045"/>
+  <circle cx="1570" cy="500" r="205" fill="#FFFFFF" opacity=".04"/>
+  <g font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+    <!-- Tarjetas de remotos y carpeta de destino: ilustración vectorial. -->
+    <g transform="translate(65 75)">
+      <rect width="270" height="152" rx="25" fill="#B4CAD6"/>
+      <text x="25" y="38" font-size="20" font-weight="700" fill="#133E4C">FTP</text>
+      <rect y="53" width="270" height="152" rx="25" fill="#CBC1E9"/>
+      <text x="25" y="91" font-size="20" font-weight="700" fill="#342F50">Google Drive</text>
+      <rect y="106" width="270" height="170" rx="25" fill="#FFFFFF"/>
+      <text x="25" y="148" font-size="23" font-weight="800" fill="#0A4657">S3 / Object Storage</text>
+      <circle cx="238" cy="140" r="8" fill="#1594A8"/>
+      <text x="25" y="182" font-size="17" fill="#42616C">Oracle · AWS · R2</text>
+      <rect x="25" y="205" width="185" height="8" rx="4" fill="#DCE8EB"/>
+      <rect x="25" y="225" width="124" height="8" rx="4" fill="#DCE8EB"/>
+      <path d="M135 292v25m-9-9 9 9 9-9" fill="none" stroke="#B8E9E6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M52 335h61l16 16h89a12 12 0 0 1 12 12v39a12 12 0 0 1-12 12H52a12 12 0 0 1-12-12v-55a12 12 0 0 1 12-12z" fill="#B8E9E6"/>
+      <text x="135" y="390" text-anchor="middle" font-size="20" font-weight="700" fill="#0A4657">Tu carpeta</text>
+    </g>
+    <text x="395" y="78" font-size="17" font-weight="700" fill="#C6EFEC" letter-spacing="2.6">TUS REMOTOS, EN TU ANDROID</text>
+    <text x="391" y="159" font-size="72" font-weight="800" fill="#FFFFFF" letter-spacing="-1.5">Nubind</text>
+    <text x="395" y="207" font-size="28" fill="#FFFFFF">FTP, Google Drive y S3 como carpetas del teléfono.</text>
+    <text x="395" y="244" font-size="23" fill="#D6ECEF">Elige dónde montarlos y accede desde tus apps.</text>
+    <g font-size="20" font-weight="600" fill="#FFFFFF" text-anchor="middle">
+      <rect x="395" y="277" width="180" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
+      <text x="485" y="306">Oracle Cloud</text>
+      <rect x="588" y="277" width="162" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
+      <text x="669" y="306">Amazon S3</text>
+      <rect x="763" y="277" width="192" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
+      <text x="859" y="306">Cloudflare R2</text>
+      <rect x="968" y="277" width="198" height="44" rx="22" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".3"/>
+      <text x="1067" y="306">S3 compatibles</text>
+    </g>
+    <text x="395" y="367" font-size="21" font-weight="600" fill="#FFFFFF">Montaje automático · Caché configurable · Precarga</text>
+    <text x="395" y="400" font-size="21" fill="#D6ECEF">Perfiles Equilibrado / Máximo · Pruebas de rendimiento</text>
+    <path d="M395 432h1125" stroke="#FFFFFF" stroke-opacity=".18"/>
+    <text x="395" y="472" font-size="19" font-weight="600" fill="#C6EFEC">rclone + KernelSU</text>
+    <text x="1520" y="472" text-anchor="end" font-size="19" fill="#C6EFEC">Requiere root · Android 8.0+ · arm64</text>
+  </g>
+</svg>

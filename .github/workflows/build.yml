@@ -1,0 +1,250 @@
+name: Build
+
+on:
+  push:
+    branches: [ '**' ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-app:
+    runs-on: ubuntu-latest
+    # Red de seguridad: sin esto, un paso colgado (como el needrestart de
+    # abajo) puede correr hasta 6 horas antes de que GitHub lo corte solo.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Instalamos el Android SDK descargando el cmdline-tools oficial de
+      # Google directamente, en vez de depender de rutas preinstaladas del
+      # runner (que varían y no son confiables) o de la acción de terceros
+      # que instalaba el paquete legacy "tools" ya retirado.
+      - name: Descargar Android cmdline-tools
+        run: |
+          export ANDROID_SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          curl -fsSL -o cmdline-tools.zip \
+            https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+          unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Instalar paquetes del SDK y aceptar licencias
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+
+      # No versionamos gradlew/gradle-wrapper.jar en el repo: los generamos
+      # aquí con la Gradle que instaló setup-gradle, así el build es 100%
+      # reproducible desde Actions sin depender de nada preinstalado.
+      - name: Generar Gradle wrapper
+        run: gradle wrapper --gradle-version 8.14.3
+
+      # Cliente OAuth de Google Drive integrado en la app (Settings > Secrets
+      # and variables > Actions). Sin ellos (p. ej. PR desde forks) el APK
+      # compila igual y usa el cliente compartido de rclone.
+      - name: Build debug APK
+        env:
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+        run: ./gradlew assembleDebug --console=plain
+
+      - name: Subir APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+  package-module:
+    needs: build-app
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Descargar APK ya compilado
+        uses: actions/download-artifact@v4
+        with:
+          name: app-debug-apk
+          path: apk
+
+      - name: Descargar binario de rclone (linux-arm64)
+        run: |
+          curl -fL -o rclone.zip https://downloads.rclone.org/rclone-current-linux-arm64.zip
+          unzip -q rclone.zip -d rclone_extracted
+          cp rclone_extracted/*/rclone module/bin/rclone
+          chmod +x module/bin/rclone
+
+      # Android no trae fusermount3 y rclone lo necesita para montar FUSE
+      # (incluso corriendo como root: "fusermount3: executable file not
+      # found in $PATH"). Antes se descargaba un binario ya compilado desde
+      # till0196/fusermount3-static, pero ese repo/release NO EXISTE (404
+      # persistente, no un cambio de tag), así que el build fallaba acá.
+      # En vez de depender de un tercero que puede desaparecer, lo
+      # compilamos nosotros: fuente oficial de libfuse + un cross-compiler
+      # musl, que produce un binario ELF arm64 sin dependencias dinámicas
+      # (no usa glibc en runtime), así que corre igual en Bionic/Android.
+      # mount.sh ya agrega module/bin al PATH antes de invocar rclone.
+      - name: Compilar fusermount3 estático (linux-arm64) desde libfuse
+        run: |
+          set -e
+          FUSE_VERSION=3.16.2
+
+          # Cross-compiler para aarch64 desde los repos oficiales de Ubuntu
+          # (no depende de ningún host de terceros como musl.cc, que se
+          # cayó en el intento anterior: "Failed to connect to musl.cc").
+          # libc6-dev-arm64-cross trae libc.a, así que igual podemos linkear
+          # totalmente estático con "-static" y no depender de la libc
+          # dinámica del dispositivo (Bionic) en runtime.
+          # El runner "ubuntu-latest" trae needrestart, que desde fines de
+          # 2024 se engancha al hook post-invoke de apt y puede abrir un
+          # diálogo interactivo ("Daemons using outdated libraries...") al
+          # instalar paquetes. Sin nadie que lo responda, el paso se queda
+          # esperando para siempre (es justo el cuelgue de 6+ minutos sin
+          # salida nueva en el log que se vio acá) en vez de fallar. Alcanza
+          # con pedirle modo automático antes de instalar nada; no hace
+          # falta tocar nada del lado de libfuse/fusermount3 en sí.
+          export DEBIAN_FRONTEND=noninteractive
+          export NEEDRESTART_MODE=a
+          export NEEDRESTART_SUSPEND=1
+
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+
+          curl -fL -o libfuse.tar.gz \
+            "https://github.com/libfuse/libfuse/releases/download/fuse-${FUSE_VERSION}/fuse-${FUSE_VERSION}.tar.gz"
+          tar xf libfuse.tar.gz
+          cd "fuse-${FUSE_VERSION}"
+
+          pip install --user --break-system-packages meson ninja
+          export PATH="$HOME/.local/bin:$PATH"
+
+          cat > cross.txt <<'EOF'
+          [binaries]
+          c = 'aarch64-linux-gnu-gcc'
+          ar = 'aarch64-linux-gnu-ar'
+          strip = 'aarch64-linux-gnu-strip'
+          [host_machine]
+          system = 'linux'
+          cpu_family = 'aarch64'
+          cpu = 'aarch64'
+          endian = 'little'
+          EOF
+
+          meson setup build --cross-file cross.txt \
+            -Dc_link_args=-static -Ddefault_library=static \
+            -Dutils=true -Dexamples=false -Dtests=false
+          ninja -C build util/fusermount3
+
+          cp build/util/fusermount3 ../module/bin/fusermount3
+          cd ..
+          chmod +x module/bin/fusermount3
+
+          # Segunda red de seguridad: confirmar que lo compilado sea
+          # realmente un ELF ARM64 estático.
+          file module/bin/fusermount3
+          file module/bin/fusermount3 | grep -q "ELF 64-bit.*ARM aarch64" || {
+            echo "::error::El binario compilado no es ELF ARM64 válido"
+            exit 1
+          }
+
+      # El APK va DENTRO del módulo (module/app.apk) para que customize.sh
+      # lo instale/actualice solo al flashear el módulo desde el Manager.
+      - name: Copiar APK dentro del módulo
+        run: cp apk/*.apk module/app.apk
+
+      # El KernelSU Manager compara versionCode: tiene que subir en cada build.
+      # run_number crece solo; el offset garantiza que supere versiones viejas.
+      - name: Sellar versión, empaquetar y generar update.json
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          REPO: ${{ github.repository }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          BASE=$(grep '^version=' module/module.prop | head -n1 | cut -d= -f2 | sed 's/ (build.*//')
+          CODE=$((RUN_NUMBER + 100))
+          if [ "$REF_TYPE" = "tag" ]; then TAG="$REF_NAME"; else TAG="build-$RUN_NUMBER"; fi
+          sed -i "s|^version=.*|version=$BASE (build $RUN_NUMBER)|; s|^versionCode=.*|versionCode=$CODE|" module/module.prop
+
+          git log -n 15 --pretty='- %s' > changelog.md
+
+          cat > update.json <<JSON
+          {
+            "version": "$BASE (build $RUN_NUMBER)",
+            "versionCode": $CODE,
+            "zipUrl": "https://github.com/$REPO/releases/download/$TAG/nubind-module.zip",
+            "changelog": "https://github.com/$REPO/releases/latest/download/changelog.md"
+          }
+          JSON
+          sed -i 's/^          //' update.json
+
+          cd module
+          zip -r ../nubind-module.zip . -x "bin/README.txt"
+
+      - name: Subir módulo
+        uses: actions/upload-artifact@v4
+        with:
+          name: nubind-module
+          path: nubind-module.zip
+
+      - name: Subir metadatos de actualización
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-meta
+          path: |
+            update.json
+            changelog.md
+
+  release:
+    timeout-minutes: 10
+    # Cada corrida exitosa (build-app + package-module OK) publica su propio
+    # release. Los PR quedan fuera: desde forks el token no tiene escritura.
+    if: github.event_name != 'pull_request'
+    needs: [ build-app, package-module ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      # Push de tag v*  -> release con ese tag.
+      # Cualquier otro  -> release "build-<n>" apuntando al commit exacto.
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || format('Build {0}', github.run_number) }}
+          body: |
+            Build automático #${{ github.run_number }}
+            Commit: ${{ github.sha }}
+            Rama/tag: ${{ github.ref_name }}
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/nubind-module/*.zip
+            dist/app-debug-apk/*.apk
+            dist/update-meta/update.json
+            dist/update-meta/changelog.md
