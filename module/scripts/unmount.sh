@@ -92,6 +92,14 @@ fi
 # Corta la precarga automática si seguía corriendo: el mount ya no existe,
 # seguir leyendo archivos ahí solo daría errores.
 pkill -f "$MODDIR/scripts/preload.sh" 2>/dev/null
+# pkill solo envía la señal: se espera (hasta 5 s) a que preload.sh termine su
+# limpieza y suelte el candado antes de forzar el borrado. Borrarlo de
+# inmediato dejaba a la precarga sin poder limpiar sus procesos hijos.
+i=0
+while [ -d "$MODDIR/preload.lock" ] && [ "$i" -lt 10 ]; do
+    sleep 0.5 2>/dev/null || sleep 1
+    i=$((i + 1))
+done
 rm -rf "$MODDIR/preload.lock" "$MODDIR/.preload_list"
 
 # Libera la RAM de la caché en RAM (si estaba activa): el tmpfs es

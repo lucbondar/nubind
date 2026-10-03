@@ -76,6 +76,9 @@ write_status() {
 # Evita dos precargas a la vez. El candado guarda el PID de quien lo tiene: si
 # ese proceso ya no existe (kill -9, reinicio a mitad de corrida) el candado
 # es huérfano y se recupera, en vez de salir en silencio para siempre.
+# PID de esta corrida: el latido y el monitor de progreso lo vigilan para no
+# sobrevivirla nunca (ver cleanup).
+MAIN_PID=$$
 LOCK="$MODDIR/preload.lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
     OLD_PID="$(cat "$LOCK/pid" 2>/dev/null)"
@@ -95,12 +98,20 @@ rm -f "$MODDIR"/.preload_list "$MODDIR"/.preload_list.raw "$MODDIR"/.preload_sel
       "$MODDIR"/.preload_all_done 2>/dev/null
 
 cleanup() {
-    # Solo limpia si el candado sigue siendo de esta corrida (una nueva puede
-    # haberlo tomado ya) y detiene a sus hijos para que no queden huérfanos.
-    [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] || return 0
+    # Los hijos propios (latido, monitor, workers) se detienen SIEMPRE. Antes
+    # esto estaba detrás de la comprobación del candado: unmount.sh y mount.sh
+    # borran preload.lock justo después del pkill, así que al llegar acá el
+    # candado ya no existía, la función salía sin matar nada y el monitor de
+    # progreso quedaba huérfano para siempre, republicando "running":true
+    # cada 2 s (la app se quedaba en "Revisando el remoto…" y "Precargar
+    # ahora" apagado). Matar a los propios hijos nunca pisa a una corrida
+    # nueva: los PIDs son de esta.
     [ -n "$HB_PID" ] && kill "$HB_PID" 2>/dev/null
     [ -n "$MONITOR_PID" ] && kill "$MONITOR_PID" 2>/dev/null
     [ -n "$WPIDS" ] && kill $WPIDS 2>/dev/null
+    # Candado y temporales: solo si siguen siendo de esta corrida (una nueva
+    # puede haberlos tomado ya).
+    [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] || return 0
     rm -rf "$LOCK"
     rm -f "$MODDIR"/.preload_list "$MODDIR"/.preload_list.raw "$MODDIR"/.preload_selected \
           "$MODDIR"/.preload_part_* "$MODDIR"/.preload_result_* "$MODDIR"/.preload_progress_* \
@@ -186,7 +197,7 @@ run_with_timeout() {
 TAB="$(printf '\t')"
 # Latido mientras se lista el remoto (en un FTP grande puede tardar minutos):
 # la app lo toma como "sigue viva" y no como una precarga colgada.
-( while :; do write_status true 0 0; sleep 5; done ) &
+( while kill -0 "$MAIN_PID" 2>/dev/null; do write_status true 0 0; sleep 5; done ) &
 HB_PID=$!
 FILELIST="$MODDIR/.preload_list"
 
@@ -324,7 +335,7 @@ progress_sum() {
 # paralelo a los workers y se apaga solo al ver .preload_all_done (lo crea
 # este script justo después de "wait").
 (
-    while [ ! -f "$MODDIR/.preload_all_done" ]; do
+    while [ ! -f "$MODDIR/.preload_all_done" ] && kill -0 "$MAIN_PID" 2>/dev/null; do
         set -- $(progress_sum)
         write_status true "${1:-0}" "${2:-0}"
         sleep 2

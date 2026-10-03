@@ -567,15 +567,22 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
         subtitle = Strings.get(R.string.baja_los_archivos_del_remoto_a)
     ) {
         if (!hasData) {
+            // Mientras preload.sh recorre el remoto todavía no hay totales
+            // (selectedFiles = 0): se muestra "Revisando el remoto…" con barra
+            // indeterminada en vez de "Todavía no hay nada precargado".
+            val scanning = status?.running == true
             Text(
-                if (mounted) {
-                    Strings.get(R.string.todavia_no_hay_nada_precargado_se)
-                } else {
-                    Strings.get(R.string.monta_un_servidor_para_poder_precargarlo)
+                when {
+                    scanning -> Strings.get(R.string.preload_scanning)
+                    mounted -> Strings.get(R.string.todavia_no_hay_nada_precargado_se)
+                    else -> Strings.get(R.string.monta_un_servidor_para_poder_precargarlo)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant
             )
+            if (scanning) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)))
+            }
         } else {
             val s = status!!
             val pct = (s.fraction * 100).roundToInt()
