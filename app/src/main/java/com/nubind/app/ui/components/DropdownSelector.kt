@@ -39,6 +39,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 /**
  * Una opción de [DropdownSelector]. [branded] = true: el icono lleva colores de
@@ -148,7 +150,7 @@ fun <T> DropdownSelector(
                         if (isSelected) {
                             Icon(
                                 Icons.Default.Check,
-                                contentDescription = "Seleccionado",
+                                contentDescription = Strings.get(R.string.seleccionado),
                                 tint = scheme.primary
                             )
                         }

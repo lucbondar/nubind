@@ -34,6 +34,8 @@ import com.nubind.app.ui.components.ScreenContainer
 import com.nubind.app.ui.components.ServerCardStack
 import com.nubind.app.ui.components.ServerSheet
 import com.nubind.app.ui.components.rememberIsDualPane
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 @Composable
 fun ServersScreen(vm: BindViewModel) {
@@ -54,13 +56,13 @@ fun ServersScreen(vm: BindViewModel) {
 
     Box(Modifier.fillMaxSize()) {
         ScreenContainer(
-            title = "Servidores",
+            title = Strings.get(R.string.servidores),
             refreshing = vm.refreshing,
             onRefresh = { vm.pullRefresh() },
             maxContentWidth = if (dualPane) DualPaneContentWidth else null,
             actions = {
                 IconButton(onClick = { openNew() }) {
-                    Icon(Icons.Default.Add, contentDescription = "Agregar servidor")
+                    Icon(Icons.Default.Add, contentDescription = Strings.get(R.string.agregar_servidor))
                 }
             }
         ) {
@@ -75,7 +77,7 @@ fun ServersScreen(vm: BindViewModel) {
                     ServerPanel(
                         modifier = Modifier.weight(1f),
                         type = RemoteType.FTP,
-                        emptyHint = "Agrega un servidor FTP para montarlo como carpeta.",
+                        emptyHint = Strings.get(R.string.agrega_un_servidor_ftp_para_montarlo),
                         profiles = ftp,
                         selected = vm.activeName,
                         onSelect = { vm.selectProfile(it) },
@@ -85,7 +87,7 @@ fun ServersScreen(vm: BindViewModel) {
                     ServerPanel(
                         modifier = Modifier.weight(1f),
                         type = RemoteType.DRIVE,
-                        emptyHint = "Conecta tu cuenta de Google Drive para montarla como carpeta.",
+                        emptyHint = Strings.get(R.string.conecta_tu_cuenta_de_google_drive),
                         profiles = drive,
                         selected = vm.activeName,
                         onSelect = { vm.selectProfile(it) },
@@ -95,7 +97,7 @@ fun ServersScreen(vm: BindViewModel) {
                     ServerPanel(
                         modifier = Modifier.weight(1f),
                         type = RemoteType.S3,
-                        emptyHint = "Conecta un bucket S3 (Oracle Cloud, Amazon S3, Cloudflare R2 u otro compatible) para montarlo como carpeta.",
+                        emptyHint = Strings.get(R.string.conecta_un_bucket_s3_oracle_cloud),
                         profiles = s3,
                         selected = vm.activeName,
                         onSelect = { vm.selectProfile(it) },
@@ -105,14 +107,14 @@ fun ServersScreen(vm: BindViewModel) {
                 }
             } else if (vm.profiles.isEmpty()) {
                 Text(
-                    "Todavía no hay servidores guardados. Agrega un servidor FTP, tu Google Drive o un bucket S3 para montarlo como carpeta en tu almacenamiento.",
+                    Strings.get(R.string.todavia_no_hay_servidores_guardados_agrega),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                FilledTonalButton(onClick = { openNew() }) { Text("Agregar servidor") }
+                FilledTonalButton(onClick = { openNew() }) { Text(Strings.get(R.string.agregar_servidor)) }
             } else {
                 Text(
-                    "Toca una tarjeta para elegir el servidor que se monta.",
+                    Strings.get(R.string.toca_una_tarjeta_para_elegir_el),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -164,16 +166,16 @@ fun ServersScreen(vm: BindViewModel) {
     deleteTarget?.let { profile ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("Eliminar servidor") },
-            text = { Text("Se borran los datos guardados de «${profile.name}». No se puede deshacer.") },
+            title = { Text(Strings.get(R.string.eliminar_servidor)) },
+            text = { Text(Strings.get(R.string.se_borran_los_datos_guardados_de, profile.name)) },
             confirmButton = {
                 TextButton(onClick = {
                     vm.deleteProfile(profile.name)
                     deleteTarget = null
-                }) { Text("Eliminar") }
+                }) { Text(Strings.get(R.string.eliminar)) }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) { Text("Cancelar") }
+                TextButton(onClick = { deleteTarget = null }) { Text(Strings.get(R.string.cancelar)) }
             }
         )
     }

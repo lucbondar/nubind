@@ -46,6 +46,8 @@ import com.nubind.app.ui.components.SectionCard
 import com.nubind.app.ui.components.rememberIsDualPane
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 private const val REPO_URL = "https://github.com/lucbondar/nubind"
 private const val RCLONE_URL = "https://rclone.org"
@@ -68,7 +70,7 @@ fun AboutScreen(vm: BindViewModel) {
     val dualPane = rememberIsDualPane()
 
     ScreenContainer(
-        title = "Acerca de",
+        title = Strings.get(R.string.acerca_de),
         maxContentWidth = if (dualPane) DualPaneContentWidth else null
     ) {
         // Cabecera: logo + nombre + versión. En vertical ocupa todo el ancho;
@@ -96,7 +98,7 @@ fun AboutScreen(vm: BindViewModel) {
         }
 
         Text(
-            "Usa rclone (licencia MIT), libsu (Apache 2.0) y Haze (Apache 2.0).",
+            Strings.get(R.string.usa_rclone_licencia_mit_libsu_apache),
             style = MaterialTheme.typography.bodySmall,
             color = scheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -122,7 +124,7 @@ private fun HeaderCard(modifier: Modifier = Modifier) {
             AnimatedLogo()
             Text("Nubind", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
             Text(
-                "Versión ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                Strings.get(R.string.version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
                 style = MaterialTheme.typography.bodyLarge
             )
         }
@@ -132,16 +134,12 @@ private fun HeaderCard(modifier: Modifier = Modifier) {
 @Composable
 private fun WhatItDoesCard() {
     SectionCard(
-        title = "Qué hace",
+        title = Strings.get(R.string.que_hace),
         icon = Icons.Default.Info,
-        subtitle = "Monta un servidor FTP, Google Drive o un bucket S3 (Oracle Cloud, Amazon S3, " +
-            "Cloudflare R2 y compatibles) con rclone y lo muestra como una carpeta más de tu " +
-            "almacenamiento interno, para que cualquier app pueda usarlo."
+        subtitle = Strings.get(R.string.monta_un_servidor_ftp_google_drive)
     ) {
         Text(
-            "1. Agrega un servidor en la pestaña Servidores.\n" +
-                "2. Elige la carpeta de destino en Inicio.\n" +
-                "3. Toca Montar: los archivos remotos aparecen ahí.",
+            Strings.get(R.string.s_1_agrega_un_servidor_en_la),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -150,25 +148,25 @@ private fun WhatItDoesCard() {
 
 @Composable
 private fun SystemCard(vm: BindViewModel, rcloneVersion: String?) {
-    SectionCard(title = "Sistema", icon = Icons.Default.Build) {
-        InfoRow("Acceso root", when (vm.rootGranted) {
-            true -> "Concedido"
-            false -> "No disponible"
-            null -> "Comprobando…"
+    SectionCard(title = Strings.get(R.string.sistema), icon = Icons.Default.Build) {
+        InfoRow(Strings.get(R.string.acceso_root), when (vm.rootGranted) {
+            true -> Strings.get(R.string.concedido)
+            false -> Strings.get(R.string.no_disponible)
+            null -> Strings.get(R.string.comprobando)
         })
         InfoRow("rclone", rcloneVersion ?: "—")
-        InfoRow("Interfaz", "Jetpack Compose · Material 3 Expressive")
+        InfoRow(Strings.get(R.string.interfaz), "Jetpack Compose · Material 3 Expressive")
     }
 }
 
 @Composable
 private fun LinksCard(uriHandler: UriHandler) {
-    SectionCard(title = "Enlaces", icon = Icons.Default.Share) {
+    SectionCard(title = Strings.get(R.string.enlaces), icon = Icons.Default.Share) {
         FilledTonalButton(onClick = { uriHandler.openUri(REPO_URL) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Código fuente en GitHub")
+            Text(Strings.get(R.string.codigo_fuente_en_github))
         }
         OutlinedButton(onClick = { uriHandler.openUri(RCLONE_URL) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Sitio de rclone")
+            Text(Strings.get(R.string.sitio_de_rclone))
         }
         HorizontalDivider()
         Row(

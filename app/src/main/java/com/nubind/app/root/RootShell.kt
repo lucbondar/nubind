@@ -1,6 +1,8 @@
 package com.nubind.app.root
 
 import com.topjohnwu.superuser.Shell
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 /**
  * Rutas del módulo KernelSU. Ajustar <MODULE_ID> al id real definido en module.prop.
@@ -124,7 +126,7 @@ object RootShell {
     fun saveProfile(original: String?, name: String, host: String, port: String, user: String, pass: String): Result {
         val conf = readConf()
         if (name != original && conf.containsKey(name)) {
-            return Result(false, "Ya existe un servidor llamado $name")
+            return Result(false, Strings.get(R.string.ya_existe_un_servidor_llamado, name))
         }
         val old = original?.let { conf[it] }
         var obscured: String? = old?.get("pass")
@@ -140,11 +142,11 @@ object RootShell {
             // (base64url de IV de 16 bytes + datos => mínimo 22 caracteres).
             val obscure = Shell.cmd("${ModulePaths.BIN} obscure ${sq(pass)} 2>/dev/null").exec()
             if (!obscure.isSuccess) {
-                return Result(false, "No se pudo ofuscar la contraseña: " + obscure.out.joinToString("\n"))
+                return Result(false, Strings.get(R.string.no_se_pudo_ofuscar_la_contrasena) + obscure.out.joinToString("\n"))
             }
             val value = obscure.out.lastOrNull { it.isNotBlank() }?.trim().orEmpty()
             if (!Regex("^[A-Za-z0-9_-]{22,}$").matches(value)) {
-                return Result(false, "rclone obscure devolvió un valor inválido: ${value.take(60)}")
+                return Result(false, Strings.get(R.string.rclone_obscure_devolvio_un_valor_invalido, value.take(60)))
             }
             obscured = value
         }
@@ -193,12 +195,12 @@ object RootShell {
     fun saveDriveProfile(original: String?, name: String, token: String?, options: DriveOptions): Result {
         val conf = readConf()
         if (name != original && conf.containsKey(name)) {
-            return Result(false, "Ya existe un servidor llamado $name")
+            return Result(false, Strings.get(R.string.ya_existe_un_servidor_llamado, name))
         }
         val old = original?.let { conf[it] }
         val finalToken = token ?: old?.get("token")
         if (finalToken.isNullOrEmpty()) {
-            return Result(false, "Falta iniciar sesión con Google")
+            return Result(false, Strings.get(R.string.falta_iniciar_sesion_con_google))
         }
 
         val section = LinkedHashMap<String, String>()
@@ -235,12 +237,12 @@ object RootShell {
     fun saveS3Profile(original: String?, name: String, options: S3Options, secret: String): Result {
         val conf = readConf()
         if (name != original && conf.containsKey(name)) {
-            return Result(false, "Ya existe un servidor llamado $name")
+            return Result(false, Strings.get(R.string.ya_existe_un_servidor_llamado, name))
         }
         val old = original?.let { conf[it] }
         val finalSecret = secret.ifEmpty { old?.get("secret_access_key").orEmpty() }
         if (finalSecret.isEmpty()) {
-            return Result(false, "Falta la clave secreta")
+            return Result(false, Strings.get(R.string.falta_la_clave_secreta))
         }
 
         val section = LinkedHashMap<String, String>()
@@ -341,7 +343,7 @@ object RootShell {
 
     /** Con [gb] null se borra el ajuste y vuelve al tamaño del perfil. */
     fun setCacheGb(gb: Int?): Result {
-        require(gb == null || gb in CACHE_GB_MIN..CACHE_GB_MAX) { "Tamaño de caché fuera de rango" }
+        require(gb == null || gb in CACHE_GB_MIN..CACHE_GB_MAX) { Strings.get(R.string.tamano_de_cache_fuera_de_rango) }
         return if (gb == null) run("rm -f ${ModulePaths.CACHE_GB_FILE}")
         else writePerfValue(ModulePaths.CACHE_GB_FILE, gb.toString())
     }
@@ -396,7 +398,7 @@ object RootShell {
             ModulePaths.S3_DIR_CACHE_MIN -> value == null || value in 1..1440
             else -> false
         }
-        require(valid) { "Ajuste S3 no válido" }
+        require(valid) { Strings.get(R.string.ajuste_s3_no_valido) }
         val path = "${ModulePaths.CONFIG_DIR}/$file"
         return if (value == null) run("rm -f $path") else writePerfValue(path, value.toString())
     }

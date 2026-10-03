@@ -207,7 +207,7 @@ class BindViewModel : ViewModel() {
             if (r.success && (original == null || wasActive)) RootShell.setActive(cleanName)
             r
         }
-        message = if (result.success) "Servidor guardado" else "Error al guardar: ${result.output.take(200)}"
+        message = if (result.success) Strings.get(R.string.servidor_guardado) else Strings.get(R.string.error_al_guardar, result.output.take(200))
         reload()
     }
 
@@ -225,22 +225,22 @@ class BindViewModel : ViewModel() {
             r
         }
         if (!result.success) {
-            message = "Error al guardar: ${result.output.take(200)}"
+            message = Strings.get(R.string.error_al_guardar, result.output.take(200))
             reload()
             return@launch
         }
-        message = "Servidor guardado"
+        message = Strings.get(R.string.servidor_guardado)
         reload()
 
         // Comprobación real contra Google (sesión, red, DNS, certificados):
         // así un fallo se ve ahora y no recién al intentar montar.
         val check = withContext(Dispatchers.IO) { RootShell.checkRemote(cleanName) }
         message = if (check.success) {
-            "Google Drive conectado"
+            Strings.get(R.string.google_drive_conectado)
         } else {
             val detail = check.output.lines().lastOrNull { it.isNotBlank() }?.take(200)
-                ?: "sin respuesta (sin red o tiempo agotado)"
-            "Guardado, pero no se pudo conectar: $detail"
+                ?: Strings.get(R.string.sin_respuesta_sin_red_o_tiempo)
+            Strings.get(R.string.guardado_pero_no_se_pudo_conectar, detail)
         }
     }
 
@@ -263,38 +263,38 @@ class BindViewModel : ViewModel() {
             r
         }
         if (!result.success) {
-            message = "Error al guardar: ${result.output.take(200)}"
+            message = Strings.get(R.string.error_al_guardar, result.output.take(200))
             reload()
             return@launch
         }
-        message = "Servidor guardado"
+        message = Strings.get(R.string.servidor_guardado)
         reload()
 
         val check = withContext(Dispatchers.IO) { RootShell.checkRemote(cleanName) }
         message = if (check.success) {
-            "S3 conectado"
+            Strings.get(R.string.s3_conectado)
         } else {
-            "Guardado, pero no se pudo conectar: ${describeS3Error(check.output)}"
+            Strings.get(R.string.guardado_pero_no_se_pudo_conectar, describeS3Error(check.output))
         }
     }
 
     /** Traduce los errores típicos de S3 a algo que el usuario pueda corregir. */
     private fun describeS3Error(output: String): String {
         val last = output.lines().lastOrNull { it.isNotBlank() }?.take(200)
-            ?: return "sin respuesta (sin red o tiempo agotado)"
+            ?: return Strings.get(R.string.sin_respuesta_sin_red_o_tiempo)
         val hint = when {
             "SignatureDoesNotMatch" in output ->
-                "la clave secreta o la región no coinciden"
+                Strings.get(R.string.la_clave_secreta_o_la_region)
             "InvalidAccessKeyId" in output || "InvalidClientTokenId" in output ->
-                "la clave de acceso no existe"
+                Strings.get(R.string.la_clave_de_acceso_no_existe)
             "AccessDenied" in output || "403" in output ->
-                "sin permiso: revisa las políticas de la clave y del bucket"
+                Strings.get(R.string.sin_permiso_revisa_las_politicas_de)
             "PermanentRedirect" in output || "AuthorizationHeaderMalformed" in output ->
-                "la región no es la del bucket"
+                Strings.get(R.string.la_region_no_es_la_del)
             "NoSuchBucket" in output || "directory not found" in output ->
-                "el bucket no existe (revisa su nombre y la región o el namespace)"
+                Strings.get(R.string.el_bucket_no_existe_revisa_su)
             "no such host" in output || "lookup" in output ->
-                "no se resuelve el endpoint: revisa la región, el namespace o el endpoint"
+                Strings.get(R.string.no_se_resuelve_el_endpoint_revisa)
             else -> null
         }
         return if (hint != null) "$hint ($last)" else last
@@ -314,7 +314,7 @@ class BindViewModel : ViewModel() {
             try {
                 val started = withContext(Dispatchers.IO) { RootShell.driveAuthStart(clientId, clientSecret) }
                 if (!started.success) {
-                    driveAuth = DriveAuthState.Failed("No se pudo iniciar rclone: ${started.output.takeLast(200)}")
+                    driveAuth = DriveAuthState.Failed(Strings.get(R.string.no_se_pudo_iniciar_rclone, started.output.takeLast(200)))
                     return@launch
                 }
                 val deadline = SystemClock.elapsedRealtime() + AUTH_TIMEOUT_MS
@@ -329,7 +329,7 @@ class BindViewModel : ViewModel() {
                         return@launch
                     }
                     if (progress.exitCode != null) {
-                        driveAuth = DriveAuthState.Failed(progress.error ?: "El inicio de sesión terminó sin resultado")
+                        driveAuth = DriveAuthState.Failed(progress.error ?: Strings.get(R.string.el_inicio_de_sesion_termino_sin))
                         return@launch
                     }
                     val url = progress.url
@@ -337,7 +337,7 @@ class BindViewModel : ViewModel() {
                         driveAuth = DriveAuthState.WaitingBrowser(url)
                     }
                     if (SystemClock.elapsedRealtime() > deadline) {
-                        driveAuth = DriveAuthState.Failed("Tiempo agotado esperando la autorización")
+                        driveAuth = DriveAuthState.Failed(Strings.get(R.string.tiempo_agotado_esperando_la_autorizacion))
                         return@launch
                     }
                 }
@@ -370,7 +370,7 @@ class BindViewModel : ViewModel() {
                 if (!started.success) {
                     perfTest = PerfTestState(
                         started = true,
-                        error = "No se pudo iniciar la prueba: ${started.output.takeLast(200)}"
+                        error = Strings.get(R.string.no_se_pudo_iniciar_la_prueba, started.output.takeLast(200))
                     )
                     return@launch
                 }
@@ -385,7 +385,7 @@ class BindViewModel : ViewModel() {
                         perfTest = PerfTestState(
                             started = true,
                             progress = progress,
-                            error = "La prueba tardó demasiado y se detuvo."
+                            error = Strings.get(R.string.la_prueba_tardo_demasiado_y_se)
                         )
                         return@launch
                     }
@@ -414,12 +414,12 @@ class BindViewModel : ViewModel() {
      */
     fun preloadNow() = viewModelScope.launch {
         if (!isMounted) {
-            message = "Monta el servidor primero"
+            message = Strings.get(R.string.monta_el_servidor_primero)
             return@launch
         }
         val started = withContext(Dispatchers.IO) { RootShell.preloadStart() }
         if (!started.success) {
-            message = "No se pudo iniciar la precarga: ${started.output.takeLast(200)}"
+            message = Strings.get(R.string.no_se_pudo_iniciar_la_precarga, started.output.takeLast(200))
             return@launch
         }
         preloadJob?.cancel()
@@ -460,7 +460,7 @@ class BindViewModel : ViewModel() {
                 // completas (comportamiento normal), o el script falló antes
                 // de escribir nada.
                 if (announceIfNeverStarted) {
-                    message = "La precarga no llegó a iniciar. Revisa Logs para más detalle."
+                    message = Strings.get(R.string.la_precarga_no_llego_a_iniciar)
                 }
                 return
             }
@@ -477,7 +477,7 @@ class BindViewModel : ViewModel() {
 
     fun deleteProfile(name: String) = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) { RootShell.deleteProfile(name) }
-        message = if (result.success) "Servidor eliminado" else "Error al eliminar: ${result.output.take(200)}"
+        message = if (result.success) Strings.get(R.string.servidor_eliminado) else Strings.get(R.string.error_al_eliminar, result.output.take(200))
         reload()
     }
 
@@ -485,7 +485,7 @@ class BindViewModel : ViewModel() {
         if (busy) return@launch
         val target = activeName
         if (target == null && !isMounted) {
-            message = "Agrega un servidor primero"
+            message = Strings.get(R.string.agrega_un_servidor_primero)
             return@launch
         }
         val mounted = isMounted
@@ -503,7 +503,7 @@ class BindViewModel : ViewModel() {
                 else -> RootShell.mount()
             }
         }
-        message = if (result.success) null else "Error: ${result.output.takeLast(200)}"
+        message = if (result.success) null else Strings.get(R.string.error, result.output.takeLast(200))
         reload()
         busy = false
 
@@ -528,9 +528,9 @@ class BindViewModel : ViewModel() {
         val result = withContext(Dispatchers.IO) { RootShell.setTargetPath(clean) }
         if (result.success) {
             targetPath = clean
-            message = if (isMounted) "Ruta guardada. Vuelve a montar para aplicarla." else "Ruta guardada"
+            message = if (isMounted) Strings.get(R.string.ruta_guardada_vuelve_a_montar_para) else Strings.get(R.string.ruta_guardada)
         } else {
-            message = "Error al guardar la ruta: ${result.output.take(200)}"
+            message = Strings.get(R.string.error_al_guardar_la_ruta, result.output.take(200))
         }
     }
 
@@ -573,8 +573,8 @@ class BindViewModel : ViewModel() {
     )
 
     private fun perfSaveMessage(result: RootShell.Result): String? = when {
-        !result.success -> "Error al guardar: ${result.output.take(200)}"
-        isMounted -> "Guardado. Vuelve a montar para aplicarlo."
+        !result.success -> Strings.get(R.string.error_al_guardar, result.output.take(200))
+        isMounted -> Strings.get(R.string.guardado_vuelve_a_montar_para_aplicarlo)
         else -> null
     }
 
@@ -597,7 +597,7 @@ class BindViewModel : ViewModel() {
     /** Borra la caché en disco de rclone. Requiere tener el bind desmontado (ver clear_cache.sh). */
     fun clearCache() = viewModelScope.launch {
         if (isMounted) {
-            message = "Desmonta primero para borrar la caché"
+            message = Strings.get(R.string.desmonta_primero_para_borrar_la_cache)
             return@launch
         }
         if (busy) return@launch
@@ -607,9 +607,9 @@ class BindViewModel : ViewModel() {
         message = if (result.success) {
             val kb = result.output.trim().removePrefix("OK").trim().toLongOrNull() ?: 0L
             cacheKb = 0L
-            if (kb > 0) "Caché borrada (liberados ${formatCacheKb(kb)})" else "No había nada en caché"
+            if (kb > 0) Strings.get(R.string.cache_borrada_liberados, formatCacheKb(kb)) else Strings.get(R.string.no_habia_nada_en_cache)
         } else {
-            "No se pudo borrar la caché: ${result.output.take(200)}"
+            Strings.get(R.string.no_se_pudo_borrar_la_cache, result.output.take(200))
         }
     }
 

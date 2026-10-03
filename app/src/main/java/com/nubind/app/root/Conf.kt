@@ -1,5 +1,9 @@
 package com.nubind.app.root
 
+import androidx.annotation.StringRes
+import com.nubind.app.R
+import com.nubind.app.Strings
+
 /** Tipos de remoto que la app sabe crear (el valor de "type" en rclone.conf). */
 enum class RemoteType(val rclone: String, val label: String) {
     FTP("ftp", "FTP"),
@@ -9,9 +13,12 @@ enum class RemoteType(val rclone: String, val label: String) {
 }
 
 /** Perfil de rendimiento del montaje (lo lee scripts/mount.sh desde config/perf). */
-enum class PerfMode(val id: String, val label: String) {
-    BALANCED("balanced", "Equilibrado"),
-    MAX("max", "Máximo")
+enum class PerfMode(val id: String, @StringRes private val labelRes: Int) {
+    BALANCED("balanced", R.string.equilibrado),
+    MAX("max", R.string.maximo);
+
+    /** Nombre visible, en el idioma actual (se resuelve al leerlo). */
+    val label: String get() = Strings.get(labelRes)
 }
 
 /**
@@ -87,12 +94,15 @@ data class RemoteProfile(
  * guardar nada extra en rclone.conf: para agregar un proveedor nuevo basta
  * con una entrada aquí (con los sufijos de su dominio) y su icono.
  */
-enum class S3Provider(val label: String, private val hostSuffixes: List<String>) {
+enum class S3Provider(private val brand: String, private val hostSuffixes: List<String>) {
     ORACLE("Oracle Cloud", listOf(".oraclecloud.com")),
     AWS("Amazon S3", listOf(".amazonaws.com", ".amazonaws.com.cn")),
     CLOUDFLARE("Cloudflare R2", listOf(".r2.cloudflarestorage.com")),
     /** Cualquier otro servicio compatible con S3. */
-    OTHER("Otro proveedor", emptyList());
+    OTHER("", emptyList());
+
+    /** Nombre visible: la marca, o "Otro proveedor" traducido para [OTHER]. */
+    val label: String get() = if (this == OTHER) Strings.get(R.string.otro_proveedor) else brand
 
     companion object {
         fun fromEndpoint(endpoint: String): S3Provider {
@@ -315,14 +325,14 @@ fun parseOracleEndpoint(endpoint: String): Pair<String, String>? =
 
 /** Errores de los campos de Oracle (namespace, región), o null si están bien. */
 fun validateOracleNamespace(namespace: String): String? = when {
-    namespace.isEmpty() -> "Escribe el namespace"
-    !ORACLE_NAMESPACE.matches(namespace) -> "Solo letras, números, - y _"
+    namespace.isEmpty() -> Strings.get(R.string.escribe_el_namespace)
+    !ORACLE_NAMESPACE.matches(namespace) -> Strings.get(R.string.solo_letras_numeros_y)
     else -> null
 }
 
 fun validateOracleRegion(region: String): String? = when {
-    region.isEmpty() -> "Escribe la región"
-    !ORACLE_REGION.matches(region) -> "Formato de región, por ejemplo us-ashburn-1"
+    region.isEmpty() -> Strings.get(R.string.escribe_la_region)
+    !ORACLE_REGION.matches(region) -> Strings.get(R.string.formato_de_region_por_ejemplo_us)
     else -> null
 }
 
@@ -343,8 +353,8 @@ fun awsEndpoint(region: String): String {
 }
 
 fun validateAwsRegion(region: String): String? = when {
-    region.isEmpty() -> "Escribe la región del bucket"
-    !AWS_REGION.matches(region) -> "Formato de región, por ejemplo us-east-1"
+    region.isEmpty() -> Strings.get(R.string.escribe_la_region_del_bucket)
+    !AWS_REGION.matches(region) -> Strings.get(R.string.formato_de_region_por_ejemplo_us_2)
     else -> null
 }
 
@@ -382,8 +392,8 @@ fun cloudflareFieldValue(endpoint: String): String? {
 }
 
 fun validateCloudflareAccount(input: String): String? = when {
-    input.isBlank() -> "Escribe el Account ID"
-    cloudflareEndpoint(input) == null -> "Debe ser el Account ID (32 caracteres) o el endpoint de R2"
+    input.isBlank() -> Strings.get(R.string.escribe_el_account_id)
+    cloudflareEndpoint(input) == null -> Strings.get(R.string.debe_ser_el_account_id_32)
     else -> null
 }
 
@@ -394,10 +404,10 @@ fun cleanS3Endpoint(raw: String): String {
 }
 
 fun validateS3Endpoint(endpoint: String): String? = when {
-    endpoint.isEmpty() -> "Escribe el endpoint"
-    !(endpoint.startsWith("https://") || endpoint.startsWith("http://")) -> "Debe empezar con https://"
-    endpoint.length <= "https://".length -> "Endpoint incompleto"
-    endpoint.any { it.isWhitespace() } -> "No puede llevar espacios"
+    endpoint.isEmpty() -> Strings.get(R.string.escribe_el_endpoint)
+    !(endpoint.startsWith("https://") || endpoint.startsWith("http://")) -> Strings.get(R.string.debe_empezar_con_https)
+    endpoint.length <= "https://".length -> Strings.get(R.string.endpoint_incompleto)
+    endpoint.any { it.isWhitespace() } -> Strings.get(R.string.no_puede_llevar_espacios)
     else -> null
 }
 
@@ -408,7 +418,7 @@ fun cleanS3Bucket(raw: String): String =
 /** El bucket es opcional: vacío es válido (se listan todos los buckets). */
 fun validateS3Bucket(bucket: String): String? =
     if (bucket.isEmpty() || S3_BUCKET.matches(bucket)) null
-    else "Bucket inválido: letras, números, . - _ (y /carpeta opcional)"
+    else Strings.get(R.string.bucket_invalido_letras_numeros_y_carpeta)
 
 // Patrones de link para compartir una carpeta de Drive:
 //   https://drive.google.com/drive/folders/<id>?usp=sharing
@@ -436,9 +446,9 @@ fun extractDriveFolderId(raw: String): String {
 private val NAME_REGEX = Regex("^[A-Za-z0-9_.+@][A-Za-z0-9_.+@ -]*$")
 
 fun validateProfileName(name: String, original: String?, existing: List<String>): String? = when {
-    name.isEmpty() -> "Escribe un nombre"
-    !NAME_REGEX.matches(name) -> "Usa letras sin tilde, números, espacios y _ - . + @"
-    name != original && existing.contains(name) -> "Ya existe un servidor con ese nombre"
+    name.isEmpty() -> Strings.get(R.string.escribe_un_nombre)
+    !NAME_REGEX.matches(name) -> Strings.get(R.string.usa_letras_sin_tilde_numeros_espacios)
+    name != original && existing.contains(name) -> Strings.get(R.string.ya_existe_un_servidor_con_ese)
     else -> null
 }
 
@@ -459,9 +469,9 @@ fun cleanTargetPath(raw: String): String {
  * de donde debería quedar el bind) y distinta de la raíz del sistema.
  */
 fun validateTargetPath(path: String): String? = when {
-    path.isEmpty() -> "Escribe una ruta"
-    !path.startsWith("/") -> "Debe ser una ruta absoluta (empieza con /)"
-    path == "/" -> "No uses la raíz del sistema"
-    path.contains("..") -> "La ruta no puede contener \"..\""
+    path.isEmpty() -> Strings.get(R.string.escribe_una_ruta)
+    !path.startsWith("/") -> Strings.get(R.string.debe_ser_una_ruta_absoluta_empieza)
+    path == "/" -> Strings.get(R.string.no_uses_la_raiz_del_sistema)
+    path.contains("..") -> Strings.get(R.string.la_ruta_no_puede_contener)
     else -> null
 }

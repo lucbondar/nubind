@@ -119,9 +119,11 @@ sequenceDiagram
 - **Client ID y Secret propios**, o pegar un token generado en otro equipo.
 - Al guardar, comprueba la sesión, la red, el DNS y los certificados listando la raíz de Drive.
 
-### Cliente OAuth de Google Drive (opcional)
+### Cliente OAuth de Google Drive
 
-La app puede llevar integrado tu propio cliente OAuth de Google para no depender del cliente compartido de rclone (cuota limitada). Crea en el repo los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_CLIENT_SECRET` (Settings > Secrets and variables > Actions), o en local añade `gdriveClientId` / `gdriveClientSecret` a `~/.gradle/gradle.properties`. Sin ellos la app compila igual y usa el cliente de rclone.
+La app trae su **propio cliente OAuth** integrado, así que no depende del cliente compartido de rclone (con cuota limitada). Si prefieres usar el tuyo, en las opciones avanzadas del servidor puedes escribir tu **Client ID** y **Client Secret**; si los dejas vacíos se usa el integrado.
+
+Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_CLIENT_SECRET` en tu repo (Settings > Secrets and variables > Actions), o `gdriveClientId` / `gdriveClientSecret` en `~/.gradle/gradle.properties`. Sin ellos la app compila igual, pero sin cliente integrado y recurre al de rclone.
 
 ### Montaje que se mantiene
 
@@ -159,6 +161,8 @@ La app puede llevar integrado tu propio cliente OAuth de Google para no depender
 - Inicio también arma **doble panel** en pantalla ancha: montaje (servidor, carpeta, botón) a la izquierda, ajustes (autostart y rendimiento) a la derecha.
 - Icono adaptable con versión monocromática para el tema de íconos.
 - Pantallas de **Inicio**, **Servidores**, **Logs** y **Acerca de**, con la versión de la app y de rclone.
+- **Idiomas:** inglés (por defecto), español y portugués de Brasil. La app sigue el idioma del sistema (no hay selector). Los textos viven en `res/values/strings.xml` (inglés), `values-es/` y `values-pt-rBR/`, y se leen con `Strings.get(R.string.…)` (`Strings.kt`), que no necesita un `Context`; en enums y objects se guarda el `@StringRes` y el texto se resuelve al leerlo. Los mensajes que escriben los scripts del módulo en el log siguen en español.
+- En apaisado, el difuminado sobre la barra de gestos es más bajo y más suave que en vertical.
 
 ### Publicación automática
 
