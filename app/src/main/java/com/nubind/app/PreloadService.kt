@@ -93,10 +93,13 @@ class PreloadService : Service() {
         }
     }
 
-    /** Quita la notificación en curso y, si hay un resultado que mostrar, deja un aviso descartable. */
+    /**
+     * Quita la notificación en curso. Solo si la precarga terminó completa deja un aviso
+     * descartable; si quedó incompleta (se desmontó, se cortó, no entró todo) no se muestra nada.
+     */
     private fun finish(nm: NotificationManager, status: PreloadStatus?) {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        if (status != null && status.selectedFiles > 0) nm.notify(DONE_ID, doneNotification(this, status))
+        if (status != null && status.finished) nm.notify(DONE_ID, doneNotification(this, status))
         stopSelf()
     }
 
