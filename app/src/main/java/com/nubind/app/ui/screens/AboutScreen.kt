@@ -85,8 +85,8 @@ fun AboutScreen(vm: BindViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) { LinksCard(uriHandler) }
                 Column(modifier = Modifier.weight(1f)) { SystemCard(vm, rcloneVersion) }
+                Column(modifier = Modifier.weight(1f)) { LinksCard(uriHandler) }
             }
         } else {
             HeaderCard(modifier = Modifier.fillMaxWidth())
