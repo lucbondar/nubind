@@ -17,7 +17,15 @@ object ModulePaths {
     const val ACTIVE_FILE = "$CONFIG_DIR/active"
     const val TARGET_PATH_FILE = "$CONFIG_DIR/target_path"
     const val PERF_FILE = "$CONFIG_DIR/perf"
+    /**
+     * Tamaño de caché global que leen los scripts (config/cache_gb). Desde que
+     * el tamaño es por servidor es solo un espejo del valor del servidor
+     * activo: la app lo reescribe en [RootShell.syncCacheGb] cada vez que
+     * cambia el servidor seleccionado o su tamaño. Los scripts no cambian.
+     */
     const val CACHE_GB_FILE = "$CONFIG_DIR/cache_gb"
+    /** Tamaño de caché de cada servidor: un archivo por servidor (nombre en hex). */
+    const val CACHE_GB_DIR = "$CONFIG_DIR/cache_gb.d"
     const val RAM_CACHE_FILE = "$CONFIG_DIR/ram_cache"
     /** Ajustes de rendimiento de S3 (nombres dentro de CONFIG_DIR; los lee scripts/perf_opts.sh). */
     const val S3_STREAMS = "s3_streams"
@@ -116,6 +124,16 @@ object RootShell {
                 "mv ${ModulePaths.RCLONE_CONF}.tmp ${ModulePaths.RCLONE_CONF}"
         )
 
+    /** Guarda la config y, si el servidor se renombró, mueve con él su tamaño de caché. */
+    private fun writeConfRenaming(conf: Conf, original: String?, name: String): Result {
+        val result = writeConf(conf)
+        if (result.success && original != null && original != name) {
+            val from = cacheFile(original)
+            run("[ -f $from ] && mv -f $from ${cacheFile(name)}")
+        }
+        return result
+    }
+
     fun loadProfiles(): List<RemoteProfile> = readConf().toProfiles()
 
     /**
@@ -164,7 +182,7 @@ object RootShell {
             }
         }
 
-        return writeConf(putSection(conf, original, name, section))
+        return writeConfRenaming(putSection(conf, original, name, section), original, name)
     }
 
     /** Coloca [section] como [name]: reemplaza a [original] (renombrado) o se agrega al final. */
@@ -218,7 +236,7 @@ object RootShell {
                 if (k !in DRIVE_MANAGED_KEYS && !section.containsKey(k)) section[k] = v
             }
         }
-        return writeConf(putSection(conf, original, name, section))
+        return writeConfRenaming(putSection(conf, original, name, section), original, name)
     }
 
     // Claves que la app administra en un remoto S3; el resto (storage_class,
@@ -275,13 +293,15 @@ object RootShell {
                 if (k !in S3_MANAGED_KEYS && !section.containsKey(k)) section[k] = v
             }
         }
-        return writeConf(putSection(conf, original, name, section))
+        return writeConfRenaming(putSection(conf, original, name, section), original, name)
     }
 
     fun deleteProfile(name: String): Result {
         val conf = readConf()
         conf.remove(name)
-        return writeConf(conf)
+        val result = writeConf(conf)
+        if (result.success) run("rm -f ${cacheFile(name)}")
+        return result
     }
 
     // ---- Google Drive: login OAuth dentro del dispositivo ----
@@ -311,8 +331,12 @@ object RootShell {
         Shell.cmd("cat ${ModulePaths.ACTIVE_FILE} 2>/dev/null").exec().out
             .joinToString("").trim().ifEmpty { null }
 
-    fun setActive(name: String): Result =
-        run("mkdir -p ${ModulePaths.CONFIG_DIR} && printf '%s' ${sq(name)} > ${ModulePaths.ACTIVE_FILE}")
+    fun setActive(name: String): Result {
+        val result = run("mkdir -p ${ModulePaths.CONFIG_DIR} && printf '%s' ${sq(name)} > ${ModulePaths.ACTIVE_FILE}")
+        // Los scripts leen config/cache_gb: debe reflejar el tamaño del servidor recién elegido.
+        if (result.success) syncCacheGb(name)
+        return result
+    }
 
     fun readTargetPath(): String =
         Shell.cmd("cat ${ModulePaths.TARGET_PATH_FILE} 2>/dev/null").exec().out
@@ -332,20 +356,51 @@ object RootShell {
     )
 
     fun setPerfMode(mode: PerfMode): Result {
-        val result = writePerfValue(ModulePaths.PERF_FILE, mode.id)
-        return if (result.success && mode == PerfMode.BALANCED) setCacheGb(null) else result
+        // Los tamaños de caché por servidor se conservan: en Equilibrado los scripts los ignoran.
+        return writePerfValue(ModulePaths.PERF_FILE, mode.id)
     }
 
-    /** Tamaño de caché elegido (GB), o null si se usa el del perfil. */
-    fun readCacheGb(): Int? =
-        Shell.cmd("cat ${ModulePaths.CACHE_GB_FILE} 2>/dev/null").exec().out
-            .joinToString("").trim().toIntOrNull()?.takeIf { it in CACHE_GB_MIN..CACHE_GB_MAX }
+    /** Archivo con el tamaño de [server]. El nombre va en hex para no depender de espacios ni de "." / "..". */
+    private fun cacheFile(server: String): String {
+        val key = server.toByteArray().joinToString("") { "%02x".format(it) }
+        return "${ModulePaths.CACHE_GB_DIR}/$key"
+    }
 
-    /** Con [gb] null se borra el ajuste y vuelve al tamaño del perfil. */
-    fun setCacheGb(gb: Int?): Result {
+    /** Tamaño de caché (GB) elegido para [server], o null si usa el automático del perfil. */
+    fun readCacheGb(server: String?): Int? {
+        if (server == null) return null
+        return Shell.cmd("cat ${cacheFile(server)} 2>/dev/null").exec().out
+            .joinToString("").trim().toIntOrNull()?.takeIf { it in CACHE_GB_MIN..CACHE_GB_MAX }
+    }
+
+    /** Con [gb] null se borra el ajuste de [server] y vuelve al tamaño automático. */
+    fun setCacheGb(server: String, gb: Int?): Result {
         require(gb == null || gb in CACHE_GB_MIN..CACHE_GB_MAX) { Strings.get(R.string.tamano_de_cache_fuera_de_rango) }
+        val saved = if (gb == null) run("rm -f ${cacheFile(server)}")
+        else {
+            run("mkdir -p ${ModulePaths.CACHE_GB_DIR}")
+            writePerfValue(cacheFile(server), gb.toString())
+        }
+        return if (saved.success) syncCacheGb(server) else saved
+    }
+
+    /** Deja config/cache_gb (lo que leen los scripts) igual al tamaño de [server]; sin tamaño propio, lo borra. */
+    fun syncCacheGb(server: String?): Result {
+        val gb = readCacheGb(server)
         return if (gb == null) run("rm -f ${ModulePaths.CACHE_GB_FILE}")
         else writePerfValue(ModulePaths.CACHE_GB_FILE, gb.toString())
+    }
+
+    /**
+     * Versiones anteriores guardaban un único tamaño para toda la app
+     * (config/cache_gb). Una sola vez, ese valor pasa al servidor activo.
+     */
+    fun migrateLegacyCacheGb(active: String?) {
+        if (active == null) return
+        run(
+            "[ -f ${ModulePaths.CACHE_GB_FILE} ] && [ ! -d ${ModulePaths.CACHE_GB_DIR} ] && " +
+                "mkdir -p ${ModulePaths.CACHE_GB_DIR} && cp ${ModulePaths.CACHE_GB_FILE} ${cacheFile(active)}"
+        )
     }
 
     /**

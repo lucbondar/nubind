@@ -172,14 +172,16 @@ class BindViewModel : ViewModel() {
 
     private suspend fun reload() {
         val snap = withContext(Dispatchers.IO) {
+            val activeNow = RootShell.readActive()
+            RootShell.migrateLegacyCacheGb(activeNow)
             Snapshot(
                 profiles = RootShell.loadProfiles(),
-                active = RootShell.readActive(),
+                active = activeNow,
                 status = RootShell.status().output,
                 autostart = RootShell.readAutostart(),
                 targetPath = RootShell.readTargetPath(),
                 perfMode = RootShell.readPerfMode(),
-                cacheGb = RootShell.readCacheGb(),
+                cacheGb = RootShell.readCacheGb(activeNow),
                 cacheKb = RootShell.cacheSizeKb(),
                 ramCache = RootShell.readRamCache(),
                 s3Perf = RootShell.readS3Perf(),
@@ -202,7 +204,9 @@ class BindViewModel : ViewModel() {
         autostart = snap.autostart
         targetPath = snap.targetPath
         perfMode = snap.perfMode
-        cacheGb = snap.cacheGb
+        // Si el servidor activo cambió porque el anterior ya no existe, el tamaño es el del nuevo.
+        cacheGb = if (active == snap.active) snap.cacheGb
+        else withContext(Dispatchers.IO) { RootShell.readCacheGb(active) }
         cacheKb = snap.cacheKb
         ramCache = snap.ramCache
         s3Perf = snap.s3Perf
@@ -222,7 +226,10 @@ class BindViewModel : ViewModel() {
 
     fun selectProfile(name: String) = viewModelScope.launch {
         activeName = name
-        withContext(Dispatchers.IO) { RootShell.setActive(name) }
+        cacheGb = withContext(Dispatchers.IO) {
+            RootShell.setActive(name)
+            RootShell.readCacheGb(name)
+        }
     }
 
     fun saveProfile(
@@ -591,7 +598,11 @@ class BindViewModel : ViewModel() {
     }
 
     /** null restablece el tamaño del perfil. */
-    fun setCacheGb(gb: Int?) = savePerf({ RootShell.setCacheGb(gb) })
+    fun setCacheGb(gb: Int?) {
+        // El tamaño es por servidor: se guarda para el seleccionado.
+        val server = activeName ?: return
+        savePerf({ RootShell.setCacheGb(server, gb) })
+    }
 
     /** mount.sh comprueba la memoria disponible antes de activar tmpfs. */
     fun setRamCache(enabled: Boolean) = savePerf({ RootShell.setRamCache(enabled) })
@@ -610,8 +621,9 @@ class BindViewModel : ViewModel() {
     private fun savePerf(write: () -> RootShell.Result) = viewModelScope.launch {
         perfSaveMutex.withLock {
             val result = withContext(Dispatchers.IO) { write() }
+            val server = activeName
             val saved = withContext(Dispatchers.IO) {
-                SnapshotPerf(RootShell.readPerfMode(), RootShell.readCacheGb(),
+                SnapshotPerf(RootShell.readPerfMode(), RootShell.readCacheGb(server),
                     RootShell.readRamCache(), RootShell.readS3Perf())
             }
             perfMode = saved.mode
