@@ -2,6 +2,7 @@ package com.nubind.app.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import android.content.Intent
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.nubind.app.BindViewModel
 import com.nubind.app.ui.components.ScreenContainer
 import kotlinx.coroutines.launch
@@ -40,6 +48,29 @@ fun LogsScreen(vm: BindViewModel) {
     // 0 = texto normal, 1 = texto ya "tirado a la papelera" (invisible).
     val trash = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
+
+    val spin = remember { Animatable(0f) }
+    val context = LocalContext.current
+
+    fun shareLogs() {
+        val text = vm.logs
+        if (text.isBlank()) return
+        scope.launch {
+            val uri = withContext(Dispatchers.IO) {
+                val dir = File(context.cacheDir, "logs").apply { mkdirs() }
+                val f = File(dir, "nubind-log.txt")
+                f.writeText(text)
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", f)
+            }
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "Log de Nubind")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(send, "Compartir log").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
 
     fun discardLogs() {
         if (vm.logs.isBlank() || trash.isRunning) return
@@ -58,11 +89,24 @@ fun LogsScreen(vm: BindViewModel) {
         refreshing = vm.refreshing,
         onRefresh = { vm.pullRefresh() },
         actions = {
+            IconButton(onClick = { shareLogs() }, enabled = vm.logs.isNotBlank()) {
+                Icon(Icons.Default.Share, contentDescription = "Compartir registro")
+            }
             IconButton(onClick = { discardLogs() }, enabled = vm.logs.isNotBlank()) {
                 Icon(Icons.Default.Delete, contentDescription = "Borrar registro")
             }
-            IconButton(onClick = { vm.refreshLogs() }) {
-                Icon(Icons.Default.Refresh, contentDescription = "Actualizar")
+            IconButton(onClick = {
+                vm.refreshLogs()
+                scope.launch {
+                    spin.snapTo(spin.value % 360f)
+                    spin.animateTo(spin.value + 360f, tween(600, easing = FastOutSlowInEasing))
+                }
+            }) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "Actualizar",
+                    modifier = Modifier.graphicsLayer { rotationZ = spin.value }
+                )
             }
         }
     ) {
