@@ -450,6 +450,7 @@ class BindViewModel : ViewModel() {
             val output = withContext(Dispatchers.IO) { RootShell.preloadStatus() }
             val status = PreloadStatusParser.parse(output)
             preloadStatus = status
+            cacheKb = withContext(Dispatchers.IO) { RootShell.cacheSizeKb() }
             val now = SystemClock.elapsedRealtime()
             if (status?.running == true) {
                 // Notificación persistente (sigue el progreso con la app cerrada). Solo se
