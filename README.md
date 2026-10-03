@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lucbondar/nubind/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/lucbondar/nubind?style=for-the-badge&color=2A8DE0"></a>
+  <a href="https://github.com/lucbondar/nubind/releases"><img alt="Release" src="https://img.shields.io/github/v/release/lucbondar/nubind?include_prereleases&sort=date&style=for-the-badge&color=2A8DE0"></a>
   <a href="https://github.com/lucbondar/nubind/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/lucbondar/nubind/build.yml?branch=main&style=for-the-badge&label=build"></a>
   <a href="https://github.com/lucbondar/nubind/releases"><img alt="Descargas" src="https://img.shields.io/github/downloads/lucbondar/nubind/total?style=for-the-badge&color=0A2F5C"></a>
   <img alt="Último commit" src="https://img.shields.io/github/last-commit/lucbondar/nubind?style=for-the-badge&color=4D616C">
@@ -154,7 +154,7 @@ La app puede llevar integrado tu propio cliente OAuth de Google para no depender
 - Material 3 con **color dinámico** (Material You) en Android 12 o superior.
 - Modo **claro y oscuro** según el sistema, a pantalla completa.
 - Esquinas amplias, animaciones con resorte y efecto de desenfoque.
-- En **Acerca de**, la nube del logo da un saltito con rebote cada pocos segundos (tocarla lo repite; se desactiva si las animaciones del sistema están apagadas).
+- En **Acerca de**, la nube del logo protagoniza una escena al azar cada 4,5 a 9 segundos, sin repetir hasta haber visto todas: monta una carpeta que recibe archivos, despliega el mazo de servidores (FTP / Drive / S3), corre la prueba de rendimiento con velocímetro, absorbe paquetes en la precarga, abre una terminal con el escudo de acceso root, orbita con los logos de Amazon S3 / Cloudflare / Oracle / Drive, sincroniza con flechas y despierta con el interruptor de montaje automático. Tocarla lanza una al instante; se desactiva si las animaciones del sistema están apagadas (código en `LogoAnimations.kt`).
 - Ancho del contenido adaptable: crece en pantallas anchas en vez de dejar franjas vacías a los costados.
 - Inicio también arma **doble panel** en pantalla ancha: montaje (servidor, carpeta, botón) a la izquierda, ajustes (autostart y rendimiento) a la derecha.
 - Icono adaptable con versión monocromática para el tema de íconos.

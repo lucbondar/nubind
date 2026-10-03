@@ -181,17 +181,34 @@ jobs:
         run: |
           BASE=$(grep '^version=' module/module.prop | head -n1 | cut -d= -f2 | sed 's/ (build.*//')
           CODE=$((RUN_NUMBER + 100))
-          if [ "$REF_TYPE" = "tag" ]; then TAG="$REF_NAME"; else TAG="build-$RUN_NUMBER"; fi
-          sed -i "s|^version=.*|version=$BASE (build $RUN_NUMBER)|; s|^versionCode=.*|versionCode=$CODE|" module/module.prop
+          # Tag v* (lo empujás vos a mano) = release estable.
+          # Cualquier otra cosa = pre-release, con leyenda visible en KSU Next.
+          if [ "$REF_TYPE" = "tag" ]; then
+            TAG="$REF_NAME"
+            VERSION="$BASE (build $RUN_NUMBER)"
+          else
+            TAG="build-$RUN_NUMBER"
+            VERSION="$BASE (build $RUN_NUMBER) [PRE-RELEASE]"
+          fi
+          sed -i "s|^version=.*|version=$VERSION|; s|^versionCode=.*|versionCode=$CODE|" module/module.prop
 
-          git log -n 15 --pretty='- %s' > changelog.md
+          {
+            if [ "$REF_TYPE" != "tag" ]; then
+              echo "⚠️ PRE-RELEASE: build automático, puede ser inestable."
+              echo
+            fi
+            git log -n 15 --pretty='- %s'
+          } > changelog.md
 
+          # update.json y changelog.md viven en un release fijo ("updates"),
+          # que se sobrescribe en cada corrida. /releases/latest NO sirve
+          # acá porque GitHub ignora los pre-releases.
           cat > update.json <<JSON
           {
-            "version": "$BASE (build $RUN_NUMBER)",
+            "version": "$VERSION",
             "versionCode": $CODE,
             "zipUrl": "https://github.com/$REPO/releases/download/$TAG/nubind-module.zip",
-            "changelog": "https://github.com/$REPO/releases/latest/download/changelog.md"
+            "changelog": "https://github.com/$REPO/releases/download/updates/changelog.md"
           }
           JSON
           sed -i 's/^          //' update.json
@@ -220,6 +237,10 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: [ build-app, package-module ]
     runs-on: ubuntu-latest
+    # Evita que una corrida vieja pise update.json de una más nueva.
+    concurrency:
+      group: release-updates
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
@@ -227,8 +248,8 @@ jobs:
         with:
           path: dist
 
-      # Push de tag v*  -> release con ese tag.
-      # Cualquier otro  -> release "build-<n>" apuntando al commit exacto.
+      # Push de tag v*  -> release estable (marcado "latest").
+      # Cualquier otro  -> pre-release "build-<n>" apuntando al commit exacto.
       - name: Publicar release
         uses: softprops/action-gh-release@v2
         env:
@@ -241,10 +262,32 @@ jobs:
             Build automático #${{ github.run_number }}
             Commit: ${{ github.sha }}
             Rama/tag: ${{ github.ref_name }}
-          make_latest: true
+          prerelease: ${{ github.ref_type != 'tag' }}
+          make_latest: ${{ github.ref_type == 'tag' }}
           fail_on_unmatched_files: true
           files: |
             dist/nubind-module/*.zip
             dist/app-debug-apk/*.apk
+            dist/update-meta/update.json
+            dist/update-meta/changelog.md
+
+      # Canal fijo que lee KSU Next (updateJson en module.prop). Siempre
+      # apunta a la última build, sea pre-release o estable. Es pre-release
+      # para no robarle el "latest" a los tags v*.
+      - name: Actualizar canal de actualizaciones
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: updates
+          target_commitish: ${{ github.sha }}
+          name: Canal de actualizaciones
+          body: |
+            Release técnico: contiene update.json y changelog.md que lee
+            KernelSU Next. Se sobrescribe en cada build. No descargar acá.
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+          files: |
             dist/update-meta/update.json
             dist/update-meta/changelog.md

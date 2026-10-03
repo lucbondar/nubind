@@ -22,6 +22,10 @@ if [ -z "$TARGET_PATH" ]; then
 fi
 [ -z "$TARGET_PATH" ] && TARGET_PATH="/sdcard/Nubind"
 
+# Tiempos por fase (en mount.log) para ver dónde se va la espera al desmontar.
+T0=$(date +%s)
+tlog() { echo "$(date): unmount: $1 (+$(( $(date +%s) - T0 ))s)" >> "$LOG_FILE"; }
+
 # Primero se marca como desmontado y se detiene el watcher; si no, volvería
 # a crear el bind apenas se quite.
 echo '{"mounted":false}' > "$STATUS_FILE"
@@ -34,7 +38,10 @@ i=0
 while [ "$i" -lt 10 ] && umount -l "$TARGET_PATH" 2>/dev/null; do
     i=$((i + 1))
 done
+tlog "binds quitados"
 umount -l "$RCLONE_MOUNTPOINT" 2>>"$LOG_FILE" || "$MODDIR/bin/fusermount3" -u "$RCLONE_MOUNTPOINT" 2>>"$LOG_FILE"
+
+tlog "FUSE desmontado"
 
 # ¿Sigue vivo algún "rclone mount"? (se lee /proc: no depende de pgrep/pkill -0)
 rclone_alive() {
@@ -49,12 +56,14 @@ rclone_alive() {
 # Por si el mount corre como proceso en background. Se pide el cierre normal
 # (TERM) y se espera hasta 20 s a que rclone termine de subir lo pendiente
 # (carpetas, archivos en --vfs-write-back); solo si no sale a tiempo se fuerza.
+if rclone_alive; then tlog "rclone sigue vivo tras desmontar el FUSE, se envía TERM"; else tlog "rclone ya había salido solo"; fi
 pkill -f "$MODDIR/bin/rclone mount" 2>/dev/null
 i=0
 while [ "$i" -lt 40 ] && rclone_alive; do
     sleep 0.5 2>/dev/null || sleep 1
     i=$((i + 1))
 done
+tlog "rclone terminó"
 if rclone_alive; then
     echo "$(date): rclone no terminó en 20 s, se fuerza el cierre" >> "$LOG_FILE"
     pkill -9 -f "$MODDIR/bin/rclone mount" 2>/dev/null
