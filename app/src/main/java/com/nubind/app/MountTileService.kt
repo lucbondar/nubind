@@ -8,6 +8,7 @@ import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.widget.Toast
+import com.nubind.app.root.PerfMode
 import com.nubind.app.root.RootShell
 import com.nubind.app.root.readMountState
 import kotlinx.coroutines.CoroutineScope
@@ -119,8 +120,11 @@ internal object MountTileOps {
             val after = RootShell.readMountState()
             publish(TileUi(after.mounted, after.remote, null))
             if (!result.success) toast(app, Strings.get(R.string.error, result.output.takeLast(200)))
-            // mount.sh lanza la precarga sola al montar: se enseña su progreso en la notificación.
-            if (result.success && after.mounted && !before.mounted) PreloadService.start(app)
+            // mount.sh lanza la precarga sola al montar, pero solo en el perfil Máximo
+            // (preload.sh sale sin hacer nada en Equilibrado): solo ahí hay progreso que mostrar.
+            if (result.success && after.mounted && !before.mounted &&
+                RootShell.readPerfMode() == PerfMode.MAX
+            ) PreloadService.start(app)
         }
     }
 

@@ -442,8 +442,6 @@ class BindViewModel : ViewModel() {
      * si algo se queda corriendo para siempre.
      */
     private suspend fun CoroutineScope.watchPreload(announceIfNeverStarted: Boolean = false) {
-        // Notificación persistente: sigue el progreso aunque se cierre la app.
-        PreloadService.start(Strings.context())
         val startDeadline = SystemClock.elapsedRealtime() + PRELOAD_START_GRACE_MS
         val hardDeadline = SystemClock.elapsedRealtime() + PRELOAD_TIMEOUT_MS
         var everRunning = false
@@ -454,6 +452,10 @@ class BindViewModel : ViewModel() {
             preloadStatus = status
             val now = SystemClock.elapsedRealtime()
             if (status?.running == true) {
+                // Notificación persistente (sigue el progreso con la app cerrada). Solo se
+                // arranca cuando la precarga realmente corre: en Equilibrado preload.sh sale
+                // sin hacer nada y no hay nada que notificar.
+                if (!everRunning) PreloadService.start(Strings.context())
                 everRunning = true
             } else if (everRunning) {
                 return // Corría y ya terminó (o falló a medias): se corta acá.
