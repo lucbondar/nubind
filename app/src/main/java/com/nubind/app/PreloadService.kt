@@ -139,14 +139,19 @@ class PreloadService : Service() {
             ctx.getString(R.string.mb_archivos, s.doneMb, s.selectedMb, s.doneFiles, s.selectedFiles)
 
         private fun progressNotification(ctx: Context, s: PreloadStatus?): Notification {
-            val pct = s?.let { (it.fraction * 100).toInt() }
+            // preload.sh publica "running" desde que recorre el remoto, antes de saber qué
+            // va a descargar (selected_mb = 0). PreloadStatus.fraction da 1f en ese caso,
+            // así que sin esta guarda se mostraba "100% · 0 / 0 MB". Mientras no haya un
+            // total conocido se muestra "revisando" con barra indeterminada.
+            val known = s != null && s.selectedMb > 0
+            val pct = if (known) (s!!.fraction * 100).toInt() else null
             val b = NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notif_preload)
                 .setContentTitle(
                     if (pct != null) "${ctx.getString(R.string.precargando)} $pct%"
                     else ctx.getString(R.string.precargando)
                 )
-                .setContentText(if (s != null) detail(ctx, s) else ctx.getString(R.string.preload_scanning))
+                .setContentText(if (known) detail(ctx, s!!) else ctx.getString(R.string.preload_scanning))
                 .setCategory(NotificationCompat.CATEGORY_PROGRESS)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -155,8 +160,7 @@ class PreloadService : Service() {
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
                 .setContentIntent(openAppIntent(ctx))
             if (s != null && s.remote.isNotBlank()) b.setSubText(s.remote)
-            if (pct != null && s != null && s.selectedMb > 0) b.setProgress(100, pct, false)
-            else b.setProgress(0, 0, true)
+            if (pct != null) b.setProgress(100, pct, false) else b.setProgress(0, 0, true)
             return b.build()
         }
 
