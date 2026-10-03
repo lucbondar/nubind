@@ -471,7 +471,7 @@ private fun PerfCard(
                 steps = CACHE_GB_MAX - CACHE_GB_MIN - 1
             )
             Text(
-                Strings.get(R.string.aplica_a_google_drive_s3_y),
+                Strings.get(R.string.tamano_cache_por_servidor, vm.activeName ?: "—"),
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant
             )

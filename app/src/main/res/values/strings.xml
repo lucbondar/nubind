@@ -236,7 +236,7 @@
     <string name="rendimiento">Performance</string>
     <string name="maximo_guarda_mas_en_cache_para">Maximum caches more to read and write faster, at the cost of disk space. Applies when you mount again.</string>
     <string name="tamano_de_cache">Cache size</string>
-    <string name="aplica_a_google_drive_s3_y">Applies to Google Drive, S3 and FTP in Maximum mode. It tries to keep 2 GB free; open files and pending uploads may exceed the cache limit.</string>
+    <string name="tamano_cache_por_servidor">For “%1$s” only: each server has its own size, applied in Maximum mode. It tries to keep 2 GB free; open files and pending uploads may exceed the cache limit.</string>
     <string name="restablecer_tamano_automatico">Reset to automatic size</string>
     <string name="cache_en_ram">RAM cache</string>
     <string name="lecturas_y_escrituras_a_velocidad_de">Reads and writes at RAM speed. Lost on unmount or reboot.</string>

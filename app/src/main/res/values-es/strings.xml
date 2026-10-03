@@ -236,7 +236,7 @@
     <string name="rendimiento">Rendimiento</string>
     <string name="maximo_guarda_mas_en_cache_para">Máximo guarda más en caché para leer y escribir más rápido, a costa de espacio en disco. Se aplica al volver a montar.</string>
     <string name="tamano_de_cache">Tamaño de caché</string>
-    <string name="aplica_a_google_drive_s3_y">Aplica a Google Drive, S3 y FTP en modo Máximo. Se intenta mantener 2 GB libres; los archivos abiertos y las subidas pendientes pueden superar el límite de caché.</string>
+    <string name="tamano_cache_por_servidor">Solo para «%1$s»: cada servidor tiene su propio tamaño, que se aplica en modo Máximo. Se intenta mantener 2 GB libres; los archivos abiertos y las subidas pendientes pueden superar el límite de caché.</string>
     <string name="restablecer_tamano_automatico">Restablecer tamaño automático</string>
     <string name="cache_en_ram">Caché en RAM</string>
     <string name="lecturas_y_escrituras_a_velocidad_de">Lecturas y escrituras a velocidad de RAM. Se pierde al desmontar o reiniciar.</string>
