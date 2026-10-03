@@ -9,15 +9,15 @@ on:
 
 jobs:
   build-app:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Red de seguridad: sin esto, un paso colgado (como el needrestart de
     # abajo) puede correr hasta 6 horas antes de que GitHub lo corte solo.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -45,7 +45,7 @@ jobs:
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: 8.14.3
 
@@ -65,22 +65,22 @@ jobs:
         run: ./gradlew assembleDebug --console=plain
 
       - name: Subir APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/*.apk
 
   package-module:
     needs: build-app
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 20
 
       - name: Descargar APK ya compilado
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: app-debug-apk
           path: apk
@@ -217,13 +217,13 @@ jobs:
           zip -r ../nubind-module.zip . -x "bin/README.txt"
 
       - name: Subir módulo
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: nubind-module
           path: nubind-module.zip
 
       - name: Subir metadatos de actualización
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: update-meta
           path: |
@@ -236,7 +236,7 @@ jobs:
     # release. Los PR quedan fuera: desde forks el token no tiene escritura.
     if: github.event_name != 'pull_request'
     needs: [ build-app, package-module ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Evita que una corrida vieja pise update.json de una más nueva.
     concurrency:
       group: release-updates
@@ -244,14 +244,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: dist
 
       # Push de tag v*  -> release estable (marcado "latest").
       # Cualquier otro  -> pre-release "build-<n>" apuntando al commit exacto.
       - name: Publicar release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -275,7 +275,7 @@ jobs:
       # apunta a la última build, sea pre-release o estable. Es pre-release
       # para no robarle el "latest" a los tags v*.
       - name: Actualizar canal de actualizaciones
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

@@ -23,6 +23,9 @@ object Strings {
         appContext = context.applicationContext
     }
 
+    /** Context de aplicación (para arrancar servicios desde el ViewModel). */
+    fun context(): Context = checkNotNull(appContext) { "Strings.init() no se llamó en Application.onCreate()" }
+
     fun get(@StringRes id: Int, vararg args: Any?): String {
         val c = checkNotNull(appContext) { "Strings.init() no se llamó en Application.onCreate()" }
         return if (args.isEmpty()) c.getString(id) else c.getString(id, *args)

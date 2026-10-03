@@ -1,6 +1,10 @@
 package com.nubind.app
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Bundle
 import androidx.annotation.StringRes
 import androidx.activity.ComponentActivity
@@ -110,6 +114,10 @@ class MainActivity : ComponentActivity() {
 
     private val vm: BindViewModel by viewModels()
 
+    // Android 13+: sin este permiso la notificación de precarga no se ve en la barra.
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -125,7 +133,18 @@ class MainActivity : ComponentActivity() {
         // en vez de lanzar una excepción no controlada que la cierra.
         Shell.getShell { shell ->
             vm.setRootGranted(shell.isRoot)
+            if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // El montaje pudo cambiar desde el quick toggle mientras la app estaba en segundo plano.
+        if (vm.rootGranted == true) vm.refreshAll()
     }
 }
 

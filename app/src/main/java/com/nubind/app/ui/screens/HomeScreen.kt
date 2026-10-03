@@ -57,6 +57,7 @@ import com.nubind.app.root.defaultCacheGb
 import com.nubind.app.root.formatCacheKb
 import com.nubind.app.ui.components.DualPaneContentWidth
 import com.nubind.app.ui.components.FolderPickerDialog
+import com.nubind.app.ui.components.MeteredDataDialog
 import com.nubind.app.ui.components.OptionTile
 import com.nubind.app.ui.components.PerfTestSheet
 import com.nubind.app.ui.components.ScreenContainer
@@ -197,6 +198,10 @@ fun HomeScreen(vm: BindViewModel, onOpenServers: () -> Unit) {
                 PreloadCard(vm, mounted)
             }
         }
+    }
+
+    if (vm.pendingMeteredAction != null) {
+        MeteredDataDialog(onConfirm = { vm.confirmMetered(it) }, onDismiss = { vm.dismissMetered() })
     }
 
     if (showRamCacheConfirm) {
@@ -421,7 +426,7 @@ private fun PerfCard(
                     label = mode.label,
                     icon = if (mode == PerfMode.MAX) AppIcons.Bolt else Icons.Default.Settings,
                     selected = vm.perfMode == mode,
-                    onClick = { vm.setPerfMode(mode) },
+                    onClick = { vm.changePerfMode(mode) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -461,7 +466,7 @@ private fun PerfCard(
                         haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                     }
                 },
-                onValueChangeFinished = { vm.setCacheGb(draft.roundToInt()) },
+                onValueChangeFinished = { vm.changeCacheGb(draft.roundToInt()) },
                 valueRange = CACHE_GB_MIN.toFloat()..CACHE_GB_MAX.toFloat(),
                 steps = CACHE_GB_MAX - CACHE_GB_MIN - 1
             )
@@ -471,7 +476,7 @@ private fun PerfCard(
                 color = scheme.onSurfaceVariant
             )
             if (custom != null) {
-                TextButton(onClick = { vm.setCacheGb(null) }) { Text(Strings.get(R.string.restablecer_tamano_automatico)) }
+                TextButton(onClick = { vm.changeCacheGb(null) }) { Text(Strings.get(R.string.restablecer_tamano_automatico)) }
             }
         }
 

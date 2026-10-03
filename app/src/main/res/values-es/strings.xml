@@ -274,4 +274,11 @@
     <string name="logs">Logs</string>
     <string name="tu_servidor">tu servidor</string>
     <string name="object_storage_api">Object Storage (API compatible con S3)</string>
+    <string name="preload_scanning">Revisando el remoto…</string>
+    <string name="tile_mounting">Montando…</string>
+    <string name="tile_unmounting">Desmontando…</string>
+    <string name="aviso_datos_moviles_titulo">Estás usando datos móviles</string>
+    <string name="aviso_datos_moviles_texto">Estás con datos móviles (o una red con límite). El modo Máximo descarga el contenido del servidor a la caché del teléfono y puede consumir varios GB de tu plan. ¿Querés continuar?</string>
+    <string name="continuar_igual">Continuar igual</string>
+    <string name="no_volver_a_mostrar">No volver a mostrar</string>
 </resources>

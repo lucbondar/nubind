@@ -274,4 +274,12 @@
     <string name="logs">Logs</string>
     <string name="tu_servidor">your server</string>
     <string name="object_storage_api">Object Storage (S3-compatible API)</string>
+    <string name="preload_scanning">Scanning remote…</string>
+    <string name="tile_mounting">Mounting…</string>
+    <string name="tile_unmounting">Unmounting…</string>
+    <string name="tile_label" translatable="false">Nubind</string>
+    <string name="aviso_datos_moviles_titulo">Mobile data in use</string>
+    <string name="aviso_datos_moviles_texto">You\'re on mobile data (or a metered network). Maximum mode downloads the server\'s contents into the phone\'s cache and can use several GB of your data plan. Continue?</string>
+    <string name="continuar_igual">Continue anyway</string>
+    <string name="no_volver_a_mostrar">Don\'t show again</string>
 </resources>
