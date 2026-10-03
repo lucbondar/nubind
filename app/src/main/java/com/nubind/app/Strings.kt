@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.annotation.StringRes
 
 /**
- * Acceso a los textos de res/values*/strings.xml desde cualquier parte, sin
+ * Acceso a los textos de los strings.xml de res/values y sus variantes desde cualquier parte, sin
  * tener que pasar un Context hasta funciones puras (validadores, mensajes del
  * ViewModel, parsers). Se inicializa en [NubindApp.onCreate].
  *
