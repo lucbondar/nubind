@@ -466,7 +466,7 @@ private fun PerfCard(
                         haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                     }
                 },
-                onValueChangeFinished = { vm.setCacheGb(draft.roundToInt()) },
+                onValueChangeFinished = { vm.changeCacheGb(draft.roundToInt()) },
                 valueRange = CACHE_GB_MIN.toFloat()..CACHE_GB_MAX.toFloat(),
                 steps = CACHE_GB_MAX - CACHE_GB_MIN - 1
             )
@@ -476,7 +476,7 @@ private fun PerfCard(
                 color = scheme.onSurfaceVariant
             )
             if (custom != null) {
-                TextButton(onClick = { vm.setCacheGb(null) }) { Text(Strings.get(R.string.restablecer_tamano_automatico)) }
+                TextButton(onClick = { vm.changeCacheGb(null) }) { Text(Strings.get(R.string.restablecer_tamano_automatico)) }
             }
         }
 

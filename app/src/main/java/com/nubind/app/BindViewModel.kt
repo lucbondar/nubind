@@ -598,7 +598,7 @@ class BindViewModel : ViewModel() {
     }
 
     /** null restablece el tamaño del perfil. */
-    fun setCacheGb(gb: Int?) {
+    fun changeCacheGb(gb: Int?) {
         // El tamaño es por servidor: se guarda para el seleccionado.
         val server = activeName ?: return
         savePerf({ RootShell.setCacheGb(server, gb) })
