@@ -496,14 +496,25 @@ object RootShell {
             .firstOrNull()?.trim()?.toLongOrNull() ?: 0L
 
     /**
-     * Tamaño en KB de la caché de un solo servidor: rclone la guarda en
-     * cache/vfs/<servidor> (datos) y cache/vfsMeta/<servidor> (metadatos).
+     * Tamaño en KB de la caché de cada servidor, por nombre. rclone la guarda en
+     * cache/vfs/<servidor>{hash} (datos) y cache/vfsMeta/<servidor>{hash}
+     * (metadatos); el sufijo {hash} se quita y se suman ambas carpetas.
      */
-    fun serverCacheKb(server: String): Long {
-        val vfs = sq("${ModulePaths.BASE}/cache/vfs/$server")
-        val meta = sq("${ModulePaths.BASE}/cache/vfsMeta/$server")
-        return Shell.cmd("du -sk $vfs $meta 2>/dev/null | awk '{s += \$1} END {print s + 0}'").exec().out
-            .firstOrNull()?.trim()?.toLongOrNull() ?: 0L
+    fun serverCacheSizesKb(): Map<String, Long> {
+        val out = Shell.cmd(
+            "cd ${sq("${ModulePaths.BASE}/cache")} 2>/dev/null && du -sk vfs/* vfsMeta/* 2>/dev/null"
+        ).exec().out
+        val hashSuffix = Regex("""\{[^{}]*\}$""")
+        val sizes = HashMap<String, Long>()
+        for (line in out) {
+            val tab = line.indexOf('\t')
+            if (tab < 0) continue
+            val kb = line.substring(0, tab).trim().toLongOrNull() ?: continue
+            val dir = line.substring(tab + 1).substringAfter('/')
+            val name = hashSuffix.replace(dir, "")
+            sizes[name] = (sizes[name] ?: 0L) + kb
+        }
+        return sizes
     }
 
     /** Borra solo la caché de [server] (scripts/clear_cache.sh con nombre). */

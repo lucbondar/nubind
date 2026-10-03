@@ -184,6 +184,28 @@ s3_mount_opts() {
     MOUNT_OPTS="$_o"
 }
 
+# Carpetas de caché de un servidor. rclone las nombra "<servidor>{hash}" (el
+# hash cambia si se edita la configuración del servidor; en versiones viejas
+# es solo "<servidor>") dentro de cache/vfs (datos) y cache/vfsMeta
+# (metadatos). Una por línea. Uso: server_cache_dirs <servidor>
+server_cache_dirs() {
+    for _sub in vfs vfsMeta; do
+        for _d in "$MODDIR/cache/$_sub"/*; do
+            [ -d "$_d" ] || continue
+            case "${_d##*/}" in
+                "$1"|"$1"\{*\}) echo "$_d" ;;
+            esac
+        done
+    done
+}
+
+# KB que ocupa la caché de un servidor (suma de sus carpetas). Uso: server_cache_kb <servidor>
+server_cache_kb() {
+    server_cache_dirs "$1" | while IFS= read -r _d; do
+        du -sk "$_d" 2>/dev/null
+    done | awk '{s += $1} END {print s + 0}'
+}
+
 # En Equilibrado el tope de caché es 1G (FTP, S3, Drive). Si ese servidor ya
 # tiene una caché más grande (la armó en Máximo), rclone la recorta al tope
 # apenas monta: se pierde lo cacheado y hay que volver a precargar. Para que
@@ -196,7 +218,7 @@ s3_mount_opts() {
 keep_cache_size() {
     _cur="$(printf '%s' "$MOUNT_OPTS" | sed -n 's/.*--vfs-cache-max-size \([0-9][0-9]*\)G.*/\1/p')"
     case "$_cur" in ''|*[!0-9]*) return 0 ;; esac
-    _used_kb="$(du -sk "$MODDIR/cache/vfs/$ACTIVE" 2>/dev/null | awk '{print $1+0}')"
+    _used_kb="$(server_cache_kb "$ACTIVE")"
     case "$_used_kb" in ''|*[!0-9]*) _used_kb=0 ;; esac
     _keep=0
     if [ "$_used_kb" -gt $(( _cur * 1048576 )) ]; then

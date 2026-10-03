@@ -178,9 +178,8 @@ class BindViewModel : ViewModel() {
         val snap = withContext(Dispatchers.IO) {
             val activeNow = RootShell.readActive()
             RootShell.migrateLegacyCacheGb(activeNow)
-            val loaded = RootShell.loadProfiles()
             Snapshot(
-                profiles = loaded,
+                profiles = RootShell.loadProfiles(),
                 active = activeNow,
                 status = RootShell.status().output,
                 autostart = RootShell.readAutostart(),
@@ -188,7 +187,7 @@ class BindViewModel : ViewModel() {
                 perfMode = RootShell.readPerfMode(),
                 cacheGb = RootShell.readCacheGb(activeNow),
                 cacheKb = RootShell.cacheSizeKb(),
-                serverCacheKb = loaded.associate { it.name to RootShell.serverCacheKb(it.name) },
+                serverCacheKb = RootShell.serverCacheSizesKb(),
                 ramCache = RootShell.readRamCache(),
                 s3Perf = RootShell.readS3Perf(),
                 preloadRaw = RootShell.preloadStatus()
@@ -504,10 +503,7 @@ class BindViewModel : ViewModel() {
             // se relee el tamaño en cada sondeo (incluido el último, cuando
             // termina) para que la tarjeta de Inicio avance sola.
             cacheKb = withContext(Dispatchers.IO) { RootShell.cacheSizeKb() }
-            mountedRemote?.let { name ->
-                val kb = withContext(Dispatchers.IO) { RootShell.serverCacheKb(name) }
-                serverCacheKb = serverCacheKb + (name to kb)
-            }
+            serverCacheKb = withContext(Dispatchers.IO) { RootShell.serverCacheSizesKb() }
             val now = SystemClock.elapsedRealtime()
             if (status?.running == true) {
                 // Notificación persistente (sigue el progreso con la app cerrada). Solo se

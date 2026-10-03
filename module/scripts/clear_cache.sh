@@ -8,7 +8,8 @@
 #
 # Sin argumentos borra la caché de TODOS los servidores (con nada montado).
 # Con un nombre de servidor ($1) borra solo la de ese servidor: rclone guarda
-# cada remoto en cache/vfs/<servidor> y cache/vfsMeta/<servidor>. Eso se
+# cada remoto en cache/vfs/<servidor>{hash} y cache/vfsMeta/<servidor>{hash}
+# (ver server_cache_dirs en perf_opts.sh). Eso se
 # puede hacer con otro servidor montado; solo se rechaza si el montado es
 # justo ese.
 SELF="$(readlink -f "$0")"
@@ -16,6 +17,7 @@ MODDIR=$(dirname "$(dirname "$SELF")")
 CACHE_DIR="$MODDIR/cache"
 STATUS_FILE="$MODDIR/status.json"
 NAME="$1"
+. "$MODDIR/scripts/perf_opts.sh"
 
 MOUNTED=0
 grep -q '"mounted":true' "$STATUS_FILE" 2>/dev/null && MOUNTED=1
@@ -53,10 +55,12 @@ if [ "$MOUNTED" = 1 ]; then
     fi
 fi
 
-BEFORE_KB=$(du -sk "$CACHE_DIR/vfs/$NAME" "$CACHE_DIR/vfsMeta/$NAME" 2>/dev/null | awk '{s += $1} END {print s + 0}')
+BEFORE_KB="$(server_cache_kb "$NAME")"
 [ -z "$BEFORE_KB" ] && BEFORE_KB=0
 
-rm -rf "${CACHE_DIR:?}/vfs/$NAME" "${CACHE_DIR:?}/vfsMeta/$NAME" 2>/dev/null
+server_cache_dirs "$NAME" | while IFS= read -r d; do
+    rm -rf "$d" 2>/dev/null
+done
 
 # Misma razón que arriba, solo para este servidor: su marca de "precarga
 # completa" ya no es válida. El progreso mostrado solo se borra si era de
