@@ -242,7 +242,7 @@
     <string name="lecturas_y_escrituras_a_velocidad_de">Lecturas y escrituras a velocidad de RAM. Se pierde al desmontar o reiniciar.</string>
     <string name="cache_en_disco">Caché en disco</string>
     <string name="usados_desmonta_para_borrarla">%1$s usados · desmonta para borrarla</string>
-    <string name="cache_del_servidor">Caché: %1$s</string>
+    <string name="cache">Caché</string>
     <string name="cache_servidor_borrada">Caché de %1$s borrada (liberados %2$s)</string>
     <string name="usados">%1$s usados</string>
     <string name="borrar_cache">Borrar caché</string>

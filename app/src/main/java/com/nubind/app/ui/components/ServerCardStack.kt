@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,9 +15,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -35,6 +40,7 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -53,7 +59,9 @@ import com.nubind.app.Strings
 // (para que no se vea el fondo entre las esquinas redondeadas).
 private val PeekHeight = 88.dp
 private val UnderlapHeight = 32.dp
-private val OpenHeight = 256.dp
+private val OpenHeight = 280.dp
+// Sin caché no se muestra su fila y la tarjeta abierta es más baja.
+private val OpenHeightNoCache = 216.dp
 
 /**
  * Pila de tarjetas tipo cartera: las cerradas asoman solo su franja superior y
@@ -77,9 +85,10 @@ fun ServerCardStack(
     var y = 0.dp
     profiles.forEach { p ->
         val open = p.name == selected
+        val openHeight = if (cacheKbOf(p) > 0) OpenHeight else OpenHeightNoCache
         tops.add(y)
-        heights.add(if (open) OpenHeight else PeekHeight + UnderlapHeight)
-        y += if (open) OpenHeight else PeekHeight
+        heights.add(if (open) openHeight else PeekHeight + UnderlapHeight)
+        y += if (open) openHeight else PeekHeight
     }
     val totalHeight = if (profiles.isEmpty()) 0.dp else tops.last() + heights.last()
     val animatedTotal by animateDpAsState(totalHeight, AppMotion.spatial(), label = "stackHeight")
@@ -262,16 +271,65 @@ private fun StackCard(
                         contentColor = LocalContentColor.current,
                         disabledContentColor = LocalContentColor.current.copy(alpha = 0.38f)
                     )
-                    // Caché de este servidor y su botón de borrar. Se desactiva si
-                    // está montado (no se puede borrar en uso) o si no hay nada.
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            Strings.get(R.string.cache_del_servidor, formatCacheKb(cacheKb)),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(onClick = onClearCache, enabled = canClearCache && cacheKb > 0, colors = colors) {
-                            Text(Strings.get(R.string.borrar_cache))
+                    // Caché de este servidor y su botón de borrar. Solo aparece si hay
+                    // algo en caché; se desactiva si el servidor está montado (no se
+                    // puede borrar en uso).
+                    if (cacheKb > 0) {
+                        Spacer(Modifier.height(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(28.dp),
+                            color = fg.copy(alpha = 0.14f),
+                            contentColor = fg,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(start = 20.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.Storage,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            Strings.get(R.string.cache),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = fg.copy(alpha = 0.8f),
+                                            modifier = Modifier.padding(start = 6.dp)
+                                        )
+                                    }
+                                    Text(
+                                        formatCacheKb(cacheKb),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
+                                    )
+                                }
+                                Button(
+                                    onClick = onClearCache,
+                                    enabled = canClearCache,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = fg,
+                                        contentColor = bg,
+                                        disabledContainerColor = fg.copy(alpha = 0.18f),
+                                        disabledContentColor = fg.copy(alpha = 0.45f)
+                                    ),
+                                    contentPadding = PaddingValues(start = 14.dp, end = 18.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.DeleteSweep,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        Strings.get(R.string.borrar_cache),
+                                        modifier = Modifier.padding(start = 8.dp),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
