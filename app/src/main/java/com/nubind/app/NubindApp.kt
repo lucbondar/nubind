@@ -21,6 +21,12 @@ import com.topjohnwu.superuser.Shell
  * tanto, antes que cualquier Activity — es el punto más temprano posible.
  */
 class NubindApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        // Los textos traducidos (Strings.get) necesitan un Context de aplicación.
+        Strings.init(this)
+    }
+
     companion object {
         init {
             Shell.enableVerboseLogging = false

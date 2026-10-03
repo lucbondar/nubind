@@ -45,6 +45,8 @@ import com.nubind.app.root.S3Provider
 import com.nubind.app.root.s3Provider
 import com.nubind.app.root.subtitle
 import com.nubind.app.ui.theme.AppMotion
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 // Parte visible de una tarjeta cerrada, y cuánto se mete bajo la siguiente
 // (para que no se vea el fondo entre las esquinas redondeadas).
@@ -221,27 +223,27 @@ private fun StackCard(
                     if (profile.type == RemoteType.DRIVE) {
                         val drive = profile.drive
                         Text(
-                            if (drive?.hasToken == true) "Sesión de Google guardada" else "Sin sesión",
+                            if (drive?.hasToken == true) Strings.get(R.string.sesion_de_google_guardada) else Strings.get(R.string.sin_sesion),
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
-                            if (drive?.readOnly == true) "Solo lectura" else "Lectura y escritura",
+                            if (drive?.readOnly == true) Strings.get(R.string.solo_lectura) else Strings.get(R.string.lectura_y_escritura),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     } else if (profile.type == RemoteType.S3) {
                         val s3 = profile.s3
                         Text(
-                            if (s3?.bucket.isNullOrEmpty()) "Todos los buckets" else "Bucket ${s3?.bucket}",
+                            if (s3?.bucket.isNullOrEmpty()) Strings.get(R.string.todos_los_buckets) else Strings.get(R.string.bucket, s3?.bucket),
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
-                            if (s3?.hasSecret == true) "Clave secreta guardada" else "Sin clave secreta",
+                            if (s3?.hasSecret == true) Strings.get(R.string.clave_secreta_guardada) else Strings.get(R.string.sin_clave_secreta),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     } else {
-                        Text("Puerto ${profile.port}", style = MaterialTheme.typography.bodyMedium)
+                        Text(Strings.get(R.string.puerto, profile.port), style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            if (profile.hasPassword) "Contraseña guardada" else "Sin contraseña",
+                            if (profile.hasPassword) Strings.get(R.string.contrasena_guardada) else Strings.get(R.string.sin_contrasena),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -250,11 +252,11 @@ private fun StackCard(
                         val colors = ButtonDefaults.textButtonColors(contentColor = LocalContentColor.current)
                         TextButton(onClick = onEdit, colors = colors) {
                             Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                            Text("Editar")
+                            Text(Strings.get(R.string.editar))
                         }
                         TextButton(onClick = onDelete, colors = colors) {
                             Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                            Text("Eliminar")
+                            Text(Strings.get(R.string.eliminar))
                         }
                     }
                 }

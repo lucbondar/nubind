@@ -1,5 +1,8 @@
 package com.nubind.app.root
 
+import com.nubind.app.R
+import com.nubind.app.Strings
+
 /** Estado de un paso de la prueba de rendimiento. */
 enum class PerfStepState { PENDING, RUNNING, OK, WARN, FAIL, SKIP }
 
@@ -34,13 +37,13 @@ data class PerfTestState(
  */
 object PerfTestParser {
     /** Orden y nombre visible de cada paso; los ids son los que emite el script. */
-    private val STEPS = listOf(
-        "mount" to "Montaje activo",
-        "opts" to "Configuración aplicada",
-        "space" to "Espacio para la caché",
-        "list" to "Listado de carpetas",
-        "write" to "Escritura",
-        "read" to "Lectura y caché"
+    private val STEPS get() = listOf(
+        "mount" to Strings.get(R.string.montaje_activo),
+        "opts" to Strings.get(R.string.configuracion_aplicada),
+        "space" to Strings.get(R.string.espacio_para_la_cache),
+        "list" to Strings.get(R.string.listado_de_carpetas),
+        "write" to Strings.get(R.string.escritura),
+        "read" to Strings.get(R.string.lectura_y_cache)
     )
 
     fun parse(output: String): PerfTestProgress {

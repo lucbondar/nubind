@@ -46,6 +46,8 @@ import com.nubind.app.root.RemoteType
 import com.nubind.app.root.S3Provider
 import com.nubind.app.root.s3Provider
 import androidx.compose.ui.unit.dp
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 /**
  * Tarjeta de sección: superficie muy redondeada con encabezado
@@ -96,7 +98,7 @@ fun SectionCard(
                 if (expandable) {
                     Icon(
                         Icons.Default.ExpandMore,
-                        contentDescription = if (expanded) "Contraer" else "Expandir",
+                        contentDescription = if (expanded) Strings.get(R.string.contraer) else Strings.get(R.string.expandir),
                         tint = scheme.onSurfaceVariant,
                         modifier = Modifier.rotate(chevronRotation)
                     )

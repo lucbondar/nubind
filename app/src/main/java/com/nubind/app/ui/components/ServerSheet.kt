@@ -76,6 +76,8 @@ import com.nubind.app.root.validateProfileName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 /**
  * Formulario para agregar un servidor (FTP, Google Drive o S3), o editar
@@ -181,7 +183,7 @@ fun ServerSheet(
             // Se abre solo una vez por inicio de sesión: la clave es el propio estado.
             is DriveAuthState.WaitingBrowser -> {
                 if (!openInBrowser(appContext, driveAuth.url)) {
-                    driveError = "No se encontró un navegador. Copia el enlace y ábrelo a mano."
+                    driveError = Strings.get(R.string.no_se_encontro_un_navegador_copia)
                 }
             }
             else -> Unit
@@ -209,13 +211,13 @@ fun ServerSheet(
             try {
                 val found = scanForFtpServers(context) { checked, total -> scanChecked = checked; scanTotal = total }
                 scanResults = found
-                scanMessage = if (found.isEmpty()) "No se encontró ningún servidor FTP. Verifica que estés en Wi-Fi y que el servidor esté encendido (puertos 21, 2121, 2221, 2222)." else null
+                scanMessage = if (found.isEmpty()) Strings.get(R.string.no_se_encontro_ningun_servidor_ftp) else null
             } catch (e: CancellationException) {
                 throw e // el usuario tocó "Cancelar búsqueda"; no es un error
             } catch (e: Exception) {
                 // Antes, cualquier excepción acá dejaba el botón trabado en
                 // "Cancelar búsqueda…" para siempre sin ningún aviso.
-                scanMessage = "No se pudo completar la búsqueda: ${e.message ?: e::class.simpleName}"
+                scanMessage = Strings.get(R.string.no_se_pudo_completar_la_busqueda, e.message ?: e::class.simpleName)
             } finally {
                 scanning = false
             }
@@ -234,24 +236,24 @@ fun ServerSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = if (initial == null) "Nuevo servidor" else "Editar servidor",
+                text = if (initial == null) Strings.get(R.string.nuevo_servidor) else Strings.get(R.string.editar_servidor),
                 style = MaterialTheme.typography.headlineMedium
             )
 
             if (initial == null) {
                 DropdownSelector(
-                    label = "Tipo de servidor",
+                    label = Strings.get(R.string.tipo_de_servidor),
                     options = listOf(
                         SelectorOption(
-                            RemoteType.FTP, "FTP", "Servidor en tu red o en internet",
+                            RemoteType.FTP, "FTP", Strings.get(R.string.servidor_en_tu_red_o_en),
                             AppIcons.Dns
                         ),
                         SelectorOption(
-                            RemoteType.DRIVE, "Google Drive", "Tu cuenta de Google",
+                            RemoteType.DRIVE, "Google Drive", Strings.get(R.string.tu_cuenta_de_google),
                             AppIcons.DriveLogo, branded = true
                         ),
                         SelectorOption(
-                            RemoteType.S3, "S3", "Oracle, Amazon, Cloudflare R2 y más",
+                            RemoteType.S3, "S3", Strings.get(R.string.oracle_amazon_cloudflare_r2_y_mas),
                             AppIcons.Cloud
                         )
                     ),
@@ -263,7 +265,7 @@ fun ServerSheet(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it; nameError = null },
-                label = { Text("Nombre") },
+                label = { Text(Strings.get(R.string.nombre)) },
                 singleLine = true,
                 isError = nameError != null,
                 supportingText = nameError?.let { { Text(it) } },
@@ -284,7 +286,7 @@ fun ServerSheet(
                     shape = MaterialTheme.shapes.large,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (scanning) "Cancelar búsqueda ($scanChecked/$scanTotal)" else "Buscar servidores FTP en mi red")
+                    Text(if (scanning) Strings.get(R.string.cancelar_busqueda, scanChecked, scanTotal) else Strings.get(R.string.buscar_servidores_ftp_en_mi_red))
                 }
 
                 if (scanning) {
@@ -303,7 +305,7 @@ fun ServerSheet(
                 }
 
                 if (scanResults.isNotEmpty()) {
-                    Text("Toca uno para usarlo", style = MaterialTheme.typography.labelLarge)
+                    Text(Strings.get(R.string.toca_uno_para_usarlo), style = MaterialTheme.typography.labelLarge)
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         scanResults.forEach { server ->
                             Surface(
@@ -338,7 +340,7 @@ fun ServerSheet(
                 OutlinedTextField(
                     value = host,
                     onValueChange = { host = it; hostError = null },
-                    label = { Text("Host o IP") },
+                    label = { Text(Strings.get(R.string.host_o_ip)) },
                     singleLine = true,
                     isError = hostError != null,
                     supportingText = hostError?.let { { Text(it) } },
@@ -349,7 +351,7 @@ fun ServerSheet(
                 OutlinedTextField(
                     value = port,
                     onValueChange = { port = it; portError = null },
-                    label = { Text("Puerto") },
+                    label = { Text(Strings.get(R.string.puerto_2)) },
                     singleLine = true,
                     isError = portError != null,
                     supportingText = portError?.let { { Text(it) } },
@@ -360,7 +362,7 @@ fun ServerSheet(
                 OutlinedTextField(
                     value = user,
                     onValueChange = { user = it },
-                    label = { Text("Usuario") },
+                    label = { Text(Strings.get(R.string.usuario)) },
                     singleLine = true,
                     shape = MaterialTheme.shapes.large,
                     modifier = Modifier.fillMaxWidth()
@@ -368,10 +370,10 @@ fun ServerSheet(
                 OutlinedTextField(
                     value = pass,
                     onValueChange = { pass = it },
-                    label = { Text("Contraseña") },
+                    label = { Text(Strings.get(R.string.contrasena)) },
                     singleLine = true,
                     supportingText = if (initial != null) {
-                        { Text("Déjala vacía para conservar la actual") }
+                        { Text(Strings.get(R.string.dejala_vacia_para_conservar_la_actual)) }
                     } else null,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -383,26 +385,22 @@ fun ServerSheet(
                 Text(
                     when (s3Prov) {
                         S3Provider.ORACLE ->
-                            "Oracle Cloud: usa una «Customer Secret Key» (Perfil > Mi perfil > " +
-                                "Claves secretas de cliente). El namespace está en Administración del inquilino."
+                            Strings.get(R.string.oracle_cloud_usa_una_customer_secret)
                         S3Provider.AWS ->
-                            "Amazon S3: usa una clave de acceso de IAM (Credenciales de seguridad > " +
-                                "Crear clave de acceso) de un usuario con permisos sobre el bucket. " +
-                                "La región es la del bucket."
+                            Strings.get(R.string.amazon_s3_usa_una_clave_de)
                         S3Provider.CLOUDFLARE ->
-                            "Cloudflare R2: crea un token de API (R2 > Administrar tokens de API) con permiso " +
-                                "de lectura y escritura de objetos; te da la Access Key ID y la Secret."
+                            Strings.get(R.string.cloudflare_r2_crea_un_token_de)
                         S3Provider.OTHER ->
-                            "Cualquier servicio compatible con S3 (MinIO, Wasabi, Backblaze B2...)."
+                            Strings.get(R.string.cualquier_servicio_compatible_con_s3_minio)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 DropdownSelector(
-                    label = "Proveedor",
+                    label = Strings.get(R.string.proveedor),
                     options = listOf(
                         SelectorOption(
-                            S3Provider.ORACLE, S3Provider.ORACLE.label, "Object Storage (API compatible con S3)",
+                            S3Provider.ORACLE, S3Provider.ORACLE.label, Strings.get(R.string.object_storage_api),
                             AppIcons.OracleLogo, branded = true
                         ),
                         SelectorOption(
@@ -410,7 +408,7 @@ fun ServerSheet(
                             AppIcons.AwsLogo, branded = true
                         ),
                         SelectorOption(
-                            S3Provider.CLOUDFLARE, S3Provider.CLOUDFLARE.label, "Sin cargos por salida de datos",
+                            S3Provider.CLOUDFLARE, S3Provider.CLOUDFLARE.label, Strings.get(R.string.sin_cargos_por_salida_de_datos),
                             AppIcons.CloudflareLogo, branded = true
                         ),
                         SelectorOption(
@@ -435,7 +433,7 @@ fun ServerSheet(
                     OutlinedTextField(
                         value = s3Region,
                         onValueChange = { s3Region = it.trim(); s3RegionError = null },
-                        label = { Text("Región") },
+                        label = { Text(Strings.get(R.string.region)) },
                         placeholder = { Text("us-ashburn-1") },
                         singleLine = true,
                         isError = s3RegionError != null,
@@ -447,12 +445,12 @@ fun ServerSheet(
                     OutlinedTextField(
                         value = s3Region,
                         onValueChange = { s3Region = it.trim(); s3RegionError = null },
-                        label = { Text("Región del bucket") },
+                        label = { Text(Strings.get(R.string.region_del_bucket)) },
                         placeholder = { Text("us-east-1") },
                         singleLine = true,
                         isError = s3RegionError != null,
                         supportingText = {
-                            Text(s3RegionError ?: "Es la región donde se creó el bucket; se ve en la consola de S3.")
+                            Text(s3RegionError ?: Strings.get(R.string.es_la_region_donde_se_creo))
                         },
                         shape = MaterialTheme.shapes.large,
                         modifier = Modifier.fillMaxWidth()
@@ -462,14 +460,13 @@ fun ServerSheet(
                         value = s3Account,
                         onValueChange = { s3Account = it.trim(); s3AccountError = null },
                         label = { Text("Account ID") },
-                        placeholder = { Text("32 caracteres") },
+                        placeholder = { Text(Strings.get(R.string.s_32_caracteres)) },
                         singleLine = true,
                         isError = s3AccountError != null,
                         supportingText = {
                             Text(
                                 s3AccountError
-                                    ?: "Está en el panel de Cloudflare, en R2 > Resumen. Si tu bucket es de " +
-                                        "una jurisdicción (UE, FedRAMP), pega el endpoint completo."
+                                    ?: Strings.get(R.string.esta_en_el_panel_de_cloudflare)
                             )
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
@@ -492,7 +489,7 @@ fun ServerSheet(
                     OutlinedTextField(
                         value = s3Region,
                         onValueChange = { s3Region = it.trim() },
-                        label = { Text("Región (opcional)") },
+                        label = { Text(Strings.get(R.string.region_opcional)) },
                         singleLine = true,
                         shape = MaterialTheme.shapes.large,
                         modifier = Modifier.fillMaxWidth()
@@ -509,7 +506,7 @@ fun ServerSheet(
                     modifier = Modifier.fillMaxWidth()
                 )
                 val secretHint = s3SecretError
-                    ?: if (initialS3?.hasSecret == true) "Déjala vacía para conservar la actual" else null
+                    ?: if (initialS3?.hasSecret == true) Strings.get(R.string.dejala_vacia_para_conservar_la_actual) else null
                 OutlinedTextField(
                     value = s3Secret,
                     onValueChange = { s3Secret = it; s3SecretError = null },
@@ -530,13 +527,12 @@ fun ServerSheet(
                     onValueChange = { s3Bucket = it; s3BucketError = null },
                     // Teclado de direcciones: trae la "/" en la fila principal.
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    label = { Text("Bucket (opcional)") },
+                    label = { Text(Strings.get(R.string.bucket_opcional)) },
                     isError = s3BucketError != null,
                     supportingText = {
                         Text(
                             s3BucketError
-                                ?: "Se monta ese bucket (o «bucket/carpeta»). Vacío muestra todos los buckets; " +
-                                    "si tu clave no puede listarlos, escribe el bucket."
+                                ?: Strings.get(R.string.se_monta_ese_bucket_o_bucket)
                         )
                     },
                     singleLine = true,
@@ -547,10 +543,10 @@ fun ServerSheet(
                 // ---- Google Drive ----
                 Text(
                     when {
-                        newToken != null -> "Cuenta de Google conectada. Guarda para aplicarla."
-                        hasSession -> "Ya hay una sesión de Google guardada."
-                        clientChanged -> "Cambiaste el cliente OAuth: vuelve a iniciar sesión."
-                        else -> "Inicia sesión con tu cuenta de Google para dar acceso a Drive."
+                        newToken != null -> Strings.get(R.string.cuenta_de_google_conectada_guarda_para)
+                        hasSession -> Strings.get(R.string.ya_hay_una_sesion_de_google)
+                        clientChanged -> Strings.get(R.string.cambiaste_el_cliente_oauth_vuelve_a)
+                        else -> Strings.get(R.string.inicia_sesion_con_tu_cuenta_de)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -559,7 +555,7 @@ fun ServerSheet(
                 Button(
                     onClick = {
                         if (effectiveClientId.isEmpty() != effectiveClientSecret.isEmpty()) {
-                            driveError = "Client ID y Client Secret van juntos: llena los dos o ninguno."
+                            driveError = Strings.get(R.string.client_id_y_client_secret_van)
                             showAdvanced = true
                         } else {
                             driveError = null
@@ -576,29 +572,28 @@ fun ServerSheet(
                     ),
                     modifier = Modifier.fillMaxWidth().height(56.dp)
                 ) {
-                    Text(if (hasSession) "Volver a iniciar sesión" else "Iniciar sesión con Google")
+                    Text(if (hasSession) Strings.get(R.string.volver_a_iniciar_sesion) else Strings.get(R.string.iniciar_sesion_con_google))
                 }
 
                 when (driveAuth) {
                     is DriveAuthState.Starting -> {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Text("Iniciando…", style = MaterialTheme.typography.bodyMedium)
+                        Text(Strings.get(R.string.iniciando), style = MaterialTheme.typography.bodyMedium)
                     }
                     is DriveAuthState.WaitingBrowser -> {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         Text(
-                            "Autoriza el acceso en el navegador y vuelve a esta app. " +
-                                "Verás «Success!» cuando termine.",
+                            Strings.get(R.string.autoriza_el_acceso_en_el_navegador),
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = {
                                 if (!openInBrowser(appContext, driveAuth.url)) {
-                                    driveError = "No se encontró un navegador. Copia el enlace y ábrelo a mano."
+                                    driveError = Strings.get(R.string.no_se_encontro_un_navegador_copia)
                                 }
-                            }) { Text("Abrir de nuevo") }
-                            TextButton(onClick = { copyToClipboard(appContext, driveAuth.url) }) { Text("Copiar enlace") }
-                            TextButton(onClick = onDriveCancel) { Text("Cancelar") }
+                            }) { Text(Strings.get(R.string.abrir_de_nuevo)) }
+                            TextButton(onClick = { copyToClipboard(appContext, driveAuth.url) }) { Text(Strings.get(R.string.copiar_enlace)) }
+                            TextButton(onClick = onDriveCancel) { Text(Strings.get(R.string.cancelar)) }
                         }
                     }
                     is DriveAuthState.Failed -> Text(
@@ -615,9 +610,9 @@ fun ServerSheet(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Solo lectura", style = MaterialTheme.typography.bodyLarge)
+                        Text(Strings.get(R.string.solo_lectura), style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Impide modificar o borrar archivos de Drive desde la carpeta montada.",
+                            Strings.get(R.string.impide_modificar_o_borrar_archivos_de),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -626,7 +621,7 @@ fun ServerSheet(
                 }
 
                 TextButton(onClick = { showAdvanced = !showAdvanced }) {
-                    Text(if (showAdvanced) "Ocultar opciones avanzadas" else "Opciones avanzadas")
+                    Text(if (showAdvanced) Strings.get(R.string.ocultar_opciones_avanzadas) else Strings.get(R.string.opciones_avanzadas))
                 }
                 if (showAdvanced) {
                     Row(
@@ -635,10 +630,9 @@ fun ServerSheet(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text("Permitir archivos marcados como malware", style = MaterialTheme.typography.bodyLarge)
+                            Text(Strings.get(R.string.permitir_archivos_marcados_como_malware), style = MaterialTheme.typography.bodyLarge)
                             Text(
-                                "Descarga archivos que Google Drive bloquea como malware o spam " +
-                                    "(error 403 cannotDownloadAbusiveFile). Actívalo solo si confías en el contenido.",
+                                Strings.get(R.string.descarga_archivos_que_google_drive_bloquea),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -648,8 +642,8 @@ fun ServerSheet(
                     OutlinedTextField(
                         value = rootFolder,
                         onValueChange = { rootFolder = extractDriveFolderId(it) },
-                        label = { Text("ID de carpeta raíz (opcional)") },
-                        supportingText = { Text("Monta solo esa carpeta en vez de todo Mi unidad. Puedes pegar el link para compartir: se toma solo el ID.") },
+                        label = { Text(Strings.get(R.string.id_de_carpeta_raiz_opcional)) },
+                        supportingText = { Text(Strings.get(R.string.monta_solo_esa_carpeta_en_vez)) },
                         singleLine = true,
                         shape = MaterialTheme.shapes.large,
                         modifier = Modifier.fillMaxWidth()
@@ -657,7 +651,7 @@ fun ServerSheet(
                     OutlinedTextField(
                         value = teamDrive,
                         onValueChange = { teamDrive = it },
-                        label = { Text("ID de unidad compartida (opcional)") },
+                        label = { Text(Strings.get(R.string.id_de_unidad_compartida_opcional)) },
                         singleLine = true,
                         shape = MaterialTheme.shapes.large,
                         modifier = Modifier.fillMaxWidth()
@@ -665,11 +659,11 @@ fun ServerSheet(
                     OutlinedTextField(
                         value = clientId,
                         onValueChange = { clientId = it; driveError = null },
-                        label = { Text("Client ID propio (opcional)") },
+                        label = { Text(Strings.get(R.string.client_id_propio_opcional)) },
                         supportingText = {
                             Text(
-                                if (BuildConfig.GDRIVE_CLIENT_ID.isNotEmpty()) "Vacío = el que trae la app."
-                                else "Sin esto se usa el compartido de rclone, con cuota limitada."
+                                if (BuildConfig.GDRIVE_CLIENT_ID.isNotEmpty()) Strings.get(R.string.vacio_el_que_trae_la_app)
+                                else Strings.get(R.string.sin_esto_se_usa_el_compartido)
                             )
                         },
                         singleLine = true,
@@ -679,25 +673,25 @@ fun ServerSheet(
                     OutlinedTextField(
                         value = clientSecret,
                         onValueChange = { clientSecret = it; driveError = null },
-                        label = { Text("Client Secret propio (opcional)") },
+                        label = { Text(Strings.get(R.string.client_secret_propio_opcional)) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         shape = MaterialTheme.shapes.large,
                         modifier = Modifier.fillMaxWidth()
                     )
                     TextButton(onClick = { showManual = !showManual }) {
-                        Text(if (showManual) "Ocultar token manual" else "Pegar token manualmente")
+                        Text(if (showManual) Strings.get(R.string.ocultar_token_manual) else Strings.get(R.string.pegar_token_manualmente))
                     }
                     if (showManual) {
                         Text(
-                            "En un PC ejecuta: rclone authorize \"drive\" y pega aquí el bloque JSON que imprime.",
+                            Strings.get(R.string.en_un_pc_ejecuta_rclone_authorize),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         OutlinedTextField(
                             value = manualToken,
                             onValueChange = { manualToken = it },
-                            label = { Text("Token (JSON)") },
+                            label = { Text(Strings.get(R.string.token_json)) },
                             minLines = 3,
                             shape = MaterialTheme.shapes.large,
                             modifier = Modifier.fillMaxWidth()
@@ -706,7 +700,7 @@ fun ServerSheet(
                             onClick = {
                                 val normalized = normalizeToken(manualToken)
                                 if (normalized == null) {
-                                    driveError = "Token inválido: debe traer access_token y refresh_token."
+                                    driveError = Strings.get(R.string.token_invalido_debe_traer_access_token)
                                 } else {
                                     newToken = normalized
                                     driveError = null
@@ -716,7 +710,7 @@ fun ServerSheet(
                             },
                             shape = MaterialTheme.shapes.large,
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("Usar este token") }
+                        ) { Text(Strings.get(R.string.usar_este_token)) }
                     }
                 }
 
@@ -730,9 +724,9 @@ fun ServerSheet(
                     val cleanName = name.trim()
                     nameError = validateProfileName(cleanName, initial?.name, existingNames)
                     if (type == RemoteType.FTP) {
-                        hostError = if (cleanHost(host).isEmpty()) "Escribe la dirección del servidor" else null
+                        hostError = if (cleanHost(host).isEmpty()) Strings.get(R.string.escribe_la_direccion_del_servidor) else null
                         val portNumber = port.trim().toIntOrNull()
-                        portError = if (portNumber == null || portNumber !in 1..65535) "Usa un puerto entre 1 y 65535" else null
+                        portError = if (portNumber == null || portNumber !in 1..65535) Strings.get(R.string.usa_un_puerto_entre_1_y) else null
                         if (nameError == null && hostError == null && portError == null) {
                             onSaveFtp(cleanName, host, port, user, pass)
                         }
@@ -767,9 +761,9 @@ fun ServerSheet(
                             s3NamespaceError = null
                             s3RegionError = null
                         }
-                        s3AccessKeyError = if (s3AccessKey.isBlank()) "Escribe la clave de acceso" else null
+                        s3AccessKeyError = if (s3AccessKey.isBlank()) Strings.get(R.string.escribe_la_clave_de_acceso) else null
                         s3SecretError = if (s3Secret.isEmpty() && initialS3?.hasSecret != true) {
-                            "Escribe la clave secreta"
+                            Strings.get(R.string.escribe_la_clave_secreta)
                         } else null
                         val bucketClean = cleanS3Bucket(s3Bucket)
                         s3BucketError = validateS3Bucket(bucketClean)
@@ -791,8 +785,8 @@ fun ServerSheet(
                     } else {
                         driveError = when {
                             effectiveClientId.isEmpty() != effectiveClientSecret.isEmpty() ->
-                                "Client ID y Client Secret van juntos: llena los dos o ninguno."
-                            !hasSession -> "Inicia sesión con Google antes de guardar."
+                                Strings.get(R.string.client_id_y_client_secret_van)
+                            !hasSession -> Strings.get(R.string.inicia_sesion_con_google_antes_de)
                             else -> null
                         }
                         if (nameError == null && driveError == null) {
@@ -817,7 +811,7 @@ fun ServerSheet(
                 shape = MaterialTheme.shapes.large,
                 modifier = Modifier.fillMaxWidth().height(56.dp)
             ) {
-                Text(if (initial == null) "Guardar servidor" else "Guardar cambios")
+                Text(if (initial == null) Strings.get(R.string.guardar_servidor) else Strings.get(R.string.guardar_cambios))
             }
         }
     }
@@ -836,5 +830,5 @@ private fun openInBrowser(context: Context, url: String): Boolean =
 
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText("Enlace de Google", text))
+    clipboard.setPrimaryClip(ClipData.newPlainText(Strings.get(R.string.enlace_de_google), text))
 }

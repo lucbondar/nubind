@@ -40,6 +40,8 @@ import kotlinx.coroutines.withContext
 import com.nubind.app.BindViewModel
 import com.nubind.app.ui.components.ScreenContainer
 import kotlinx.coroutines.launch
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 @Composable
 fun LogsScreen(vm: BindViewModel) {
@@ -65,10 +67,10 @@ fun LogsScreen(vm: BindViewModel) {
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Log de Nubind")
+                putExtra(Intent.EXTRA_SUBJECT, Strings.get(R.string.log_de_nubind))
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(Intent.createChooser(send, "Compartir log").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            context.startActivity(Intent.createChooser(send, Strings.get(R.string.compartir_log)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 
@@ -90,10 +92,10 @@ fun LogsScreen(vm: BindViewModel) {
         onRefresh = { vm.pullRefresh() },
         actions = {
             IconButton(onClick = { shareLogs() }, enabled = vm.logs.isNotBlank()) {
-                Icon(Icons.Default.Share, contentDescription = "Compartir registro")
+                Icon(Icons.Default.Share, contentDescription = Strings.get(R.string.compartir_registro))
             }
             IconButton(onClick = { discardLogs() }, enabled = vm.logs.isNotBlank()) {
-                Icon(Icons.Default.Delete, contentDescription = "Borrar registro")
+                Icon(Icons.Default.Delete, contentDescription = Strings.get(R.string.borrar_registro))
             }
             IconButton(onClick = {
                 vm.refreshLogs()
@@ -104,7 +106,7 @@ fun LogsScreen(vm: BindViewModel) {
             }) {
                 Icon(
                     Icons.Default.Refresh,
-                    contentDescription = "Actualizar",
+                    contentDescription = Strings.get(R.string.actualizar),
                     modifier = Modifier.graphicsLayer { rotationZ = spin.value }
                 )
             }
@@ -116,7 +118,7 @@ fun LogsScreen(vm: BindViewModel) {
             modifier = Modifier.fillMaxWidth().weight(1f)
         ) {
             Text(
-                text = vm.logs.ifBlank { "Sin logs todavía." },
+                text = vm.logs.ifBlank { Strings.get(R.string.sin_logs_todavia) },
                 fontFamily = FontFamily.Monospace,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier

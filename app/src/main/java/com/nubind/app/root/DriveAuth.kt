@@ -2,6 +2,8 @@ package com.nubind.app.root
 
 import org.json.JSONException
 import org.json.JSONObject
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 /** Estado del inicio de sesión con Google (lo observa el formulario de servidor). */
 sealed interface DriveAuthState {
@@ -49,7 +51,7 @@ object DriveAuthParser {
                 .map { it.trim() }
                 .filter { it.isNotEmpty() && !it.startsWith("__EXIT") }
             val line = lines.lastOrNull { ERROR_HINT.containsMatchIn(it) } ?: lines.lastOrNull()
-            error = line?.take(240) ?: "rclone terminó sin devolver un token (código $exit)"
+            error = line?.take(240) ?: Strings.get(R.string.rclone_termino_sin_devolver_un_token, exit)
         }
         return DriveAuthProgress(url = url, token = token, exitCode = exit, error = error)
     }

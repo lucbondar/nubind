@@ -28,6 +28,8 @@ import com.nubind.app.root.S3Perf
 import com.nubind.app.root.S3Provider
 import com.nubind.app.root.formatMinutes
 import kotlin.math.roundToInt
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 /**
  * Opciones de rendimiento propias de un servidor S3 (Oracle Cloud u otro
@@ -49,26 +51,23 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 when (provider) {
-                    S3Provider.ORACLE -> "Opciones de Oracle Cloud"
-                    S3Provider.AWS -> "Opciones de Amazon S3"
-                    S3Provider.CLOUDFLARE -> "Opciones de Cloudflare R2"
-                    S3Provider.OTHER -> "Opciones de S3"
+                    S3Provider.ORACLE -> Strings.get(R.string.opciones_de_oracle_cloud)
+                    S3Provider.AWS -> Strings.get(R.string.opciones_de_amazon_s3)
+                    S3Provider.CLOUDFLARE -> Strings.get(R.string.opciones_de_cloudflare_r2)
+                    S3Provider.OTHER -> Strings.get(R.string.opciones_de_s3)
                 },
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
                 when (provider) {
                     S3Provider.ORACLE ->
-                        "Oracle factura y limita por número de peticiones según el plan, así que por defecto se recortan."
+                        Strings.get(R.string.oracle_factura_y_limita_por_numero)
                     S3Provider.AWS ->
-                        "Amazon S3 aguanta mucho paralelismo y cobra una fracción por cada mil peticiones, " +
-                            "así que por defecto no se recortan; puedes activarlo si quieres gastar menos."
+                        Strings.get(R.string.amazon_s3_aguanta_mucho_paralelismo_y)
                     S3Provider.CLOUDFLARE ->
-                        "R2 no cobra por la salida de datos, pero sí por número de peticiones pasado su cupo gratis, " +
-                            "así que por defecto se recortan. La subida paralela arranca en 3 partes " +
-                            "como valor conservador para archivos grandes."
+                        Strings.get(R.string.r2_no_cobra_por_la_salida)
                     S3Provider.OTHER ->
-                        "Valores para cualquier servicio compatible con S3."
+                        Strings.get(R.string.valores_para_cualquier_servicio_compatible_con)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant
@@ -82,11 +81,11 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Menos peticiones" + if (s3.fewerRequests == null) " (auto)" else "",
+                    Strings.get(R.string.menos_peticiones) + if (s3.fewerRequests == null) Strings.get(R.string.auto) else "",
                     style = MaterialTheme.typography.titleSmall
                 )
                 Text(
-                    "No pide los datos de cada archivo uno por uno: la fecha de modificación pasa a ser la de subida.",
+                    Strings.get(R.string.no_pide_los_datos_de_cada),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant
                 )
@@ -96,7 +95,7 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
 
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                "Listados en caché" + if (s3.dirCacheMin == null) " (auto)" else "",
+                Strings.get(R.string.listados_en_cache) + if (s3.dirCacheMin == null) Strings.get(R.string.auto) else "",
                 style = MaterialTheme.typography.titleSmall
             )
             ChipChoices(
@@ -106,7 +105,7 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
                 onSelect = { vm.setS3DirCacheMin(it) }
             )
             Text(
-                "Ajustes globales de S3: se aplican al servidor que montes. Los cambios externos pueden tardar este tiempo en verse.",
+                Strings.get(R.string.ajustes_globales_de_s3_se_aplican),
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant
             )
@@ -114,7 +113,7 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
 
         if (isMax) {
             S3StepSlider(
-                title = "Lectura paralela",
+                title = Strings.get(R.string.lectura_paralela),
                 value = s3.streams ?: S3Perf.STREAMS_DEFAULT,
                 isAuto = s3.streams == null,
                 range = S3Perf.STREAMS_MIN..S3Perf.STREAMS_MAX,
@@ -122,7 +121,7 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
                 onCommit = { vm.setS3Streams(it) }
             )
             S3StepSlider(
-                title = "Subida paralela",
+                title = Strings.get(R.string.subida_paralela),
                 value = s3.uploadConcurrency ?: S3Perf.defaultUploadConcurrency(provider),
                 isAuto = s3.uploadConcurrency == null,
                 range = S3Perf.UPLOAD_CONC_MIN..S3Perf.UPLOAD_CONC_MAX,
@@ -133,7 +132,7 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
             val chunk = s3.chunkMb ?: S3Perf.CHUNK_DEFAULT_MB
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    "Tamaño de parte de subida" + if (s3.chunkMb == null) " (auto)" else "",
+                    Strings.get(R.string.tamano_de_parte_de_subida) + if (s3.chunkMb == null) Strings.get(R.string.auto) else "",
                     style = MaterialTheme.typography.titleSmall
                 )
                 ChipChoices(
@@ -147,9 +146,9 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
                 val ram = S3Perf.uploadRamMb(used, chunk)
                 Text(
                     if (used < requested) {
-                        "Buffers multiparte: aprox. $ram MB. Se usarán $used partes a la vez en vez de $requested para no pasar de ${S3Perf.UPLOAD_RAM_CAP_MB} MB."
+                        Strings.get(R.string.buffers_multiparte_aprox_mb_se_usaran, ram, used, requested, S3Perf.UPLOAD_RAM_CAP_MB)
                     } else {
-                        "Buffers multiparte: aprox. $ram MB; no incluye lecturas ni la RAM del resto de la app."
+                        Strings.get(R.string.buffers_multiparte_aprox_mb_no_incluye, ram)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (used < requested) scheme.error else scheme.onSurfaceVariant
@@ -157,14 +156,14 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
             }
         } else {
             Text(
-                "Lectura y subida en paralelo están en el perfil Máximo.",
+                Strings.get(R.string.lectura_y_subida_en_paralelo_estan),
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant
             )
         }
 
         if (s3.isCustom) {
-            TextButton(onClick = { vm.resetS3Perf() }) { Text("Restablecer valores automáticos") }
+            TextButton(onClick = { vm.resetS3Perf() }) { Text(Strings.get(R.string.restablecer_valores_automaticos)) }
         }
     }
 }
@@ -190,7 +189,7 @@ private fun S3StepSlider(
         ) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             Text(
-                "${draft.roundToInt()} $unit" + if (isAuto) " (auto)" else "",
+                "${draft.roundToInt()} $unit" + if (isAuto) Strings.get(R.string.auto) else "",
                 style = MaterialTheme.typography.titleSmall,
                 color = scheme.primary
             )

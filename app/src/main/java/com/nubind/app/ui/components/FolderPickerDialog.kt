@@ -34,6 +34,8 @@ import com.nubind.app.root.STORAGE_ROOT
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 /**
  * Explorador de carpetas del almacenamiento interno para elegir el destino
@@ -67,7 +69,7 @@ fun FolderPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Elegir carpeta") },
+        title = { Text(Strings.get(R.string.elegir_carpeta)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
@@ -81,7 +83,7 @@ fun FolderPickerDialog(
                     OutlinedTextField(
                         value = newName,
                         onValueChange = { newName = it; error = null },
-                        label = { Text("Nombre de la carpeta") },
+                        label = { Text(Strings.get(R.string.nombre_de_la_carpeta)) },
                         singleLine = true,
                         isError = error != null,
                         supportingText = error?.let { { Text(it) } },
@@ -89,11 +91,11 @@ fun FolderPickerDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                        TextButton(onClick = { creating = false; newName = ""; error = null }) { Text("Cancelar") }
+                        TextButton(onClick = { creating = false; newName = ""; error = null }) { Text(Strings.get(R.string.cancelar)) }
                         TextButton(onClick = {
                             val n = newName.trim()
                             if (n.isEmpty() || n.contains('/') || n == "." || n.contains("..")) {
-                                error = "Nombre no válido"
+                                error = Strings.get(R.string.nombre_no_valido)
                             } else {
                                 val target = "$current/$n"
                                 creating = false
@@ -104,10 +106,10 @@ fun FolderPickerDialog(
                                     reload++
                                 }
                             }
-                        }) { Text("Crear") }
+                        }) { Text(Strings.get(R.string.crear)) }
                     }
                 } else {
-                    TextButton(onClick = { creating = true }) { Text("Nueva carpeta aquí") }
+                    TextButton(onClick = { creating = true }) { Text(Strings.get(R.string.nueva_carpeta_aqui)) }
                 }
 
                 HorizontalDivider()
@@ -116,7 +118,7 @@ fun FolderPickerDialog(
                     if (!atRoot) {
                         item {
                             Text(
-                                "‹ Subir",
+                                Strings.get(R.string.subir),
                                 style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -129,7 +131,7 @@ fun FolderPickerDialog(
                     if (list == null) {
                         item { LoadingIndicator(Modifier.padding(vertical = 12.dp).size(48.dp)) }
                     } else if (list.isEmpty()) {
-                        item { Text("Sin subcarpetas", modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        item { Text(Strings.get(R.string.sin_subcarpetas), modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     } else {
                         items(list) { name ->
                             Row(
@@ -147,16 +149,16 @@ fun FolderPickerDialog(
                 }
 
                 Text(
-                    if (atRoot) "Entra en una carpeta para poder elegirla. El contenido que ya tenga quedará oculto mientras el servidor esté montado."
-                    else "El contenido que ya tenga esta carpeta quedará oculto mientras el servidor esté montado.",
+                    if (atRoot) Strings.get(R.string.entra_en_una_carpeta_para_poder)
+                    else Strings.get(R.string.el_contenido_que_ya_tenga_esta),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
         confirmButton = {
-            TextButton(enabled = !atRoot, onClick = { onPick(current) }) { Text("Usar esta carpeta") }
+            TextButton(enabled = !atRoot, onClick = { onPick(current) }) { Text(Strings.get(R.string.usar_esta_carpeta)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.get(R.string.cancelar)) } }
     )
 }

@@ -159,6 +159,8 @@ La app puede llevar integrado tu propio cliente OAuth de Google para no depender
 - Inicio también arma **doble panel** en pantalla ancha: montaje (servidor, carpeta, botón) a la izquierda, ajustes (autostart y rendimiento) a la derecha.
 - Icono adaptable con versión monocromática para el tema de íconos.
 - Pantallas de **Inicio**, **Servidores**, **Logs** y **Acerca de**, con la versión de la app y de rclone.
+- **Idiomas:** inglés (por defecto), español y portugués de Brasil. La app sigue el idioma del sistema (no hay selector). Los textos viven en `res/values/strings.xml` (inglés), `values-es/` y `values-pt-rBR/`, y se leen con `Strings.get(R.string.…)` (`Strings.kt`), que no necesita un `Context`; en enums y objects se guarda el `@StringRes` y el texto se resuelve al leerlo. Los mensajes que escriben los scripts del módulo en el log siguen en español.
+- En apaisado, el difuminado sobre la barra de gestos es más bajo y más suave que en vertical.
 
 ### Publicación automática
 

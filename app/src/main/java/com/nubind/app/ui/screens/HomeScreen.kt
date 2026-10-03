@@ -66,6 +66,8 @@ import com.nubind.app.ui.components.rememberIsDualPane
 import com.nubind.app.ui.components.serverIconFor
 import com.nubind.app.ui.theme.AppMotion
 import kotlin.math.roundToInt
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -94,7 +96,7 @@ fun HomeScreen(vm: BindViewModel, onOpenServers: () -> Unit) {
     }
 
     ScreenContainer(
-        title = "Inicio",
+        title = Strings.get(R.string.inicio),
         refreshing = vm.refreshing,
         onRefresh = { vm.pullRefresh() },
         maxContentWidth = if (dualPane) DualPaneContentWidth else null
@@ -107,14 +109,14 @@ fun HomeScreen(vm: BindViewModel, onOpenServers: () -> Unit) {
         ) {
             Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    if (mounted) "Montado" else "Desmontado",
+                    if (mounted) Strings.get(R.string.montado) else Strings.get(R.string.desmontado),
                     style = MaterialTheme.typography.headlineLarge
                 )
                 Text(
                     if (mounted) {
-                        "Los archivos de ${vm.mountedRemote ?: "tu servidor"} están en ${vm.targetPath}."
+                        Strings.get(R.string.los_archivos_de_estan_en, vm.mountedRemote ?: Strings.get(R.string.tu_servidor), vm.targetPath)
                     } else {
-                        "Elige un servidor y móntalo en ${vm.targetPath}."
+                        Strings.get(R.string.elige_un_servidor_y_montalo_en, vm.targetPath)
                     },
                     style = MaterialTheme.typography.bodyLarge
                 )
@@ -132,7 +134,7 @@ fun HomeScreen(vm: BindViewModel, onOpenServers: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    "No se detectó acceso root. Concede el permiso a esta app desde KernelSU Manager.",
+                    Strings.get(R.string.no_se_detecto_acceso_root_concede),
                     modifier = Modifier.padding(20.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -200,27 +202,20 @@ fun HomeScreen(vm: BindViewModel, onOpenServers: () -> Unit) {
     if (showRamCacheConfirm) {
         AlertDialog(
             onDismissRequest = { showRamCacheConfirm = false },
-            title = { Text("¿Activar caché en RAM?") },
+            title = { Text(Strings.get(R.string.activar_cache_en_ram)) },
             text = {
                 Text(
-                    "La caché del perfil Máximo se guardará en la memoria RAM del " +
-                        "teléfono en vez del almacenamiento interno: puede acelerar lecturas " +
-                        "ya cacheadas, pero no la red. Consume RAM según se llena durante el " +
-                        "tiempo que dure el montaje y su contenido se pierde al desmontar " +
-                        "o reiniciar. IMPORTANTE: las escrituras pendientes de subir pueden " +
-                        "perderse si se reinicia o se corta la alimentación. Si al " +
-                        "montar no hay memoria suficiente, se usa el almacenamiento interno " +
-                        "sin más aviso que una línea en Logs."
+                    Strings.get(R.string.la_cache_del_perfil_maximo_se)
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     vm.setRamCache(true)
                     showRamCacheConfirm = false
-                }) { Text("Activar") }
+                }) { Text(Strings.get(R.string.activar)) }
             },
             dismissButton = {
-                TextButton(onClick = { showRamCacheConfirm = false }) { Text("Cancelar") }
+                TextButton(onClick = { showRamCacheConfirm = false }) { Text(Strings.get(R.string.cancelar)) }
             }
         )
     }
@@ -267,12 +262,12 @@ private fun MountCard(
     val scheme = MaterialTheme.colorScheme
     val selected = vm.profiles.firstOrNull { it.name == active }
     val label = when {
-        vm.busy -> "Trabajando…"
-        mounted && (vm.mountedRemote == null || vm.mountedRemote == active) -> "Desmontar"
-        mounted -> "Cambiar a $active"
-        else -> "Montar"
+        vm.busy -> Strings.get(R.string.trabajando)
+        mounted && (vm.mountedRemote == null || vm.mountedRemote == active) -> Strings.get(R.string.desmontar)
+        mounted -> Strings.get(R.string.cambiar_a, active)
+        else -> Strings.get(R.string.montar)
     }
-    SectionCard(title = "Servidor seleccionado", icon = AppIcons.Cloud) {
+    SectionCard(title = Strings.get(R.string.servidor_seleccionado), icon = AppIcons.Cloud) {
         Surface(
             color = scheme.surfaceContainerLow,
             shape = MaterialTheme.shapes.large,
@@ -310,7 +305,7 @@ private fun MountCard(
                 // el nombre.
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                     Text(
-                        selected?.name ?: "Ninguno",
+                        selected?.name ?: Strings.get(R.string.ninguno),
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -330,7 +325,7 @@ private fun MountCard(
                     }
                 }
                 TextButton(onClick = onOpenServers) {
-                    Text(if (selected == null) "Agregar" else "Cambiar")
+                    Text(if (selected == null) Strings.get(R.string.agregar) else Strings.get(R.string.cambiar))
                 }
             }
         }
@@ -342,7 +337,7 @@ private fun MountCard(
         ) {
             Icon(AppIcons.Folder, contentDescription = null, tint = scheme.primary)
             Text(
-                "Carpeta de destino",
+                Strings.get(R.string.carpeta_de_destino),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f)
             )
@@ -361,7 +356,7 @@ private fun MountCard(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = onChangeFolder) { Text("Cambiar") }
+                TextButton(onClick = onChangeFolder) { Text(Strings.get(R.string.cambiar)) }
             }
         }
 
@@ -381,9 +376,9 @@ private fun MountCard(
 @Composable
 private fun AutostartCard(vm: BindViewModel) {
     SectionCard(
-        title = "Montar al iniciar",
+        title = Strings.get(R.string.montar_al_iniciar),
         icon = Icons.Default.PlayArrow,
-        subtitle = "Monta el servidor seleccionado cuando arranca el teléfono."
+        subtitle = Strings.get(R.string.monta_el_servidor_seleccionado_cuando_arranca)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -391,7 +386,7 @@ private fun AutostartCard(vm: BindViewModel) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                if (vm.autostart) "Activado" else "Desactivado",
+                if (vm.autostart) Strings.get(R.string.activado) else Strings.get(R.string.desactivado),
                 style = MaterialTheme.typography.titleMedium
             )
             Switch(checked = vm.autostart, onCheckedChange = { vm.setAutostart(it) })
@@ -412,9 +407,9 @@ private fun PerfCard(
 ) {
     val scheme = MaterialTheme.colorScheme
     SectionCard(
-        title = "Rendimiento",
+        title = Strings.get(R.string.rendimiento),
         icon = AppIcons.Bolt,
-        subtitle = "Máximo guarda más en caché para leer y escribir más rápido, a costa de espacio en disco. Se aplica al volver a montar.",
+        subtitle = Strings.get(R.string.maximo_guarda_mas_en_cache_para),
         expandable = true
     ) {
         Row(
@@ -449,9 +444,9 @@ private fun PerfCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Tamaño de caché", style = MaterialTheme.typography.titleMedium)
+                Text(Strings.get(R.string.tamano_de_cache), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "${draft.roundToInt()} GB" + if (custom == null) " (auto)" else "",
+                    "${draft.roundToInt()} GB" + if (custom == null) Strings.get(R.string.auto) else "",
                     style = MaterialTheme.typography.titleMedium,
                     color = scheme.primary
                 )
@@ -471,12 +466,12 @@ private fun PerfCard(
                 steps = CACHE_GB_MAX - CACHE_GB_MIN - 1
             )
             Text(
-                "Aplica a Google Drive, S3 y FTP en modo Máximo. Se intenta mantener 2 GB libres; los archivos abiertos y las subidas pendientes pueden superar el límite de caché.",
+                Strings.get(R.string.aplica_a_google_drive_s3_y),
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant
             )
             if (custom != null) {
-                TextButton(onClick = { vm.setCacheGb(null) }) { Text("Restablecer tamaño automático") }
+                TextButton(onClick = { vm.setCacheGb(null) }) { Text(Strings.get(R.string.restablecer_tamano_automatico)) }
             }
         }
 
@@ -494,7 +489,7 @@ private fun PerfCard(
         ) {
             Icon(AppIcons.Bolt, contentDescription = null)
             Spacer(Modifier.width(10.dp))
-            Text("Probar rendimiento", style = MaterialTheme.typography.titleMedium)
+            Text(Strings.get(R.string.probar_rendimiento), style = MaterialTheme.typography.titleMedium)
         }
 
         if (vm.perfMode == PerfMode.MAX) {
@@ -505,9 +500,9 @@ private fun PerfCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Caché en RAM", style = MaterialTheme.typography.titleMedium)
+                    Text(Strings.get(R.string.cache_en_ram), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Lecturas y escrituras a velocidad de RAM. Se pierde al desmontar o reiniciar.",
+                        Strings.get(R.string.lecturas_y_escrituras_a_velocidad_de),
                         style = MaterialTheme.typography.bodySmall,
                         color = scheme.onSurfaceVariant
                     )
@@ -529,19 +524,19 @@ private fun PerfCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(Modifier.weight(1f)) {
-                Text("Caché en disco", style = MaterialTheme.typography.titleMedium)
+                Text(Strings.get(R.string.cache_en_disco), style = MaterialTheme.typography.titleMedium)
                 Text(
                     if (mounted) {
-                        "${formatCacheKb(vm.cacheKb)} usados · desmonta para borrarla"
+                        Strings.get(R.string.usados_desmonta_para_borrarla, formatCacheKb(vm.cacheKb))
                     } else {
-                        "${formatCacheKb(vm.cacheKb)} usados"
+                        Strings.get(R.string.usados, formatCacheKb(vm.cacheKb))
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant
                 )
             }
             TextButton(onClick = { vm.clearCache() }, enabled = !mounted && !vm.busy) {
-                Text("Borrar caché")
+                Text(Strings.get(R.string.borrar_cache))
             }
         }
     }
@@ -562,17 +557,16 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
     val hasData = status != null && status.selectedFiles > 0
 
     SectionCard(
-        title = "Precarga de archivos",
+        title = Strings.get(R.string.precarga_de_archivos),
         icon = AppIcons.Download,
-        subtitle = "Baja los archivos del remoto a la caché local del teléfono antes de que se " +
-            "necesiten. Ya precargados, se leen desde ahí en vez de esperar la descarga en el momento."
+        subtitle = Strings.get(R.string.baja_los_archivos_del_remoto_a)
     ) {
         if (!hasData) {
             Text(
                 if (mounted) {
-                    "Todavía no hay nada precargado. Se hace sola al montar, o tócalo abajo."
+                    Strings.get(R.string.todavia_no_hay_nada_precargado_se)
                 } else {
-                    "Monta un servidor para poder precargarlo."
+                    Strings.get(R.string.monta_un_servidor_para_poder_precargarlo)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant
@@ -587,9 +581,9 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
             ) {
                 Text(
                     when {
-                        s.running -> "Precargando…"
-                        s.finished -> "Listo"
-                        else -> "Incompleta"
+                        s.running -> Strings.get(R.string.precargando)
+                        s.finished -> Strings.get(R.string.listo)
+                        else -> Strings.get(R.string.incompleta)
                     },
                     style = MaterialTheme.typography.titleMedium
                 )
@@ -600,20 +594,20 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
             )
             Text(
-                "${s.doneMb} / ${s.selectedMb} MB · ${s.doneFiles} / ${s.selectedFiles} archivos" +
-                    if (s.totalFiles > s.selectedFiles) " (de ${s.totalFiles} en el remoto)" else "",
+                Strings.get(R.string.mb_archivos, s.doneMb, s.selectedMb, s.doneFiles, s.selectedFiles) +
+                    if (s.totalFiles > s.selectedFiles) Strings.get(R.string.de_en_el_remoto, s.totalFiles) else "",
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant
             )
             if (s.finished) {
                 Text(
-                    "Todo en caché local: se comporta como almacenamiento local para lo que ya se precargó.",
+                    Strings.get(R.string.todo_en_cache_local_se_comporta),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.primary
                 )
             } else if (s.totalFiles > s.selectedFiles) {
                 Text(
-                    "El remoto tiene más archivos de los que entran en el tamaño de caché configurado.",
+                    Strings.get(R.string.el_remoto_tiene_mas_archivos_de),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant
                 )
@@ -629,7 +623,7 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
             Icon(AppIcons.Download, contentDescription = null)
             Spacer(Modifier.width(10.dp))
             Text(
-                if (status?.finished == true) "Precargar de nuevo" else "Precargar ahora",
+                if (status?.finished == true) Strings.get(R.string.precargar_de_nuevo) else Strings.get(R.string.precargar_ahora),
                 style = MaterialTheme.typography.titleMedium
             )
         }

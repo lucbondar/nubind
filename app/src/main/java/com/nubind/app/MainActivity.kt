@@ -2,6 +2,7 @@ package com.nubind.app
 
 import android.content.res.Configuration
 import android.os.Bundle
+import androidx.annotation.StringRes
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -136,11 +137,14 @@ class MainActivity : ComponentActivity() {
  * del set Filled por defecto, más anguloso, para que la píldora se vea más
  * armónica con sus propias formas circulares.
  */
-private sealed class Screen(val label: String, val filledIcon: ImageVector, val outlinedIcon: ImageVector) {
-    object Home : Screen("Inicio", Icons.Rounded.Home, Icons.Outlined.Home)
-    object Servers : Screen("Servidores", Icons.Rounded.AccountBox, Icons.Outlined.AccountBox)
-    object Logs : Screen("Logs", Icons.AutoMirrored.Rounded.List, Icons.AutoMirrored.Outlined.List)
-    object About : Screen("Acerca de", Icons.Rounded.Info, Icons.Outlined.Info)
+private sealed class Screen(@StringRes val labelRes: Int, val filledIcon: ImageVector, val outlinedIcon: ImageVector) {
+    /** Etiqueta en el idioma actual (se resuelve al leerla, no al cargar la clase). */
+    val label: String get() = Strings.get(labelRes)
+
+    object Home : Screen(R.string.inicio, Icons.Rounded.Home, Icons.Outlined.Home)
+    object Servers : Screen(R.string.servidores, Icons.Rounded.AccountBox, Icons.Outlined.AccountBox)
+    object Logs : Screen(R.string.logs, Icons.AutoMirrored.Rounded.List, Icons.AutoMirrored.Outlined.List)
+    object About : Screen(R.string.acerca_de, Icons.Rounded.Info, Icons.Outlined.Info)
 }
 
 /** Alto de la píldora (52 + 2×8 de relleno) + separación por arriba y abajo. */
@@ -155,9 +159,14 @@ private val FadeHeight = 104.dp
 /**
  * En apaisado la pantalla es mucho más baja: el mismo alto de degradado que
  * en retrato ocupa ahí una porción bastante mayor de la vista y tapa más
- * tarjetas de las necesarias. Se reduce solo para esa orientación.
+ * tarjetas de las necesarias. Se reduce solo para esa orientación, y además
+ * con menos intensidad ([FadeStrengthLandscape]): ahí el difuminado solo
+ * tiene que suavizar el corte del contenido contra la barra de gestos.
  */
-private val FadeHeightLandscape = 48.dp
+private val FadeHeightLandscape = 20.dp
+
+/** Multiplicador de la opacidad del difuminado inferior en apaisado (1 = igual que en retrato). */
+private const val FadeStrengthLandscape = 0.6f
 
 @Composable
 private fun AppScaffold(vm: BindViewModel) {
@@ -230,6 +239,7 @@ private fun AppScaffold(vm: BindViewModel) {
             // ahí y el mismo alto que en retrato tapaba de más.
             run {
                 val fade = MaterialTheme.colorScheme.background
+                val strength = if (isLandscape) FadeStrengthLandscape else 1f
                 Box(
                     Modifier
                         .align(Alignment.BottomCenter)
@@ -238,9 +248,9 @@ private fun AppScaffold(vm: BindViewModel) {
                         .background(
                             Brush.verticalGradient(
                                 0f to Color.Transparent,
-                                0.35f to fade.copy(alpha = 0.25f),
-                                0.7f to fade.copy(alpha = 0.7f),
-                                1f to fade.copy(alpha = 0.96f)
+                                0.35f to fade.copy(alpha = 0.25f * strength),
+                                0.7f to fade.copy(alpha = 0.7f * strength),
+                                1f to fade.copy(alpha = 0.96f * strength)
                             )
                         )
                 )

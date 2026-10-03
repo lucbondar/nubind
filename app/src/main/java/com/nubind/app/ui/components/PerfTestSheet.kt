@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import com.nubind.app.root.PerfStep
 import com.nubind.app.root.PerfStepState
 import com.nubind.app.root.PerfTestState
+import com.nubind.app.R
+import com.nubind.app.Strings
 
 /**
  * Pantalla de la prueba de rendimiento: una hoja apilable (como la de agregar
@@ -63,10 +65,9 @@ fun PerfTestSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("Probar rendimiento", style = MaterialTheme.typography.headlineMedium)
+            Text(Strings.get(R.string.probar_rendimiento), style = MaterialTheme.typography.headlineMedium)
             Text(
-                "Comprueba que el perfil elegido se aplicó al montaje y mide la velocidad real. " +
-                    "Escribe un archivo temporal de 32 MB en la carpeta montada y lo borra al terminar.",
+                Strings.get(R.string.comprueba_que_el_perfil_elegido_se),
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant
             )
@@ -98,7 +99,7 @@ fun PerfTestSheet(
                 shape = MaterialTheme.shapes.large,
                 modifier = Modifier.fillMaxWidth().height(56.dp)
             ) {
-                Text(if (state.running) "Probando…" else "Repetir prueba")
+                Text(if (state.running) Strings.get(R.string.probando) else Strings.get(R.string.repetir_prueba))
             }
         }
     }
@@ -108,9 +109,9 @@ fun PerfTestSheet(
 private fun VerdictCard(verdict: PerfStepState, summary: String) {
     val scheme = MaterialTheme.colorScheme
     val (container, content, title) = when (verdict) {
-        PerfStepState.OK -> Triple(scheme.primaryContainer, scheme.onPrimaryContainer, "Todo en orden")
-        PerfStepState.WARN -> Triple(scheme.tertiaryContainer, scheme.onTertiaryContainer, "Con avisos")
-        else -> Triple(scheme.errorContainer, scheme.onErrorContainer, "Con problemas")
+        PerfStepState.OK -> Triple(scheme.primaryContainer, scheme.onPrimaryContainer, Strings.get(R.string.todo_en_orden))
+        PerfStepState.WARN -> Triple(scheme.tertiaryContainer, scheme.onTertiaryContainer, Strings.get(R.string.con_avisos))
+        else -> Triple(scheme.errorContainer, scheme.onErrorContainer, Strings.get(R.string.con_problemas))
     }
     Surface(
         color = container,
@@ -171,11 +172,11 @@ private fun StepBadge(state: PerfStepState) {
             PerfStepState.RUNNING ->
                 CircularProgressIndicator(Modifier.size(20.dp), color = scheme.primary, strokeWidth = 2.5.dp)
             PerfStepState.OK ->
-                Icon(Icons.Default.Check, contentDescription = "Correcto", tint = content, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Check, contentDescription = Strings.get(R.string.correcto), tint = content, modifier = Modifier.size(20.dp))
             PerfStepState.WARN ->
-                Icon(Icons.Default.Warning, contentDescription = "Aviso", tint = content, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Warning, contentDescription = Strings.get(R.string.aviso), tint = content, modifier = Modifier.size(20.dp))
             PerfStepState.FAIL ->
-                Icon(Icons.Default.Close, contentDescription = "Error", tint = content, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Close, contentDescription = Strings.get(R.string.error_2), tint = content, modifier = Modifier.size(20.dp))
             PerfStepState.SKIP -> Text("–", color = content, style = MaterialTheme.typography.titleMedium)
             PerfStepState.PENDING -> Unit
         }
