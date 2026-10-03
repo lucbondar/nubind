@@ -146,7 +146,7 @@ private fun MobileDataBadge() {
         animationSpec = infiniteRepeatable(tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "pulse"
     )
-    val shape = remember { MaterialShapes.Cookie9Sided.toShape() }
+    val shape = MaterialShapes.Cookie9Sided.toShape()
     val container = MaterialTheme.colorScheme.errorContainer
     val glyph = MaterialTheme.colorScheme.onErrorContainer
 
