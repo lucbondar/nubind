@@ -281,4 +281,5 @@
     <string name="aviso_datos_moviles_titulo">Mobile data in use</string>
     <string name="aviso_datos_moviles_texto">You\'re on mobile data (or a metered network). Maximum mode downloads the server\'s contents into the phone\'s cache and can use several GB of your data plan. Continue?</string>
     <string name="continuar_igual">Continue anyway</string>
+    <string name="no_volver_a_mostrar">Don\'t show again</string>
 </resources>

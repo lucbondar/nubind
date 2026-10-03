@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
 import android.net.ConnectivityManager
 import android.os.SystemClock
 import com.nubind.app.root.DEFAULT_TARGET_PATH
@@ -124,10 +125,15 @@ class BindViewModel : ViewModel() {
 
     /** Ejecuta [action] ya, o pide confirmación antes si se está en datos móviles. */
     private fun guardMetered(action: () -> Unit) {
-        if (isOnMeteredNetwork()) pendingMeteredAction = action else action()
+        val skip = prefs().getBoolean(KEY_SKIP_METERED_WARNING, false)
+        if (!skip && isOnMeteredNetwork()) pendingMeteredAction = action else action()
     }
 
-    fun confirmMetered() {
+    private fun prefs() = Strings.context().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    /** [dontShowAgain]: el usuario marcó "No volver a mostrar" al continuar. */
+    fun confirmMetered(dontShowAgain: Boolean = false) {
+        if (dontShowAgain) prefs().edit().putBoolean(KEY_SKIP_METERED_WARNING, true).apply()
         val action = pendingMeteredAction
         pendingMeteredAction = null
         action?.invoke()
@@ -662,6 +668,8 @@ class BindViewModel : ViewModel() {
     }
 
     private companion object {
+        const val PREFS_NAME = "nubind_prefs"
+        const val KEY_SKIP_METERED_WARNING = "skip_metered_warning"
         const val AUTH_POLL_MS = 600L
         const val MIN_REFRESH_MS = 500L
         const val PERF_POLL_MS = 500L

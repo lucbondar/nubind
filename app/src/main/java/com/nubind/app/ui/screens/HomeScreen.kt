@@ -201,7 +201,7 @@ fun HomeScreen(vm: BindViewModel, onOpenServers: () -> Unit) {
     }
 
     if (vm.pendingMeteredAction != null) {
-        MeteredDataDialog(onConfirm = { vm.confirmMetered() }, onDismiss = { vm.dismissMetered() })
+        MeteredDataDialog(onConfirm = { vm.confirmMetered(it) }, onDismiss = { vm.dismissMetered() })
     }
 
     if (showRamCacheConfirm) {
