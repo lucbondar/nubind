@@ -154,7 +154,7 @@ La app puede llevar integrado tu propio cliente OAuth de Google para no depender
 - Material 3 con **color dinámico** (Material You) en Android 12 o superior.
 - Modo **claro y oscuro** según el sistema, a pantalla completa.
 - Esquinas amplias, animaciones con resorte y efecto de desenfoque.
-- En **Acerca de**, la nube del logo anima cada 6 segundos: primero el saltito con rebote (a los 1,5 s) y luego, al azar y sin repetir la anterior, una de 10 animaciones: cadena que la ata (bind), cae el logo de un proveedor S3 / Drive, subida, descarga a una carpeta, giro 3D, rayo, logos de Amazon S3 / Cloudflare / Oracle / Drive orbitando, candado con check, siesta con zzz y gelatina. Tocarla lanza una al azar; se desactiva si las animaciones del sistema están apagadas (código en `LogoAnimations.kt`).
+- En **Acerca de**, la nube del logo protagoniza una escena al azar cada 4,5 a 9 segundos, sin repetir hasta haber visto todas: monta una carpeta que recibe archivos, despliega el mazo de servidores (FTP / Drive / S3), corre la prueba de rendimiento con velocímetro, absorbe paquetes en la precarga, abre una terminal con el escudo de acceso root, orbita con los logos de Amazon S3 / Cloudflare / Oracle / Drive, sincroniza con flechas y despierta con el interruptor de montaje automático. Tocarla lanza una al instante; se desactiva si las animaciones del sistema están apagadas (código en `LogoAnimations.kt`).
 - Ancho del contenido adaptable: crece en pantallas anchas en vez de dejar franjas vacías a los costados.
 - Inicio también arma **doble panel** en pantalla ancha: montaje (servidor, carpeta, botón) a la izquierda, ajustes (autostart y rendimiento) a la derecha.
 - Icono adaptable con versión monocromática para el tema de íconos.
