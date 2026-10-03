@@ -274,4 +274,8 @@
     <string name="logs">Logs</string>
     <string name="tu_servidor">your server</string>
     <string name="object_storage_api">Object Storage (S3-compatible API)</string>
+    <string name="preload_scanning">Scanning remote…</string>
+    <string name="tile_mounting">Mounting…</string>
+    <string name="tile_unmounting">Unmounting…</string>
+    <string name="tile_label" translatable="false">Nubind</string>
 </resources>

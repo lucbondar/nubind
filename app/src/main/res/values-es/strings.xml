@@ -274,4 +274,7 @@
     <string name="logs">Logs</string>
     <string name="tu_servidor">tu servidor</string>
     <string name="object_storage_api">Object Storage (API compatible con S3)</string>
+    <string name="preload_scanning">Revisando el remoto…</string>
+    <string name="tile_mounting">Montando…</string>
+    <string name="tile_unmounting">Desmontando…</string>
 </resources>

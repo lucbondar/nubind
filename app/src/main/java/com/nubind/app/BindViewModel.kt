@@ -442,6 +442,8 @@ class BindViewModel : ViewModel() {
      * si algo se queda corriendo para siempre.
      */
     private suspend fun CoroutineScope.watchPreload(announceIfNeverStarted: Boolean = false) {
+        // Notificación persistente: sigue el progreso aunque se cierre la app.
+        PreloadService.start(Strings.context())
         val startDeadline = SystemClock.elapsedRealtime() + PRELOAD_START_GRACE_MS
         val hardDeadline = SystemClock.elapsedRealtime() + PRELOAD_TIMEOUT_MS
         var everRunning = false
