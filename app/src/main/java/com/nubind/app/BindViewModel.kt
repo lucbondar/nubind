@@ -80,9 +80,9 @@ class BindViewModel : ViewModel() {
         private set
     /** Tamaño actual de la caché en disco (KB), para mostrarlo junto al botón de borrarla. */
     var cacheKb by mutableStateOf(0L)
+        private set
     /** Caché en disco de cada servidor, en KB (por nombre). La suma de todos es [cacheKb]. */
     var serverCacheKb by mutableStateOf<Map<String, Long>>(emptyMap())
-        private set
         private set
     /** Servidor seleccionado: el que usa el botón Montar. */
     var activeName by mutableStateOf<String?>(null)
