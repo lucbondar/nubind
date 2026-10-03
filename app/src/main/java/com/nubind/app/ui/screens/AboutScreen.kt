@@ -3,7 +3,10 @@ package com.nubind.app.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -68,52 +71,25 @@ fun AboutScreen(vm: BindViewModel) {
         title = "Acerca de",
         maxContentWidth = if (dualPane) DualPaneContentWidth else null
     ) {
-        // Cabecera: logo + nombre + versión. Ocupa todo el ancho siempre,
-        // arriba de las columnas (igual que la tarjeta Montado/Desmontado
-        // en Inicio).
-        Surface(
-            color = scheme.primaryContainer,
-            contentColor = scheme.onPrimaryContainer,
-            shape = MaterialTheme.shapes.extraLarge,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(28.dp).fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                AnimatedLogo()
-                Text("Nubind", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-                Text(
-                    "Versión ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-        }
-
-        // En apaisado (o tablet), "Qué hace" y "Enlaces" a la izquierda,
-        // "Sistema" a la derecha — mismo criterio que Inicio: lo
-        // informativo/estático de un lado, el estado en vivo del otro.
+        // Cabecera: logo + nombre + versión. En vertical ocupa todo el ancho;
+        // en apaisado ocupa la mitad y "Qué hace" va a su derecha.
         if (dualPane) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                HeaderCard(modifier = Modifier.weight(1f).fillMaxHeight())
+                Column(modifier = Modifier.weight(1f)) { WhatItDoesCard() }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    WhatItDoesCard()
-                    LinksCard(uriHandler)
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    SystemCard(vm, rcloneVersion)
-                }
+                Column(modifier = Modifier.weight(1f)) { SystemCard(vm, rcloneVersion) }
+                Column(modifier = Modifier.weight(1f)) { LinksCard(uriHandler) }
             }
         } else {
+            HeaderCard(modifier = Modifier.fillMaxWidth())
             WhatItDoesCard()
             SystemCard(vm, rcloneVersion)
             LinksCard(uriHandler)
@@ -126,6 +102,30 @@ fun AboutScreen(vm: BindViewModel) {
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
         )
+    }
+}
+
+@Composable
+private fun HeaderCard(modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        color = scheme.primaryContainer,
+        contentColor = scheme.onPrimaryContainer,
+        shape = MaterialTheme.shapes.extraLarge,
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(28.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
+        ) {
+            AnimatedLogo()
+            Text("Nubind", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+            Text(
+                "Versión ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
     }
 }
 
