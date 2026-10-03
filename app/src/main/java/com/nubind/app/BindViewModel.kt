@@ -579,7 +579,7 @@ class BindViewModel : ViewModel() {
         }
     }
 
-    fun setPerfMode(mode: PerfMode) {
+    fun changePerfMode(mode: PerfMode) {
         val save = { savePerf({ RootShell.setPerfMode(mode) }); Unit }
         if (mode == PerfMode.MAX && perfMode != PerfMode.MAX) guardMetered(save) else save()
     }

@@ -426,7 +426,7 @@ private fun PerfCard(
                     label = mode.label,
                     icon = if (mode == PerfMode.MAX) AppIcons.Bolt else Icons.Default.Settings,
                     selected = vm.perfMode == mode,
-                    onClick = { vm.setPerfMode(mode) },
+                    onClick = { vm.changePerfMode(mode) },
                     modifier = Modifier.weight(1f)
                 )
             }
