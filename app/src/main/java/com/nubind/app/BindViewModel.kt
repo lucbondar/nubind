@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.ConnectivityManager
 import android.os.SystemClock
 import com.nubind.app.root.DEFAULT_TARGET_PATH
 import com.nubind.app.root.DriveAuthParser
@@ -107,6 +108,33 @@ class BindViewModel : ViewModel() {
 
     fun consumeMessage() {
         message = null
+    }
+
+    /**
+     * Acción en espera de confirmación cuando la red activa es de datos
+     * móviles (o con límite) y la acción dispara la precarga completa del
+     * perfil Máximo. Mientras no sea null, la UI muestra el aviso.
+     */
+    var pendingMeteredAction by mutableStateOf<(() -> Unit)?>(null)
+        private set
+
+    private fun isOnMeteredNetwork(): Boolean =
+        Strings.context().getSystemService(ConnectivityManager::class.java)
+            ?.isActiveNetworkMetered ?: false
+
+    /** Ejecuta [action] ya, o pide confirmación antes si se está en datos móviles. */
+    private fun guardMetered(action: () -> Unit) {
+        if (isOnMeteredNetwork()) pendingMeteredAction = action else action()
+    }
+
+    fun confirmMetered() {
+        val action = pendingMeteredAction
+        pendingMeteredAction = null
+        action?.invoke()
+    }
+
+    fun dismissMetered() {
+        pendingMeteredAction = null
     }
 
     fun setRootGranted(granted: Boolean) {
@@ -412,7 +440,9 @@ class BindViewModel : ViewModel() {
      * terminar en 100% el bind queda tan rápido como el almacenamiento
      * local para lo que ya se precargó.
      */
-    fun preloadNow() = viewModelScope.launch {
+    fun preloadNow() = guardMetered { performPreloadNow() }
+
+    private fun performPreloadNow() = viewModelScope.launch {
         if (!isMounted) {
             message = Strings.get(R.string.monta_el_servidor_primero)
             return@launch
@@ -450,6 +480,9 @@ class BindViewModel : ViewModel() {
             val output = withContext(Dispatchers.IO) { RootShell.preloadStatus() }
             val status = PreloadStatusParser.parse(output)
             preloadStatus = status
+            // La caché en disco crece a medida que la precarga baja archivos:
+            // se relee el tamaño en cada sondeo (incluido el último, cuando
+            // termina) para que la tarjeta de Inicio avance sola.
             cacheKb = withContext(Dispatchers.IO) { RootShell.cacheSizeKb() }
             val now = SystemClock.elapsedRealtime()
             if (status?.running == true) {
@@ -486,7 +519,14 @@ class BindViewModel : ViewModel() {
         reload()
     }
 
-    fun toggleMount() = viewModelScope.launch {
+    fun toggleMount() {
+        val onlyUnmounting = isMounted && (mountedRemote == null || mountedRemote == activeName)
+        // Montar en Máximo lanza la precarga completa: se avisa si hay datos móviles.
+        if (!onlyUnmounting && perfMode == PerfMode.MAX) guardMetered { performToggleMount() }
+        else performToggleMount()
+    }
+
+    private fun performToggleMount() = viewModelScope.launch {
         if (busy) return@launch
         val target = activeName
         if (target == null && !isMounted) {
@@ -539,7 +579,10 @@ class BindViewModel : ViewModel() {
         }
     }
 
-    fun setPerfMode(mode: PerfMode) = savePerf({ RootShell.setPerfMode(mode) })
+    fun setPerfMode(mode: PerfMode) {
+        val save = { savePerf({ RootShell.setPerfMode(mode) }); Unit }
+        if (mode == PerfMode.MAX && perfMode != PerfMode.MAX) guardMetered(save) else save()
+    }
 
     /** null restablece el tamaño del perfil. */
     fun setCacheGb(gb: Int?) = savePerf({ RootShell.setCacheGb(gb) })

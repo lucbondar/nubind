@@ -277,4 +277,7 @@
     <string name="preload_scanning">Verificando o remoto…</string>
     <string name="tile_mounting">Montando…</string>
     <string name="tile_unmounting">Desmontando…</string>
+    <string name="aviso_datos_moviles_titulo">Você está usando dados móveis</string>
+    <string name="aviso_datos_moviles_texto">Você está em dados móveis (ou em uma rede com limite). O modo Máximo baixa o conteúdo do servidor para o cache do telefone e pode consumir vários GB do seu plano. Deseja continuar?</string>
+    <string name="continuar_igual">Continuar mesmo assim</string>
 </resources>

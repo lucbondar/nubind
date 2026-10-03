@@ -57,6 +57,7 @@ import com.nubind.app.root.defaultCacheGb
 import com.nubind.app.root.formatCacheKb
 import com.nubind.app.ui.components.DualPaneContentWidth
 import com.nubind.app.ui.components.FolderPickerDialog
+import com.nubind.app.ui.components.MeteredDataDialog
 import com.nubind.app.ui.components.OptionTile
 import com.nubind.app.ui.components.PerfTestSheet
 import com.nubind.app.ui.components.ScreenContainer
@@ -197,6 +198,10 @@ fun HomeScreen(vm: BindViewModel, onOpenServers: () -> Unit) {
                 PreloadCard(vm, mounted)
             }
         }
+    }
+
+    if (vm.pendingMeteredAction != null) {
+        MeteredDataDialog(onConfirm = { vm.confirmMetered() }, onDismiss = { vm.dismissMetered() })
     }
 
     if (showRamCacheConfirm) {
