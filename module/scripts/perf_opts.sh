@@ -184,12 +184,40 @@ s3_mount_opts() {
     MOUNT_OPTS="$_o"
 }
 
+# En Equilibrado el tope de caché es 1G (FTP, S3, Drive). Si ese servidor ya
+# tiene una caché más grande (la armó en Máximo), rclone la recorta al tope
+# apenas monta: se pierde lo cacheado y hay que volver a precargar. Para que
+# cambiar de perfil o de servidor no borre nada, el tope de Equilibrado no
+# baja de lo que el servidor ya tiene en disco (redondeado hacia arriba a
+# múltiplos de 5 GB, así no cambia con cada archivo nuevo) ni del tamaño que
+# el usuario le había puesto en Máximo. Si la caché cabe en el tope normal,
+# no cambia nada. Para reducirla de verdad: bajar el tamaño en Máximo y/o
+# usar "Borrar caché".
+keep_cache_size() {
+    _cur="$(printf '%s' "$MOUNT_OPTS" | sed -n 's/.*--vfs-cache-max-size \([0-9][0-9]*\)G.*/\1/p')"
+    case "$_cur" in ''|*[!0-9]*) return 0 ;; esac
+    _used_kb="$(du -sk "$MODDIR/cache/vfs/$ACTIVE" 2>/dev/null | awk '{print $1+0}')"
+    case "$_used_kb" in ''|*[!0-9]*) _used_kb=0 ;; esac
+    _keep=0
+    if [ "$_used_kb" -gt $(( _cur * 1048576 )) ]; then
+        _keep=$(( (_used_kb + 5242879) / 5242880 * 5 ))
+    fi
+    _saved="${CACHE_GB_SAVED:-0}"
+    [ "$_saved" -gt "$_keep" ] && _keep="$_saved"
+    [ "$_keep" -gt "$_cur" ] || return 0
+    MOUNT_OPTS="$(printf '%s' "$MOUNT_OPTS" | sed "s/--vfs-cache-max-size ${_cur}G/--vfs-cache-max-size ${_keep}G/")"
+}
+
 compute_mount_opts() {
     # Rendimiento elegido en la app (config/perf: "balanced" o "max") y tamaño
     # de caché en GB (config/cache_gb, opcional; vacío = el de cada perfil).
     PERF="$(cat "$MODDIR/config/perf" 2>/dev/null)"
     case "$PERF" in max) ;; *) PERF=balanced ;; esac
     CACHE_GB="$(num_in_range "$(cat "$MODDIR/config/cache_gb" 2>/dev/null)" 1 100 '')"
+    # El tamaño elegido se recuerda aunque el perfil sea Equilibrado: ahí no
+    # manda sobre el tope del perfil, pero keep_cache_size lo usa como piso
+    # para no encoger la caché grande del servidor.
+    CACHE_GB_SAVED="$CACHE_GB"
     # El control de tamaño solo está disponible en Máximo.
     [ "$PERF" = max ] || CACHE_GB=""
     MOUNT_FLAGS_HELP=""
@@ -254,6 +282,8 @@ compute_mount_opts() {
             MOUNT_OPTS="$MOUNT_OPTS --s3-directory-markers"
         fi
     fi
+
+    [ "$PERF" = max ] || keep_cache_size
 
     case "$MOUNT_OPTS" in
         *--vfs-read-chunk-streams*)

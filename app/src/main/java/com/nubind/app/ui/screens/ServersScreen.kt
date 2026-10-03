@@ -54,6 +54,12 @@ fun ServersScreen(vm: BindViewModel) {
 
     val dualPane = rememberIsDualPane()
 
+    // Caché por servidor: se puede borrar salvo el que está montado.
+    val cacheKbOf: (RemoteProfile) -> Long = { vm.serverCacheKb[it.name] ?: 0L }
+    val canClearCache: (RemoteProfile) -> Boolean = {
+        !vm.busy && !(vm.isMounted && (vm.mountedRemote == null || vm.mountedRemote == it.name))
+    }
+
     Box(Modifier.fillMaxSize()) {
         ScreenContainer(
             title = Strings.get(R.string.servidores),
@@ -82,7 +88,10 @@ fun ServersScreen(vm: BindViewModel) {
                         selected = vm.activeName,
                         onSelect = { vm.selectProfile(it) },
                         onEdit = { p -> editTarget = p; showSheet = true },
-                        onDelete = { deleteTarget = it }
+                        onDelete = { deleteTarget = it },
+                        cacheKbOf = cacheKbOf,
+                        canClearCache = canClearCache,
+                        onClearCache = { vm.clearServerCache(it.name) }
                     )
                     ServerPanel(
                         modifier = Modifier.weight(1f),
@@ -92,7 +101,10 @@ fun ServersScreen(vm: BindViewModel) {
                         selected = vm.activeName,
                         onSelect = { vm.selectProfile(it) },
                         onEdit = { p -> editTarget = p; showSheet = true },
-                        onDelete = { deleteTarget = it }
+                        onDelete = { deleteTarget = it },
+                        cacheKbOf = cacheKbOf,
+                        canClearCache = canClearCache,
+                        onClearCache = { vm.clearServerCache(it.name) }
                     )
                     ServerPanel(
                         modifier = Modifier.weight(1f),
@@ -102,7 +114,10 @@ fun ServersScreen(vm: BindViewModel) {
                         selected = vm.activeName,
                         onSelect = { vm.selectProfile(it) },
                         onEdit = { p -> editTarget = p; showSheet = true },
-                        onDelete = { deleteTarget = it }
+                        onDelete = { deleteTarget = it },
+                        cacheKbOf = cacheKbOf,
+                        canClearCache = canClearCache,
+                        onClearCache = { vm.clearServerCache(it.name) }
                     )
                 }
             } else if (vm.profiles.isEmpty()) {
@@ -126,7 +141,10 @@ fun ServersScreen(vm: BindViewModel) {
                         editTarget = p
                         showSheet = true
                     },
-                    onDelete = { deleteTarget = it }
+                    onDelete = { deleteTarget = it },
+                    cacheKbOf = cacheKbOf,
+                    canClearCache = canClearCache,
+                    onClearCache = { vm.clearServerCache(it.name) }
                 )
             }
         }
@@ -196,6 +214,9 @@ private fun ServerPanel(
     onSelect: (String) -> Unit,
     onEdit: (RemoteProfile) -> Unit,
     onDelete: (RemoteProfile) -> Unit,
+    cacheKbOf: (RemoteProfile) -> Long,
+    canClearCache: (RemoteProfile) -> Boolean,
+    onClearCache: (RemoteProfile) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier) {
@@ -213,7 +234,10 @@ private fun ServerPanel(
                 selected = selected,
                 onSelect = onSelect,
                 onEdit = onEdit,
-                onDelete = onDelete
+                onDelete = onDelete,
+                cacheKbOf = cacheKbOf,
+                canClearCache = canClearCache,
+                onClearCache = onClearCache
             )
         }
     }

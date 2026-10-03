@@ -46,6 +46,7 @@ private class Snapshot(
     val perfMode: PerfMode,
     val cacheGb: Int?,
     val cacheKb: Long,
+    val serverCacheKb: Map<String, Long>,
     val ramCache: Boolean,
     val s3Perf: S3PerfSettings,
     val preloadRaw: String
@@ -79,6 +80,9 @@ class BindViewModel : ViewModel() {
         private set
     /** Tamaño actual de la caché en disco (KB), para mostrarlo junto al botón de borrarla. */
     var cacheKb by mutableStateOf(0L)
+    /** Caché en disco de cada servidor, en KB (por nombre). La suma de todos es [cacheKb]. */
+    var serverCacheKb by mutableStateOf<Map<String, Long>>(emptyMap())
+        private set
         private set
     /** Servidor seleccionado: el que usa el botón Montar. */
     var activeName by mutableStateOf<String?>(null)
@@ -174,8 +178,9 @@ class BindViewModel : ViewModel() {
         val snap = withContext(Dispatchers.IO) {
             val activeNow = RootShell.readActive()
             RootShell.migrateLegacyCacheGb(activeNow)
+            val loaded = RootShell.loadProfiles()
             Snapshot(
-                profiles = RootShell.loadProfiles(),
+                profiles = loaded,
                 active = activeNow,
                 status = RootShell.status().output,
                 autostart = RootShell.readAutostart(),
@@ -183,6 +188,7 @@ class BindViewModel : ViewModel() {
                 perfMode = RootShell.readPerfMode(),
                 cacheGb = RootShell.readCacheGb(activeNow),
                 cacheKb = RootShell.cacheSizeKb(),
+                serverCacheKb = loaded.associate { it.name to RootShell.serverCacheKb(it.name) },
                 ramCache = RootShell.readRamCache(),
                 s3Perf = RootShell.readS3Perf(),
                 preloadRaw = RootShell.preloadStatus()
@@ -208,6 +214,7 @@ class BindViewModel : ViewModel() {
         cacheGb = if (active == snap.active) snap.cacheGb
         else withContext(Dispatchers.IO) { RootShell.readCacheGb(active) }
         cacheKb = snap.cacheKb
+        serverCacheKb = snap.serverCacheKb
         ramCache = snap.ramCache
         s3Perf = snap.s3Perf
         isMounted = snap.status.contains("\"mounted\":true")
@@ -497,6 +504,10 @@ class BindViewModel : ViewModel() {
             // se relee el tamaño en cada sondeo (incluido el último, cuando
             // termina) para que la tarjeta de Inicio avance sola.
             cacheKb = withContext(Dispatchers.IO) { RootShell.cacheSizeKb() }
+            mountedRemote?.let { name ->
+                val kb = withContext(Dispatchers.IO) { RootShell.serverCacheKb(name) }
+                serverCacheKb = serverCacheKb + (name to kb)
+            }
             val now = SystemClock.elapsedRealtime()
             if (status?.running == true) {
                 // Notificación persistente (sigue el progreso con la app cerrada). Solo se
@@ -677,6 +688,26 @@ class BindViewModel : ViewModel() {
         } else {
             Strings.get(R.string.no_se_pudo_borrar_la_cache, result.output.take(200))
         }
+    }
+
+    /** Borra la caché de un solo servidor. Solo se rechaza si ese servidor es el que está montado. */
+    fun clearServerCache(name: String) = viewModelScope.launch {
+        if (isMounted && (mountedRemote == null || mountedRemote == name)) {
+            message = Strings.get(R.string.desmonta_primero_para_borrar_la_cache)
+            return@launch
+        }
+        if (busy) return@launch
+        busy = true
+        val result = withContext(Dispatchers.IO) { RootShell.clearServerCache(name) }
+        message = if (result.success) {
+            val kb = result.output.trim().removePrefix("OK").trim().toLongOrNull() ?: 0L
+            if (kb > 0) Strings.get(R.string.cache_servidor_borrada, name, formatCacheKb(kb)) else Strings.get(R.string.no_habia_nada_en_cache)
+        } else {
+            Strings.get(R.string.no_se_pudo_borrar_la_cache, result.output.take(200))
+        }
+        // Relee todo: totales por servidor y el estado de la precarga, que el script pudo borrar.
+        reload()
+        busy = false
     }
 
     private companion object {

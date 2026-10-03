@@ -43,6 +43,7 @@ import com.nubind.app.root.RemoteProfile
 import com.nubind.app.root.RemoteType
 import com.nubind.app.root.S3Provider
 import com.nubind.app.root.s3Provider
+import com.nubind.app.root.formatCacheKb
 import com.nubind.app.root.subtitle
 import com.nubind.app.ui.theme.AppMotion
 import com.nubind.app.R
@@ -52,7 +53,7 @@ import com.nubind.app.Strings
 // (para que no se vea el fondo entre las esquinas redondeadas).
 private val PeekHeight = 88.dp
 private val UnderlapHeight = 32.dp
-private val OpenHeight = 216.dp
+private val OpenHeight = 256.dp
 
 /**
  * Pila de tarjetas tipo cartera: las cerradas asoman solo su franja superior y
@@ -66,6 +67,9 @@ fun ServerCardStack(
     onSelect: (String) -> Unit,
     onEdit: (RemoteProfile) -> Unit,
     onDelete: (RemoteProfile) -> Unit,
+    cacheKbOf: (RemoteProfile) -> Long,
+    canClearCache: (RemoteProfile) -> Boolean,
+    onClearCache: (RemoteProfile) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tops = ArrayList<Dp>()
@@ -91,7 +95,10 @@ fun ServerCardStack(
                     height = heights[index],
                     onSelect = { onSelect(profile.name) },
                     onEdit = { onEdit(profile) },
-                    onDelete = { onDelete(profile) }
+                    onDelete = { onDelete(profile) },
+                    cacheKb = cacheKbOf(profile),
+                    canClearCache = canClearCache(profile),
+                    onClearCache = { onClearCache(profile) }
                 )
             }
         }
@@ -107,7 +114,10 @@ private fun StackCard(
     height: Dp,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    cacheKb: Long,
+    canClearCache: Boolean,
+    onClearCache: () -> Unit
 ) {
     val animatedTop by animateDpAsState(top, AppMotion.spatial(), label = "cardTop")
     val animatedHeight by animateDpAsState(height, AppMotion.spatial(), label = "cardHeight")
@@ -248,8 +258,23 @@ private fun StackCard(
                         )
                     }
                     Spacer(Modifier.height(4.dp))
+                    val colors = ButtonDefaults.textButtonColors(
+                        contentColor = LocalContentColor.current,
+                        disabledContentColor = LocalContentColor.current.copy(alpha = 0.38f)
+                    )
+                    // Caché de este servidor y su botón de borrar. Se desactiva si
+                    // está montado (no se puede borrar en uso) o si no hay nada.
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            Strings.get(R.string.cache_del_servidor, formatCacheKb(cacheKb)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = onClearCache, enabled = canClearCache && cacheKb > 0, colors = colors) {
+                            Text(Strings.get(R.string.borrar_cache))
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val colors = ButtonDefaults.textButtonColors(contentColor = LocalContentColor.current)
                         TextButton(onClick = onEdit, colors = colors) {
                             Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                             Text(Strings.get(R.string.editar))

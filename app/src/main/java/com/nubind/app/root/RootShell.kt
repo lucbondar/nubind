@@ -496,6 +496,20 @@ object RootShell {
             .firstOrNull()?.trim()?.toLongOrNull() ?: 0L
 
     /**
+     * Tamaño en KB de la caché de un solo servidor: rclone la guarda en
+     * cache/vfs/<servidor> (datos) y cache/vfsMeta/<servidor> (metadatos).
+     */
+    fun serverCacheKb(server: String): Long {
+        val vfs = sq("${ModulePaths.BASE}/cache/vfs/$server")
+        val meta = sq("${ModulePaths.BASE}/cache/vfsMeta/$server")
+        return Shell.cmd("du -sk $vfs $meta 2>/dev/null | awk '{s += \$1} END {print s + 0}'").exec().out
+            .firstOrNull()?.trim()?.toLongOrNull() ?: 0L
+    }
+
+    /** Borra solo la caché de [server] (scripts/clear_cache.sh con nombre). */
+    fun clearServerCache(server: String): Result = run("sh ${ModulePaths.SCRIPTS}/clear_cache.sh ${sq(server)}")
+
+    /**
      * Borra la caché en disco (scripts/clear_cache.sh). Solo tiene efecto
      * con el bind desmontado: si sigue montado, el script se niega para no
      * perder escrituras pendientes y Result.output empieza con "ERROR".
