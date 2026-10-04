@@ -7,6 +7,8 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,7 +19,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -91,13 +93,15 @@ fun LogsScreen(vm: BindViewModel) {
         refreshing = vm.refreshing,
         onRefresh = { vm.pullRefresh() },
         actions = {
-            IconButton(onClick = { shareLogs() }, enabled = vm.logs.isNotBlank()) {
+            FilledTonalIconButton(onClick = { shareLogs() }, enabled = vm.logs.isNotBlank()) {
                 Icon(Icons.Default.Share, contentDescription = Strings.get(R.string.compartir_registro))
             }
-            IconButton(onClick = { discardLogs() }, enabled = vm.logs.isNotBlank()) {
+            Spacer(Modifier.width(8.dp))
+            FilledTonalIconButton(onClick = { discardLogs() }, enabled = vm.logs.isNotBlank()) {
                 Icon(Icons.Default.Delete, contentDescription = Strings.get(R.string.borrar_registro))
             }
-            IconButton(onClick = {
+            Spacer(Modifier.width(8.dp))
+            FilledTonalIconButton(onClick = {
                 vm.refreshLogs()
                 scope.launch {
                     spin.snapTo(spin.value % 360f)

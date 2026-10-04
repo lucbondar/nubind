@@ -6,6 +6,17 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -274,461 +285,489 @@ fun ServerSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            if (type == RemoteType.FTP) {
-                OutlinedButton(
-                    onClick = {
-                        if (scanning) {
-                            scanJob?.cancel()
-                            scanning = false
-                        } else {
-                            startScan()
+            // Al cambiar de tipo, el formulario nuevo entra con un rebote suave y
+            // la altura de la hoja se acomoda con resorte, en vez de saltar de golpe.
+            AnimatedContent(
+                targetState = type,
+                modifier = Modifier.fillMaxWidth(),
+                transitionSpec = {
+                    (fadeIn(tween(220, delayMillis = 90)) +
+                        scaleIn(
+                            initialScale = 0.92f,
+                            transformOrigin = TransformOrigin(0.5f, 0f),
+                            animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)
+                        ) +
+                        slideInVertically(
+                            animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
+                            initialOffsetY = { it / 14 }
+                        )) togetherWith fadeOut(tween(90)) using
+                        SizeTransform(clip = true) { _, _ ->
+                            spring(Spring.DampingRatioLowBouncy, Spring.StiffnessMediumLow)
                         }
-                    },
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth()
+                },
+                label = "serverTypeForm"
+            ) { shownType ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(if (scanning) Strings.get(R.string.cancelar_busqueda, scanChecked, scanTotal) else Strings.get(R.string.buscar_servidores_ftp_en_mi_red))
-                }
-
-                if (scanning) {
-                    LinearWavyProgressIndicator(
-                        progress = { scanChecked / scanTotal.toFloat() },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                scanMessage?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                if (scanResults.isNotEmpty()) {
-                    Text(Strings.get(R.string.toca_uno_para_usarlo), style = MaterialTheme.typography.labelLarge)
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        scanResults.forEach { server ->
-                            Surface(
-                                onClick = {
-                                    host = server.ip
-                                    hostError = null
-                                    port = server.port.toString()
-                                    portError = null
-                                    scanResults = emptyList()
-                                },
-                                shape = MaterialTheme.shapes.medium,
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(Modifier.padding(12.dp)) {
-                                    Text("${server.ip}:${server.port}", style = MaterialTheme.typography.bodyLarge)
-                                    if (!server.banner.isNullOrBlank()) {
-                                        Text(
-                                            server.banner,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = host,
-                    onValueChange = { host = it; hostError = null },
-                    label = { Text(Strings.get(R.string.host_o_ip)) },
-                    singleLine = true,
-                    isError = hostError != null,
-                    supportingText = hostError?.let { { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = port,
-                    onValueChange = { port = it; portError = null },
-                    label = { Text(Strings.get(R.string.puerto_2)) },
-                    singleLine = true,
-                    isError = portError != null,
-                    supportingText = portError?.let { { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = user,
-                    onValueChange = { user = it },
-                    label = { Text(Strings.get(R.string.usuario)) },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = pass,
-                    onValueChange = { pass = it },
-                    label = { Text(Strings.get(R.string.contrasena)) },
-                    singleLine = true,
-                    supportingText = if (initial != null) {
-                        { Text(Strings.get(R.string.dejala_vacia_para_conservar_la_actual)) }
-                    } else null,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = ftpFolder,
-                    // Se guarda lo escrito y se limpia al guardar (igual que el bucket de S3).
-                    onValueChange = { ftpFolder = it },
-                    // Teclado de direcciones: trae la "/" en la fila principal.
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    label = { Text(Strings.get(R.string.carpeta_ftp_opcional)) },
-                    supportingText = { Text(Strings.get(R.string.carpeta_ftp_ayuda)) },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else if (type == RemoteType.S3) {
-                // ---- S3 / Oracle Cloud Object Storage ----
-                Text(
-                    when (s3Prov) {
-                        S3Provider.ORACLE ->
-                            Strings.get(R.string.oracle_cloud_usa_una_customer_secret)
-                        S3Provider.AWS ->
-                            Strings.get(R.string.amazon_s3_usa_una_clave_de)
-                        S3Provider.CLOUDFLARE ->
-                            Strings.get(R.string.cloudflare_r2_crea_un_token_de)
-                        S3Provider.OTHER ->
-                            Strings.get(R.string.cualquier_servicio_compatible_con_s3_minio)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                DropdownSelector(
-                    label = Strings.get(R.string.proveedor),
-                    options = listOf(
-                        SelectorOption(
-                            S3Provider.ORACLE, S3Provider.ORACLE.label, Strings.get(R.string.object_storage_api),
-                            AppIcons.OracleLogo, branded = true
-                        ),
-                        SelectorOption(
-                            S3Provider.AWS, S3Provider.AWS.label, "Amazon Web Services",
-                            AppIcons.AwsLogo, branded = true
-                        ),
-                        SelectorOption(
-                            S3Provider.CLOUDFLARE, S3Provider.CLOUDFLARE.label, Strings.get(R.string.sin_cargos_por_salida_de_datos),
-                            AppIcons.CloudflareLogo, branded = true
-                        ),
-                        SelectorOption(
-                            S3Provider.OTHER, S3Provider.OTHER.label, "MinIO, Wasabi, Backblaze B2...",
-                            AppIcons.Cloud
-                        )
-                    ),
-                    selected = s3Prov,
-                    onSelect = { s3Prov = it }
-                )
-                if (s3Prov == S3Provider.ORACLE) {
-                    OutlinedTextField(
-                        value = s3Namespace,
-                        onValueChange = { s3Namespace = it.trim(); s3NamespaceError = null },
-                        label = { Text("Namespace") },
-                        singleLine = true,
-                        isError = s3NamespaceError != null,
-                        supportingText = s3NamespaceError?.let { { Text(it) } },
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = s3Region,
-                        onValueChange = { s3Region = it.trim(); s3RegionError = null },
-                        label = { Text(Strings.get(R.string.region)) },
-                        placeholder = { Text("us-ashburn-1") },
-                        singleLine = true,
-                        isError = s3RegionError != null,
-                        supportingText = s3RegionError?.let { { Text(it) } },
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else if (s3Prov == S3Provider.AWS) {
-                    OutlinedTextField(
-                        value = s3Region,
-                        onValueChange = { s3Region = it.trim(); s3RegionError = null },
-                        label = { Text(Strings.get(R.string.region_del_bucket)) },
-                        placeholder = { Text("us-east-1") },
-                        singleLine = true,
-                        isError = s3RegionError != null,
-                        supportingText = {
-                            Text(s3RegionError ?: Strings.get(R.string.es_la_region_donde_se_creo))
-                        },
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else if (s3Prov == S3Provider.CLOUDFLARE) {
-                    OutlinedTextField(
-                        value = s3Account,
-                        onValueChange = { s3Account = it.trim(); s3AccountError = null },
-                        label = { Text("Account ID") },
-                        placeholder = { Text(Strings.get(R.string.s_32_caracteres)) },
-                        singleLine = true,
-                        isError = s3AccountError != null,
-                        supportingText = {
-                            Text(
-                                s3AccountError
-                                    ?: Strings.get(R.string.esta_en_el_panel_de_cloudflare)
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = s3Endpoint,
-                        onValueChange = { s3Endpoint = it; s3EndpointError = null },
-                        label = { Text("Endpoint") },
-                        placeholder = { Text("https://s3.ejemplo.com") },
-                        singleLine = true,
-                        isError = s3EndpointError != null,
-                        supportingText = s3EndpointError?.let { { Text(it) } },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = s3Region,
-                        onValueChange = { s3Region = it.trim() },
-                        label = { Text(Strings.get(R.string.region_opcional)) },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                OutlinedTextField(
-                    value = s3AccessKey,
-                    onValueChange = { s3AccessKey = it.trim(); s3AccessKeyError = null },
-                    label = { Text("Access Key ID") },
-                    singleLine = true,
-                    isError = s3AccessKeyError != null,
-                    supportingText = s3AccessKeyError?.let { { Text(it) } },
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                val secretHint = s3SecretError
-                    ?: if (initialS3?.hasSecret == true) Strings.get(R.string.dejala_vacia_para_conservar_la_actual) else null
-                OutlinedTextField(
-                    value = s3Secret,
-                    onValueChange = { s3Secret = it; s3SecretError = null },
-                    label = { Text("Secret Access Key") },
-                    singleLine = true,
-                    isError = s3SecretError != null,
-                    supportingText = secretHint?.let { { Text(it) } },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = s3Bucket,
-                    // Se guarda lo escrito tal cual y se limpia al guardar: limpiar
-                    // en cada tecla quitaba la "/" final apenas se escribía, y solo
-                    // se podía poner pegando "bucket/carpeta" de una vez.
-                    onValueChange = { s3Bucket = it; s3BucketError = null },
-                    // Teclado de direcciones: trae la "/" en la fila principal.
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    label = { Text(Strings.get(R.string.bucket_opcional)) },
-                    isError = s3BucketError != null,
-                    supportingText = {
-                        Text(
-                            s3BucketError
-                                ?: Strings.get(R.string.se_monta_ese_bucket_o_bucket)
-                        )
-                    },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                // ---- Google Drive ----
-                Text(
-                    when {
-                        newToken != null -> Strings.get(R.string.cuenta_de_google_conectada_guarda_para)
-                        hasSession -> Strings.get(R.string.ya_hay_una_sesion_de_google)
-                        clientChanged -> Strings.get(R.string.cambiaste_el_cliente_oauth_vuelve_a)
-                        else -> Strings.get(R.string.inicia_sesion_con_tu_cuenta_de)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Button(
-                    onClick = {
-                        if (effectiveClientId.isEmpty() != effectiveClientSecret.isEmpty()) {
-                            driveError = Strings.get(R.string.client_id_y_client_secret_van)
-                            showAdvanced = true
-                        } else {
-                            driveError = null
-                            onDriveLogin(effectiveClientId, effectiveClientSecret)
-                        }
-                    },
-                    enabled = !loginRunning,
-                    shape = MaterialTheme.shapes.large,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4285F4), // Azul Google
-                        contentColor = Color.White,
-                        disabledContainerColor = Color(0xFF4285F4).copy(alpha = 0.38f),
-                        disabledContentColor = Color.White.copy(alpha = 0.6f)
-                    ),
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                ) {
-                    Text(if (hasSession) Strings.get(R.string.volver_a_iniciar_sesion) else Strings.get(R.string.iniciar_sesion_con_google))
-                }
-
-                when (driveAuth) {
-                    is DriveAuthState.Starting -> {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Text(Strings.get(R.string.iniciando), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    is DriveAuthState.WaitingBrowser -> {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Text(
-                            Strings.get(R.string.autoriza_el_acceso_en_el_navegador),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = {
-                                if (!openInBrowser(appContext, driveAuth.url)) {
-                                    driveError = Strings.get(R.string.no_se_encontro_un_navegador_copia)
-                                }
-                            }) { Text(Strings.get(R.string.abrir_de_nuevo)) }
-                            TextButton(onClick = { copyToClipboard(appContext, driveAuth.url) }) { Text(Strings.get(R.string.copiar_enlace)) }
-                            TextButton(onClick = onDriveCancel) { Text(Strings.get(R.string.cancelar)) }
-                        }
-                    }
-                    is DriveAuthState.Failed -> Text(
-                        driveAuth.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    else -> Unit
-                }
-
-                Row(
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(Strings.get(R.string.solo_lectura), style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            Strings.get(R.string.impide_modificar_o_borrar_archivos_de),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(checked = readOnly, onCheckedChange = { readOnly = it })
-                }
-
-                TextButton(onClick = { showAdvanced = !showAdvanced }) {
-                    Text(if (showAdvanced) Strings.get(R.string.ocultar_opciones_avanzadas) else Strings.get(R.string.opciones_avanzadas))
-                }
-                if (showAdvanced) {
-                    Row(
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text(Strings.get(R.string.permitir_archivos_marcados_como_malware), style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                Strings.get(R.string.descarga_archivos_que_google_drive_bloquea),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(checked = acknowledgeAbuse, onCheckedChange = { acknowledgeAbuse = it })
-                    }
-                    OutlinedTextField(
-                        value = rootFolder,
-                        onValueChange = { rootFolder = extractDriveFolderId(it) },
-                        label = { Text(Strings.get(R.string.id_de_carpeta_raiz_opcional)) },
-                        supportingText = { Text(Strings.get(R.string.monta_solo_esa_carpeta_en_vez)) },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = teamDrive,
-                        onValueChange = { teamDrive = it },
-                        label = { Text(Strings.get(R.string.id_de_unidad_compartida_opcional)) },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = clientId,
-                        onValueChange = { clientId = it; driveError = null },
-                        label = { Text(Strings.get(R.string.client_id_propio_opcional)) },
-                        supportingText = {
-                            Text(
-                                if (BuildConfig.GDRIVE_CLIENT_ID.isNotEmpty()) Strings.get(R.string.vacio_el_que_trae_la_app)
-                                else Strings.get(R.string.sin_esto_se_usa_el_compartido)
-                            )
-                        },
-                        singleLine = true,
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = clientSecret,
-                        onValueChange = { clientSecret = it; driveError = null },
-                        label = { Text(Strings.get(R.string.client_secret_propio_opcional)) },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        shape = MaterialTheme.shapes.large,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    TextButton(onClick = { showManual = !showManual }) {
-                        Text(if (showManual) Strings.get(R.string.ocultar_token_manual) else Strings.get(R.string.pegar_token_manualmente))
-                    }
-                    if (showManual) {
-                        Text(
-                            Strings.get(R.string.en_un_pc_ejecuta_rclone_authorize),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        OutlinedTextField(
-                            value = manualToken,
-                            onValueChange = { manualToken = it },
-                            label = { Text(Strings.get(R.string.token_json)) },
-                            minLines = 3,
-                            shape = MaterialTheme.shapes.large,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    if (shownType == RemoteType.FTP) {
                         OutlinedButton(
                             onClick = {
-                                val normalized = normalizeToken(manualToken)
-                                if (normalized == null) {
-                                    driveError = Strings.get(R.string.token_invalido_debe_traer_access_token)
+                                if (scanning) {
+                                    scanJob?.cancel()
+                                    scanning = false
                                 } else {
-                                    newToken = normalized
-                                    driveError = null
-                                    manualToken = ""
-                                    showManual = false
+                                    startScan()
                                 }
                             },
                             shape = MaterialTheme.shapes.large,
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text(Strings.get(R.string.usar_este_token)) }
-                    }
-                }
+                        ) {
+                            Text(if (scanning) Strings.get(R.string.cancelar_busqueda, scanChecked, scanTotal) else Strings.get(R.string.buscar_servidores_ftp_en_mi_red))
+                        }
 
-                driveError?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                        if (scanning) {
+                            LinearWavyProgressIndicator(
+                                progress = { scanChecked / scanTotal.toFloat() },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        scanMessage?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (scanResults.isNotEmpty()) {
+                            Text(Strings.get(R.string.toca_uno_para_usarlo), style = MaterialTheme.typography.labelLarge)
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                scanResults.forEach { server ->
+                                    Surface(
+                                        onClick = {
+                                            host = server.ip
+                                            hostError = null
+                                            port = server.port.toString()
+                                            portError = null
+                                            scanResults = emptyList()
+                                        },
+                                        shape = MaterialTheme.shapes.medium,
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(Modifier.padding(12.dp)) {
+                                            Text("${server.ip}:${server.port}", style = MaterialTheme.typography.bodyLarge)
+                                            if (!server.banner.isNullOrBlank()) {
+                                                Text(
+                                                    server.banner,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = host,
+                            onValueChange = { host = it; hostError = null },
+                            label = { Text(Strings.get(R.string.host_o_ip)) },
+                            singleLine = true,
+                            isError = hostError != null,
+                            supportingText = hostError?.let { { Text(it) } },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                            shape = MaterialTheme.shapes.large,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = port,
+                            onValueChange = { port = it; portError = null },
+                            label = { Text(Strings.get(R.string.puerto_2)) },
+                            singleLine = true,
+                            isError = portError != null,
+                            supportingText = portError?.let { { Text(it) } },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = MaterialTheme.shapes.large,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = user,
+                            onValueChange = { user = it },
+                            label = { Text(Strings.get(R.string.usuario)) },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.large,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = pass,
+                            onValueChange = { pass = it },
+                            label = { Text(Strings.get(R.string.contrasena)) },
+                            singleLine = true,
+                            supportingText = if (initial != null) {
+                                { Text(Strings.get(R.string.dejala_vacia_para_conservar_la_actual)) }
+                            } else null,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            shape = MaterialTheme.shapes.large,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = ftpFolder,
+                            // Se guarda lo escrito y se limpia al guardar (igual que el bucket de S3).
+                            onValueChange = { ftpFolder = it },
+                            // Teclado de direcciones: trae la "/" en la fila principal.
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                            label = { Text(Strings.get(R.string.carpeta_ftp_opcional)) },
+                            supportingText = { Text(Strings.get(R.string.carpeta_ftp_ayuda)) },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.large,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else if (shownType == RemoteType.S3) {
+                        // ---- S3 / Oracle Cloud Object Storage ----
+                        Text(
+                            when (s3Prov) {
+                                S3Provider.ORACLE ->
+                                    Strings.get(R.string.oracle_cloud_usa_una_customer_secret)
+                                S3Provider.AWS ->
+                                    Strings.get(R.string.amazon_s3_usa_una_clave_de)
+                                S3Provider.CLOUDFLARE ->
+                                    Strings.get(R.string.cloudflare_r2_crea_un_token_de)
+                                S3Provider.OTHER ->
+                                    Strings.get(R.string.cualquier_servicio_compatible_con_s3_minio)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        DropdownSelector(
+                            label = Strings.get(R.string.proveedor),
+                            options = listOf(
+                                SelectorOption(
+                                    S3Provider.ORACLE, S3Provider.ORACLE.label, Strings.get(R.string.object_storage_api),
+                                    AppIcons.OracleLogo, branded = true
+                                ),
+                                SelectorOption(
+                                    S3Provider.AWS, S3Provider.AWS.label, "Amazon Web Services",
+                                    AppIcons.AwsLogo, branded = true
+                                ),
+                                SelectorOption(
+                                    S3Provider.CLOUDFLARE, S3Provider.CLOUDFLARE.label, Strings.get(R.string.sin_cargos_por_salida_de_datos),
+                                    AppIcons.CloudflareLogo, branded = true
+                                ),
+                                SelectorOption(
+                                    S3Provider.OTHER, S3Provider.OTHER.label, "MinIO, Wasabi, Backblaze B2...",
+                                    AppIcons.Cloud
+                                )
+                            ),
+                            selected = s3Prov,
+                            onSelect = { s3Prov = it }
+                        )
+                        if (s3Prov == S3Provider.ORACLE) {
+                            OutlinedTextField(
+                                value = s3Namespace,
+                                onValueChange = { s3Namespace = it.trim(); s3NamespaceError = null },
+                                label = { Text("Namespace") },
+                                singleLine = true,
+                                isError = s3NamespaceError != null,
+                                supportingText = s3NamespaceError?.let { { Text(it) } },
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = s3Region,
+                                onValueChange = { s3Region = it.trim(); s3RegionError = null },
+                                label = { Text(Strings.get(R.string.region)) },
+                                placeholder = { Text("us-ashburn-1") },
+                                singleLine = true,
+                                isError = s3RegionError != null,
+                                supportingText = s3RegionError?.let { { Text(it) } },
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else if (s3Prov == S3Provider.AWS) {
+                            OutlinedTextField(
+                                value = s3Region,
+                                onValueChange = { s3Region = it.trim(); s3RegionError = null },
+                                label = { Text(Strings.get(R.string.region_del_bucket)) },
+                                placeholder = { Text("us-east-1") },
+                                singleLine = true,
+                                isError = s3RegionError != null,
+                                supportingText = {
+                                    Text(s3RegionError ?: Strings.get(R.string.es_la_region_donde_se_creo))
+                                },
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else if (s3Prov == S3Provider.CLOUDFLARE) {
+                            OutlinedTextField(
+                                value = s3Account,
+                                onValueChange = { s3Account = it.trim(); s3AccountError = null },
+                                label = { Text("Account ID") },
+                                placeholder = { Text(Strings.get(R.string.s_32_caracteres)) },
+                                singleLine = true,
+                                isError = s3AccountError != null,
+                                supportingText = {
+                                    Text(
+                                        s3AccountError
+                                            ?: Strings.get(R.string.esta_en_el_panel_de_cloudflare)
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        } else {
+                            OutlinedTextField(
+                                value = s3Endpoint,
+                                onValueChange = { s3Endpoint = it; s3EndpointError = null },
+                                label = { Text("Endpoint") },
+                                placeholder = { Text("https://s3.ejemplo.com") },
+                                singleLine = true,
+                                isError = s3EndpointError != null,
+                                supportingText = s3EndpointError?.let { { Text(it) } },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = s3Region,
+                                onValueChange = { s3Region = it.trim() },
+                                label = { Text(Strings.get(R.string.region_opcional)) },
+                                singleLine = true,
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        OutlinedTextField(
+                            value = s3AccessKey,
+                            onValueChange = { s3AccessKey = it.trim(); s3AccessKeyError = null },
+                            label = { Text("Access Key ID") },
+                            singleLine = true,
+                            isError = s3AccessKeyError != null,
+                            supportingText = s3AccessKeyError?.let { { Text(it) } },
+                            shape = MaterialTheme.shapes.large,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        val secretHint = s3SecretError
+                            ?: if (initialS3?.hasSecret == true) Strings.get(R.string.dejala_vacia_para_conservar_la_actual) else null
+                        OutlinedTextField(
+                            value = s3Secret,
+                            onValueChange = { s3Secret = it; s3SecretError = null },
+                            label = { Text("Secret Access Key") },
+                            singleLine = true,
+                            isError = s3SecretError != null,
+                            supportingText = secretHint?.let { { Text(it) } },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            shape = MaterialTheme.shapes.large,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = s3Bucket,
+                            // Se guarda lo escrito tal cual y se limpia al guardar: limpiar
+                            // en cada tecla quitaba la "/" final apenas se escribía, y solo
+                            // se podía poner pegando "bucket/carpeta" de una vez.
+                            onValueChange = { s3Bucket = it; s3BucketError = null },
+                            // Teclado de direcciones: trae la "/" en la fila principal.
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                            label = { Text(Strings.get(R.string.bucket_opcional)) },
+                            isError = s3BucketError != null,
+                            supportingText = {
+                                Text(
+                                    s3BucketError
+                                        ?: Strings.get(R.string.se_monta_ese_bucket_o_bucket)
+                                )
+                            },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.large,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        // ---- Google Drive ----
+                        Text(
+                            when {
+                                newToken != null -> Strings.get(R.string.cuenta_de_google_conectada_guarda_para)
+                                hasSession -> Strings.get(R.string.ya_hay_una_sesion_de_google)
+                                clientChanged -> Strings.get(R.string.cambiaste_el_cliente_oauth_vuelve_a)
+                                else -> Strings.get(R.string.inicia_sesion_con_tu_cuenta_de)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Button(
+                            onClick = {
+                                if (effectiveClientId.isEmpty() != effectiveClientSecret.isEmpty()) {
+                                    driveError = Strings.get(R.string.client_id_y_client_secret_van)
+                                    showAdvanced = true
+                                } else {
+                                    driveError = null
+                                    onDriveLogin(effectiveClientId, effectiveClientSecret)
+                                }
+                            },
+                            enabled = !loginRunning,
+                            shape = MaterialTheme.shapes.large,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4285F4), // Azul Google
+                                contentColor = Color.White,
+                                disabledContainerColor = Color(0xFF4285F4).copy(alpha = 0.38f),
+                                disabledContentColor = Color.White.copy(alpha = 0.6f)
+                            ),
+                            modifier = Modifier.fillMaxWidth().height(56.dp)
+                        ) {
+                            Text(if (hasSession) Strings.get(R.string.volver_a_iniciar_sesion) else Strings.get(R.string.iniciar_sesion_con_google))
+                        }
+
+                        when (driveAuth) {
+                            is DriveAuthState.Starting -> {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                Text(Strings.get(R.string.iniciando), style = MaterialTheme.typography.bodyMedium)
+                            }
+                            is DriveAuthState.WaitingBrowser -> {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                Text(
+                                    Strings.get(R.string.autoriza_el_acceso_en_el_navegador),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TextButton(onClick = {
+                                        if (!openInBrowser(appContext, driveAuth.url)) {
+                                            driveError = Strings.get(R.string.no_se_encontro_un_navegador_copia)
+                                        }
+                                    }) { Text(Strings.get(R.string.abrir_de_nuevo)) }
+                                    TextButton(onClick = { copyToClipboard(appContext, driveAuth.url) }) { Text(Strings.get(R.string.copiar_enlace)) }
+                                    TextButton(onClick = onDriveCancel) { Text(Strings.get(R.string.cancelar)) }
+                                }
+                            }
+                            is DriveAuthState.Failed -> Text(
+                                driveAuth.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            else -> Unit
+                        }
+
+                        Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(Strings.get(R.string.solo_lectura), style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    Strings.get(R.string.impide_modificar_o_borrar_archivos_de),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(checked = readOnly, onCheckedChange = { readOnly = it })
+                        }
+
+                        TextButton(onClick = { showAdvanced = !showAdvanced }) {
+                            Text(if (showAdvanced) Strings.get(R.string.ocultar_opciones_avanzadas) else Strings.get(R.string.opciones_avanzadas))
+                        }
+                        if (showAdvanced) {
+                            Row(
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                    Text(Strings.get(R.string.permitir_archivos_marcados_como_malware), style = MaterialTheme.typography.bodyLarge)
+                                    Text(
+                                        Strings.get(R.string.descarga_archivos_que_google_drive_bloquea),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(checked = acknowledgeAbuse, onCheckedChange = { acknowledgeAbuse = it })
+                            }
+                            OutlinedTextField(
+                                value = rootFolder,
+                                onValueChange = { rootFolder = extractDriveFolderId(it) },
+                                label = { Text(Strings.get(R.string.id_de_carpeta_raiz_opcional)) },
+                                supportingText = { Text(Strings.get(R.string.monta_solo_esa_carpeta_en_vez)) },
+                                singleLine = true,
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = teamDrive,
+                                onValueChange = { teamDrive = it },
+                                label = { Text(Strings.get(R.string.id_de_unidad_compartida_opcional)) },
+                                singleLine = true,
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = clientId,
+                                onValueChange = { clientId = it; driveError = null },
+                                label = { Text(Strings.get(R.string.client_id_propio_opcional)) },
+                                supportingText = {
+                                    Text(
+                                        if (BuildConfig.GDRIVE_CLIENT_ID.isNotEmpty()) Strings.get(R.string.vacio_el_que_trae_la_app)
+                                        else Strings.get(R.string.sin_esto_se_usa_el_compartido)
+                                    )
+                                },
+                                singleLine = true,
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = clientSecret,
+                                onValueChange = { clientSecret = it; driveError = null },
+                                label = { Text(Strings.get(R.string.client_secret_propio_opcional)) },
+                                singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            TextButton(onClick = { showManual = !showManual }) {
+                                Text(if (showManual) Strings.get(R.string.ocultar_token_manual) else Strings.get(R.string.pegar_token_manualmente))
+                            }
+                            if (showManual) {
+                                Text(
+                                    Strings.get(R.string.en_un_pc_ejecuta_rclone_authorize),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OutlinedTextField(
+                                    value = manualToken,
+                                    onValueChange = { manualToken = it },
+                                    label = { Text(Strings.get(R.string.token_json)) },
+                                    minLines = 3,
+                                    shape = MaterialTheme.shapes.large,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        val normalized = normalizeToken(manualToken)
+                                        if (normalized == null) {
+                                            driveError = Strings.get(R.string.token_invalido_debe_traer_access_token)
+                                        } else {
+                                            newToken = normalized
+                                            driveError = null
+                                            manualToken = ""
+                                            showManual = false
+                                        }
+                                    },
+                                    shape = MaterialTheme.shapes.large,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(Strings.get(R.string.usar_este_token)) }
+                            }
+                        }
+
+                        driveError?.let {
+                            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             }
 
