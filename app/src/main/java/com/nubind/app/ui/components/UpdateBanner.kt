@@ -21,6 +21,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -133,8 +134,15 @@ fun updateHeaderColors(
         status?.container ?: scheme.primaryContainer,
         animationSpec = tween(500), label = "headerStart"
     )
+    // Verde y desfase a la vez: el degradado termina virando a ámbar, así el aviso ámbar de
+    // dentro no se siente un color ajeno pegado sobre un fondo verde.
+    val amber = syncAmberPalette()
+    val both = moduleBehind && (state.isGreen() || rebootPending)
     val end by animateColorAsState(
-        status?.let { lerp(it.container, it.accent, 0.25f) } ?: scheme.tertiaryContainer,
+        status?.let {
+            val base = lerp(it.container, it.accent, 0.25f)
+            if (both) lerp(base, amber.container, 0.75f) else base
+        } ?: scheme.tertiaryContainer,
         animationSpec = tween(500), label = "headerEnd"
     )
     val content by animateColorAsState(
@@ -167,6 +175,9 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
     val notice = vm.moduleNotice
     // Misma paleta que la cabecera: la tarjeta del actualizador se adapta a su color.
     val headerStatus = headerStatusPalette(state, vm.showRebootCard, notice != null)
+    // Con la cabecera verde, la tarjeta ámbar lleva su propio fondo pleno y borde (un velo
+    // ámbar sobre verde se ve turbio y el texto pierde contraste).
+    val noticeOverGreen = notice != null && (state.isGreen() || vm.showRebootCard)
 
     Column(
         modifier = modifier.animateContentSize(animationSpec = AppMotion.spatial()),
@@ -208,6 +219,7 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
                 ModuleNoticeCard(
                     module = it,
                     flash = vm.moduleFlash,
+                    solid = noticeOverGreen,
                     onFlash = vm::flashModule,
                     onLater = vm::dismissModuleNotice
                 )
@@ -415,18 +427,28 @@ private fun UpdateCard(
 private fun ModuleNoticeCard(
     module: ModuleInfo,
     flash: ModuleFlashState,
+    solid: Boolean,
     onFlash: () -> Unit,
     onLater: () -> Unit
 ) {
     val p = syncAmberPalette()
+    val cardColor by animateColorAsState(
+        if (solid) p.container else p.onContainer.copy(alpha = 0.10f),
+        animationSpec = tween(400), label = "noticeCard"
+    )
+    val borderColor by animateColorAsState(
+        if (solid) p.accent.copy(alpha = 0.45f) else Color.Transparent,
+        animationSpec = tween(400), label = "noticeBorder"
+    )
     val working = flash is ModuleFlashState.Downloading || flash is ModuleFlashState.Flashing
 
     // Va sobre la cabecera, que con el aviso a la vista se pone ámbar (ver updateHeaderColors):
     // velo translúcido del mismo ámbar, como la tarjeta de reinicio sobre el verde.
     Surface(
-        color = p.onContainer.copy(alpha = 0.10f),
+        color = cardColor,
         contentColor = p.onContainer,
         shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(1.5.dp, borderColor),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -570,7 +592,7 @@ private fun ModuleRebootCard(onReboot: () -> Unit, onLater: () -> Unit) {
  */
 @Composable
 private fun laterButtonColors(p: StatusPalette) = ButtonDefaults.buttonColors(
-    containerColor = p.onContainer.copy(alpha = 0.12f),
+    containerColor = p.onContainer.copy(alpha = 0.16f),
     contentColor = p.onContainer
 )
 
