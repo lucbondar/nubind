@@ -212,13 +212,59 @@ FILELIST="$MODDIR/.preload_list"
 # archivos chicos (índices, configuraciones, shaders, manifiestos) y recién
 # después los paquetes grandes; así lo que más se pide al arrancar queda en
 # caché primero, y el presupuesto cubre la mayor cantidad de archivos posible.
-find "$T" -type f -not -path '*/.nubind-test/*' \
-    -exec stat -c "%s${TAB}%n" {} + 2>/dev/null > "$FILELIST.raw"
-if [ ! -s "$FILELIST.raw" ]; then
-    find "$T" -type f -not -path '*/.nubind-test/*' 2>/dev/null |
-        while IFS= read -r f; do
-            stat -c "%s${TAB}%n" "$f" 2>/dev/null
-        done > "$FILELIST.raw"
+# S3 (Oracle, AWS, Cloudflare R2...) y Google Drive: el listado NO se hace recorriendo el
+# montaje con find. find baja carpeta por carpeta y cada carpeta es una
+# petición de listado al servidor, una detrás de otra; en un bucket con cientos
+# de carpetas (un juego de Unity) eso tarda minutos, y si el usuario cambiaba
+# de servidor antes de que terminara, la precarga quedaba en "0 archivos" sin
+# haber descargado nada. "rclone lsf -R --fast-list" pide el árbol entero
+# en pocas peticiones (hasta 1000 objetos por petición) y tarda segundos. Solo
+# se usa para saber QUÉ precargar; los archivos se siguen leyendo por el
+# montaje, así que lo que entra a la caché es lo mismo. En Drive se descartan
+# los archivos de tamaño desconocido (Docs/Sheets, que lsf da como -1). Si lsf falla, se cae al
+# find de siempre.
+LIST_DONE=0
+RTYPE="$(remote_type "$ACTIVE")"
+case "$RTYPE" in s3|drive) LSF_OK=1 ;; *) LSF_OK=0 ;; esac
+if [ "$LSF_OK" = 1 ] && [ -x "$MODDIR/bin/rclone" ]; then
+    . "$MODDIR/scripts/env.sh"
+    LS_T0="$(date +%s)"
+    "$MODDIR/bin/rclone" lsf "$ACTIVE:$(remote_root "$ACTIVE")" -R --files-only \
+        --format sp --separator "$TAB" --fast-list \
+        --exclude '.nubind-test/**' ${DRIVE_PACER_OPTS:-} \
+        --config "$RCLONE_CONF" --cache-dir "$MODDIR/cache" \
+        --log-level ERROR --log-file "$LOG_FILE" 2>/dev/null |
+        awk -F "$TAB" -v t="$T" -v OFS="$TAB" \
+            '{ i = index($0, "\t"); if (i && $1 + 0 >= 0) print $1, t "/" substr($0, i + 1) }' \
+        > "$FILELIST.raw"
+    if [ -s "$FILELIST.raw" ]; then
+        LIST_DONE=1
+        echo "$(date): Precarga: listado de '$ACTIVE' con rclone lsf en $(( $(date +%s) - LS_T0 ))s" >> "$LOG_FILE"
+    else
+        echo "$(date): Precarga: rclone lsf no devolvió nada en $(( $(date +%s) - LS_T0 ))s, se usa find sobre el montaje" >> "$LOG_FILE"
+    fi
+fi
+
+if [ "$LIST_DONE" = 0 ]; then
+    find "$T" -type f -not -path '*/.nubind-test/*' \
+        -exec stat -c "%s${TAB}%n" {} + 2>/dev/null > "$FILELIST.raw"
+    if [ ! -s "$FILELIST.raw" ]; then
+        find "$T" -type f -not -path '*/.nubind-test/*' 2>/dev/null |
+            while IFS= read -r f; do
+                stat -c "%s${TAB}%n" "$f" 2>/dev/null
+            done > "$FILELIST.raw"
+    fi
+fi
+
+# Si mientras se listaba se desmontó o se cambió de servidor, no hay nada que
+# precargar: se sale diciéndolo, en vez de registrar "0 archivos" como si el
+# remoto estuviera vacío.
+NOW_ACTIVE="$(sed -n 's/.*"remote":"\([^"]*\)".*/\1/p' "$STATUS_FILE" 2>/dev/null)"
+if [ "$NOW_ACTIVE" != "$ACTIVE" ]; then
+    echo "$(date): Precarga: '$ACTIVE' ya no está montado, se cancela (el listado no terminó de usarse)" >> "$LOG_FILE"
+    kill "$HB_PID" 2>/dev/null; wait "$HB_PID" 2>/dev/null; HB_PID=""
+    rm -f "$PRELOAD_STATUS" "$FILELIST.raw"
+    exit 0
 fi
 sort -n "$FILELIST.raw" > "$FILELIST" 2>/dev/null || mv -f "$FILELIST.raw" "$FILELIST"
 rm -f "$FILELIST.raw"
