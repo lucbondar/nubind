@@ -76,6 +76,7 @@ Ya no hay `Toast` ni `Snackbar` en la app. Todo aviso de una sola vez pasa por `
   ciwatch
   ```
   La rama de trabajo es `preview`.
+  Excepción: `unzip -o` solo añade y sobrescribe, nunca borra. Si un cambio elimina o renombra archivos, se añade una línea `rm -f <ruta>` (sin `cd`, ruta desde la raíz del repo) justo después del `unzip` por cada archivo eliminado; si no, el repo conserva el archivo viejo y el CI lo compila (pasó con `BackupCard.kt` en 2.5.35: borrado en el zip, pero seguía en el repo y rompió la compilación).
 
 ## Estado
 El código del actualizador se escribió sin poder compilarlo localmente. Si el CI da errores de compilación en estos archivos, corrígelos primero.
