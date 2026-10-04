@@ -870,77 +870,100 @@ class BindViewModel : ViewModel() {
             out.toByteArray()
         }
 
-    /** Cifra el rclone.conf con [password] y lo escribe en [uri] (elegido por el usuario). Borra [password] al terminar. */
-    fun exportBackup(uri: Uri, password: CharArray) {
+    /**
+     * Cifra el rclone.conf con [password] y lo escribe en [uri] (elegido por el usuario). Borra
+     * [password] al terminar. [onDone] recibe null si salió bien o el texto del error (la hoja de
+     * respaldo lo muestra dentro y no se cierra, para poder reintentar).
+     */
+    fun exportBackup(uri: Uri, password: CharArray, onDone: (error: String?) -> Unit) {
         if (backupBusy) { password.fill('\u0000'); return }
         backupBusy = true
         viewModelScope.launch {
+            var error: String? = null
             try {
                 val text = withContext(Dispatchers.IO) { RootShell.readConfText() }
                 if (text == null || parseConf(text).isEmpty()) {
-                    showNotice(Strings.get(R.string.respaldo_sin_servidores), NoticeKind.Warning)
+                    error = Strings.get(R.string.respaldo_sin_servidores)
+                } else {
+                    val bytes = withContext(Dispatchers.Default) {
+                        ConfBackup.encrypt(text, password, BuildConfig.VERSION_NAME)
+                    }
+                    val written = withContext(Dispatchers.IO) {
+                        runCatching {
+                            Strings.context().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
+                        }.isSuccess
+                    }
+                    if (!written) error = Strings.get(R.string.respaldo_error_escribir)
+                }
+                // El selector ya creó el archivo vacío: si falló, no se deja basura.
+                if (error != null) {
                     runCatching { DocumentsContract.deleteDocument(Strings.context().contentResolver, uri) }
-                    return@launch
+                } else {
+                    showNotice(Strings.get(R.string.respaldo_guardado), NoticeKind.Success)
                 }
-                val bytes = withContext(Dispatchers.Default) {
-                    ConfBackup.encrypt(text, password, BuildConfig.VERSION_NAME)
-                }
-                val written = withContext(Dispatchers.IO) {
-                    runCatching {
-                        Strings.context().contentResolver.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
-                    }.isSuccess
-                }
-                if (!written) runCatching { DocumentsContract.deleteDocument(Strings.context().contentResolver, uri) }
-                showResult(written, Strings.get(R.string.respaldo_guardado), Strings.get(R.string.respaldo_error_escribir))
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = Strings.get(R.string.respaldo_error_escribir)
+                runCatching { DocumentsContract.deleteDocument(Strings.context().contentResolver, uri) }
             } finally {
                 password.fill('\u0000')
                 backupBusy = false
             }
+            onDone(error)
         }
     }
 
-    /** Descifra el archivo [uri] con [password] y mezcla sus servidores con los actuales. Borra [password] al terminar. */
-    fun importBackup(uri: Uri, password: CharArray) {
+    /**
+     * Descifra el archivo [uri] con [password] y mezcla sus servidores con los actuales. Borra
+     * [password] al terminar. [onDone] recibe null si salió bien o el texto del error.
+     */
+    fun importBackup(uri: Uri, password: CharArray, onDone: (error: String?) -> Unit) {
         if (backupBusy) { password.fill('\u0000'); return }
         backupBusy = true
         viewModelScope.launch {
+            var error: String? = null
             try {
                 val data = withContext(Dispatchers.IO) { runCatching { readLimited(uri, 1 shl 20) }.getOrNull() }
                 if (data == null) {
-                    showNotice(Strings.get(R.string.respaldo_error_leer), NoticeKind.Error)
-                    return@launch
-                }
-                val conf = try {
-                    withContext(Dispatchers.Default) { ConfBackup.decrypt(data, password) }
-                } catch (e: ConfBackup.BackupException) {
-                    showNotice(
-                        Strings.get(
+                    error = Strings.get(R.string.respaldo_error_leer)
+                } else {
+                    val conf = try {
+                        withContext(Dispatchers.Default) { ConfBackup.decrypt(data, password) }
+                    } catch (e: ConfBackup.BackupException) {
+                        error = Strings.get(
                             when (e.failure) {
                                 ConfBackup.Failure.NOT_A_BACKUP -> R.string.respaldo_no_es_respaldo
                                 ConfBackup.Failure.WRONG_PASSWORD -> R.string.respaldo_contrasena_mala
                                 ConfBackup.Failure.UNSUPPORTED_VERSION -> R.string.respaldo_version_nueva
                                 ConfBackup.Failure.CORRUPT -> R.string.respaldo_danado
                             }
-                        ),
-                        NoticeKind.Error
-                    )
-                    return@launch
-                }
-                val outcome = withContext(Dispatchers.IO) { RootShell.importProfiles(parseConf(conf)) }
-                when {
-                    !outcome.result.success ->
-                        showNotice(Strings.get(R.string.respaldo_error_importar, outcome.result.output.take(200)), NoticeKind.Error)
-                    outcome.added + outcome.replaced == 0 ->
-                        showNotice(Strings.get(R.string.respaldo_vacio), NoticeKind.Warning)
-                    else -> {
-                        showNotice(Strings.get(R.string.respaldo_importado, outcome.added, outcome.replaced), NoticeKind.Success)
-                        reload()
+                        )
+                        null
+                    }
+                    if (conf != null) {
+                        val outcome = withContext(Dispatchers.IO) { RootShell.importProfiles(parseConf(conf)) }
+                        when {
+                            !outcome.result.success ->
+                                error = Strings.get(R.string.respaldo_error_importar, outcome.result.output.take(200))
+                            outcome.added + outcome.replaced == 0 ->
+                                error = Strings.get(R.string.respaldo_vacio)
+                            else -> {
+                                showNotice(Strings.get(R.string.respaldo_importado, outcome.added, outcome.replaced), NoticeKind.Success)
+                                reload()
+                            }
+                        }
                     }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = Strings.get(R.string.respaldo_error_leer)
             } finally {
                 password.fill('\u0000')
                 backupBusy = false
             }
+            onDone(error)
         }
     }
 

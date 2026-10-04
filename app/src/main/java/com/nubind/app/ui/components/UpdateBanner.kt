@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nubind.app.BindViewModel
 import com.nubind.app.R
@@ -579,14 +580,15 @@ private fun laterButtonColors(p: StatusPalette) = ButtonDefaults.buttonColors(
  * [glyphSpinning], para acciones en curso como buscar).
  */
 @Composable
-private fun CookieBadge(
+internal fun CookieBadge(
     icon: ImageVector,
     shape: Shape,
     background: Color,
     glyph: Color,
     spinning: Boolean,
     modifier: Modifier = Modifier,
-    glyphSpinning: Boolean = false
+    glyphSpinning: Boolean = false,
+    size: Dp = 48.dp
 ) {
     val transition = rememberInfiniteTransition(label = "updateBadge")
     val glyphSpin by transition.animateFloat(
@@ -610,7 +612,7 @@ private fun CookieBadge(
         ),
         label = "pulse"
     )
-    Box(modifier.size(48.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -628,7 +630,7 @@ private fun CookieBadge(
             contentDescription = null,
             tint = glyph,
             modifier = Modifier
-                .size(24.dp)
+                .size(size / 2)
                 .graphicsLayer { if (glyphSpinning) rotationZ = glyphSpin }
         )
     }

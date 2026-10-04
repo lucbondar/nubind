@@ -332,9 +332,7 @@
     <string name="respaldo_exportar">Export</string>
     <string name="respaldo_importar">Import</string>
     <string name="respaldo_requiere_root">Root access is required to read and save servers.</string>
-    <string name="respaldo_exportar_titulo">Export servers</string>
     <string name="respaldo_exportar_aviso">The file is encrypted with the password you choose now. Without it the backup cannot be recovered, so keep it safe.</string>
-    <string name="respaldo_importar_titulo">Import servers</string>
     <string name="respaldo_importar_aviso">Enter the backup password. Servers with the same name will be replaced; the rest are kept.</string>
     <string name="respaldo_contrasena">Password</string>
     <string name="respaldo_repetir">Repeat password</string>
@@ -351,4 +349,8 @@
     <string name="respaldo_error_importar">Couldn\'t import: %1$s</string>
     <string name="respaldo_vacio">The backup has no valid servers</string>
     <string name="respaldo_importado">Servers imported: %1$d new, %2$d replaced</string>
+    <string name="servidores_guardados">Saved: %1$d</string>
+    <string name="respaldo_elegir_archivo">Choose backup file…</string>
+    <string name="respaldo_guardar_como">Choose location and export</string>
+    <string name="respaldo_importar_existente">Import a backup</string>
 </resources>

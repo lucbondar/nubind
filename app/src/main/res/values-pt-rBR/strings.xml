@@ -331,9 +331,7 @@
     <string name="respaldo_exportar">Exportar</string>
     <string name="respaldo_importar">Importar</string>
     <string name="respaldo_requiere_root">É necessário acesso root para ler e salvar os servidores.</string>
-    <string name="respaldo_exportar_titulo">Exportar servidores</string>
     <string name="respaldo_exportar_aviso">O arquivo é criptografado com a senha que você escolher agora. Sem ela não é possível recuperar o backup: guarde-a bem.</string>
-    <string name="respaldo_importar_titulo">Importar servidores</string>
     <string name="respaldo_importar_aviso">Digite a senha do backup. Os servidores com o mesmo nome serão substituídos; os demais são mantidos.</string>
     <string name="respaldo_contrasena">Senha</string>
     <string name="respaldo_repetir">Repetir senha</string>
@@ -350,4 +348,8 @@
     <string name="respaldo_error_importar">Não foi possível importar: %1$s</string>
     <string name="respaldo_vacio">O backup não contém servidores válidos</string>
     <string name="respaldo_importado">Servidores importados: %1$d novos, %2$d substituídos</string>
+    <string name="servidores_guardados">Salvos: %1$d</string>
+    <string name="respaldo_elegir_archivo">Escolher arquivo de backup…</string>
+    <string name="respaldo_guardar_como">Escolher local e exportar</string>
+    <string name="respaldo_importar_existente">Importar um backup</string>
 </resources>

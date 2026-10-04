@@ -331,9 +331,7 @@
     <string name="respaldo_exportar">Exportar</string>
     <string name="respaldo_importar">Importar</string>
     <string name="respaldo_requiere_root">Hace falta acceso root para leer y guardar los servidores.</string>
-    <string name="respaldo_exportar_titulo">Exportar servidores</string>
     <string name="respaldo_exportar_aviso">El archivo se cifra con la contraseña que elijas ahora. Sin ella no se puede recuperar el respaldo: guárdala bien.</string>
-    <string name="respaldo_importar_titulo">Importar servidores</string>
     <string name="respaldo_importar_aviso">Escribe la contraseña del respaldo. Los servidores con el mismo nombre se reemplazarán; los demás se conservan.</string>
     <string name="respaldo_contrasena">Contraseña</string>
     <string name="respaldo_repetir">Repetir contraseña</string>
@@ -350,4 +348,8 @@
     <string name="respaldo_error_importar">No se pudo importar: %1$s</string>
     <string name="respaldo_vacio">El respaldo no contiene servidores válidos</string>
     <string name="respaldo_importado">Servidores importados: %1$d nuevos, %2$d reemplazados</string>
+    <string name="servidores_guardados">Guardados: %1$d</string>
+    <string name="respaldo_elegir_archivo">Elegir archivo de respaldo…</string>
+    <string name="respaldo_guardar_como">Elegir ubicación y exportar</string>
+    <string name="respaldo_importar_existente">Importar un respaldo</string>
 </resources>

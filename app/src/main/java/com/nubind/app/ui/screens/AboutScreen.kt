@@ -54,6 +54,7 @@ import com.nubind.app.BuildConfig
 import com.nubind.app.root.AppUpdateState
 import com.nubind.app.root.RootShell
 import com.nubind.app.ui.components.AnimatedLogo
+import com.nubind.app.ui.components.Entrance
 import com.nubind.app.ui.theme.AppMotion
 import com.nubind.app.ui.components.AppIcons
 import com.nubind.app.ui.components.DualPaneContentWidth
@@ -135,27 +136,6 @@ fun AboutScreen(vm: BindViewModel) {
             )
         }
     }
-}
-
-/**
- * Entrada escalonada de las tarjetas: aparecen una tras otra subiendo un poco con un
- * resorte suave. Solo mueve y desvanece (no cambia el tamaño), así el contenido no salta
- * mientras llegan. La cabecera con el logo no pasa por aquí: el icono queda intacto.
- */
-@Composable
-private fun Entrance(index: Int, content: @Composable () -> Unit) {
-    val progress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        delay(index * 80L)
-        progress.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow))
-    }
-    val rise = with(LocalDensity.current) { 28.dp.toPx() }
-    Box(
-        Modifier.graphicsLayer {
-            alpha = progress.value.coerceIn(0f, 1f)
-            translationY = (1f - progress.value) * rise
-        }
-    ) { content() }
 }
 
 @Composable
