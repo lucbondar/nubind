@@ -59,6 +59,11 @@ LOG_FILE="$MODDIR/mount.log"
 STATUS_FILE="$MODDIR/status.json"
 RCLONE_CONF="$MODDIR/config/rclone.conf"
 PRELOAD_STATUS="$MODDIR/preload_status.json"
+# Pausa: la app crea este archivo (Pausar) y lo borra (Reanudar). Cada worker
+# lo mira ANTES de empezar un archivo: el que ya se está leyendo termina y los
+# siguientes esperan. Los latidos siguen publicando "running":true, así que la
+# app no la toma por colgada. Se limpia al arrancar y al terminar la corrida.
+PAUSE_FLAG="$MODDIR/preload.paused"
 
 # Nota: los tamaños se suman siempre con awk y no con $(( )): el mksh de
 # Android hace la aritmética en 32 bits con signo, y un archivo de más de
@@ -96,6 +101,8 @@ echo $$ > "$LOCK/pid"
 rm -f "$MODDIR"/.preload_list "$MODDIR"/.preload_list.raw "$MODDIR"/.preload_selected \
       "$MODDIR"/.preload_part_* "$MODDIR"/.preload_result_* "$MODDIR"/.preload_progress_* \
       "$MODDIR"/.preload_all_done 2>/dev/null
+# Una pausa de la corrida anterior no debe heredarse.
+rm -f "$PAUSE_FLAG" 2>/dev/null
 
 cleanup() {
     # Los hijos propios (latido, monitor, workers) se detienen SIEMPRE. Antes
@@ -116,6 +123,7 @@ cleanup() {
     # puede haberlos tomado ya).
     [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] || return 0
     rm -rf "$LOCK"
+    rm -f "$PAUSE_FLAG"
     rm -f "$MODDIR"/.preload_list "$MODDIR"/.preload_list.raw "$MODDIR"/.preload_selected \
           "$MODDIR"/.preload_part_* "$MODDIR"/.preload_result_* "$MODDIR"/.preload_progress_* \
           "$MODDIR"/.preload_all_done
@@ -396,6 +404,12 @@ preload_worker() {
     ok=0
     while IFS="$TAB" read -r SZ_MB SZ_B f; do
         [ -n "$f" ] || continue
+        # En pausa: espera aquí (entre archivos). Si la corrida principal
+        # muere mientras tanto, no se queda esperando para siempre.
+        while [ -f "$PAUSE_FLAG" ]; do
+            kill -0 "$MAIN_PID" 2>/dev/null || break
+            sleep 1
+        done
         case "$SZ_MB" in ''|*[!0-9]*) SZ_MB=0 ;; esac
         TL=$(( SZ_MB * 4 ))
         [ "$TL" -lt 300 ] && TL=300

@@ -7,6 +7,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -55,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -86,6 +88,59 @@ private fun AppUpdateState.kind(): UpdateKind? = when (this) {
     is AppUpdateState.Downloading -> UpdateKind.DOWNLOADING
     AppUpdateState.Installing -> UpdateKind.INSTALLING
     is AppUpdateState.Failed -> UpdateKind.FAILED
+}
+
+/**
+ * Paleta verde de "hay actualización". Fija (no sale del color dinámico) para
+ * que el verde se vea igual con cualquier fondo de pantalla. Se elige clara u
+ * oscura según la luminancia de la superficie del tema.
+ */
+internal class UpdateGreen(
+    val container: Color,
+    val onContainer: Color,
+    val accent: Color,
+    val onAccent: Color
+)
+
+@Composable
+internal fun updateGreen(): UpdateGreen {
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    return if (dark) UpdateGreen(
+        container = Color(0xFF0F5223),
+        onContainer = Color(0xFFB7F4B8),
+        accent = Color(0xFF8DDB90),
+        onAccent = Color(0xFF00390F)
+    ) else UpdateGreen(
+        container = Color(0xFFBDEFC0),
+        onContainer = Color(0xFF00210A),
+        accent = Color(0xFF1B6D2F),
+        onAccent = Color(0xFFFFFFFF)
+    )
+}
+
+/** Verde mientras hay una actualización por instalar, en curso de bajar o instalándose. */
+private fun AppUpdateState.isGreen(): Boolean =
+    this is AppUpdateState.Available || this is AppUpdateState.Downloading || this is AppUpdateState.Installing
+
+/**
+ * Colores (fondo, contenido) de la tarjeta de cabecera de Acerca de: los de
+ * siempre (primaryContainer) y, cuando se encuentra una actualización, verde,
+ * con transición animada. Solo cambia el aspecto: no toca el flujo del actualizador.
+ */
+@Composable
+fun updateHeaderColors(state: AppUpdateState): Pair<Color, Color> {
+    val scheme = MaterialTheme.colorScheme
+    val g = updateGreen()
+    val green = state.isGreen()
+    val container by animateColorAsState(
+        if (green) g.container else scheme.primaryContainer,
+        animationSpec = tween(500), label = "headerContainer"
+    )
+    val content by animateColorAsState(
+        if (green) g.onContainer else scheme.onPrimaryContainer,
+        animationSpec = tween(500), label = "headerContent"
+    )
+    return container to content
 }
 
 /**
@@ -163,11 +218,17 @@ private fun UpdateCard(
     onCheck: () -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
+    // Con la cabecera en verde (hay actualización) todo el bloque usa la paleta verde.
+    val g = updateGreen()
+    val green = kind == UpdateKind.AVAILABLE || kind == UpdateKind.DOWNLOADING || kind == UpdateKind.INSTALLING
+    val accent = if (green) g.accent else scheme.primary
+    val onAccent = if (green) g.onAccent else scheme.onPrimary
+    val base = if (green) g.onContainer else scheme.onPrimaryContainer
     val (container, content) = when (kind) {
         // Disponible es lo importante: color pleno sobre la cabecera.
-        UpdateKind.AVAILABLE -> scheme.primary to scheme.onPrimary
+        UpdateKind.AVAILABLE -> accent to onAccent
         UpdateKind.FAILED -> scheme.errorContainer to scheme.onErrorContainer
-        else -> scheme.onPrimaryContainer.copy(alpha = 0.10f) to scheme.onPrimaryContainer
+        else -> base.copy(alpha = 0.10f) to base
     }
 
     Surface(
@@ -186,26 +247,26 @@ private fun UpdateCard(
             ) {
                 when (kind) {
                     UpdateKind.CHECKING, UpdateKind.INSTALLING ->
-                        LoadingIndicator(Modifier.size(48.dp))
+                        LoadingIndicator(Modifier.size(48.dp), color = accent)
                     UpdateKind.AVAILABLE -> CookieBadge(
                         icon = AppIcons.Download,
                         shape = MaterialShapes.Cookie9Sided.toShape(),
-                        background = scheme.onPrimary,
-                        glyph = scheme.primary,
+                        background = onAccent,
+                        glyph = accent,
                         spinning = true
                     )
                     UpdateKind.DOWNLOADING -> CookieBadge(
                         icon = AppIcons.Download,
                         shape = MaterialShapes.Cookie9Sided.toShape(),
-                        background = scheme.primary,
-                        glyph = scheme.onPrimary,
+                        background = accent,
+                        glyph = onAccent,
                         spinning = true
                     )
                     UpdateKind.UP_TO_DATE -> CookieBadge(
                         icon = Icons.Default.Check,
                         shape = MaterialShapes.Cookie9Sided.toShape(),
-                        background = scheme.primary,
-                        glyph = scheme.onPrimary,
+                        background = accent,
+                        glyph = onAccent,
                         spinning = false
                     )
                     UpdateKind.FAILED -> CookieBadge(
@@ -248,16 +309,16 @@ private fun UpdateCard(
                 UpdateKind.AVAILABLE -> (state as? AppUpdateState.Available)?.info?.let { info ->
                     SquishButton(
                         text = Strings.get(R.string.upd_actualizar_ahora),
-                        colors = ButtonDefaults.buttonColors(containerColor = scheme.onPrimary, contentColor = scheme.primary),
+                        colors = ButtonDefaults.buttonColors(containerColor = onAccent, contentColor = accent),
                         onClick = { onUpdate(info) }
                     )
                 }
                 UpdateKind.DOWNLOADING -> {
                     val p = (state as? AppUpdateState.Downloading)?.progress ?: -1f
                     if (p < 0f) {
-                        LinearWavyProgressIndicator(Modifier.fillMaxWidth())
+                        LinearWavyProgressIndicator(Modifier.fillMaxWidth(), color = accent)
                     } else {
-                        LinearWavyProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth())
+                        LinearWavyProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth(), color = accent)
                         Text("${(p * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
                     }
                 }

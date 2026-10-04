@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -25,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -575,6 +577,7 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
             val scanning = status?.running == true
             Text(
                 when {
+                    status?.paused == true -> Strings.get(R.string.preload_pausada)
                     scanning -> Strings.get(R.string.preload_scanning)
                     mounted -> Strings.get(R.string.todavia_no_hay_nada_precargado_se)
                     else -> Strings.get(R.string.monta_un_servidor_para_poder_precargarlo)
@@ -582,7 +585,7 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant
             )
-            if (scanning) {
+            if (scanning && status?.paused != true) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)))
             }
         } else {
@@ -595,6 +598,7 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
             ) {
                 Text(
                     when {
+                        s.paused -> Strings.get(R.string.preload_pausada)
                         s.running -> Strings.get(R.string.precargando)
                         s.finished -> Strings.get(R.string.listo)
                         else -> Strings.get(R.string.incompleta)
@@ -641,6 +645,23 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
             style = MaterialTheme.typography.bodySmall,
             color = scheme.onSurfaceVariant
         )
+
+        // Pausar / reanudar: solo mientras la precarga está viva.
+        if (status?.running == true) {
+            val paused = status.paused
+            OutlinedButton(
+                onClick = { vm.setPreloadPaused(!paused) },
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                Icon(if (paused) Icons.Default.PlayArrow else Icons.Default.Pause, contentDescription = null)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    Strings.get(if (paused) R.string.preload_reanudar else R.string.preload_pausar),
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+        }
 
         FilledTonalButton(
             onClick = { vm.preloadNow() },

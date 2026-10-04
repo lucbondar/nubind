@@ -43,6 +43,23 @@ class PreloadService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         ensureChannel(this)
+        // Botón Pausar / Reanudar de la notificación. El servicio ya está en primer
+        // plano siguiendo la precarga: solo se cambia la pausa y se refresca el aviso.
+        // No se vuelve a llamar a startForeground (mostraría un instante el aviso "vacío").
+        val action = intent?.action
+        if (action == ACTION_PAUSE || action == ACTION_RESUME) {
+            scope.launch {
+                if (action == ACTION_PAUSE) RootShell.preloadPause() else RootShell.preloadResume()
+                val status = PreloadStatusParser.parse(RootShell.preloadStatus())
+                if (job?.isActive == true && status?.running == true) {
+                    getSystemService(NotificationManager::class.java)
+                        .notify(NOTIF_ID, progressNotification(this@PreloadService, status))
+                } else if (job?.isActive != true) {
+                    stopSelf() // Llegó la acción sin precarga que seguir: no dejar el servicio vivo.
+                }
+            }
+            return START_NOT_STICKY
+        }
         // Hay que llamar a startForeground enseguida (límite de 5 s tras startForegroundService).
         ServiceCompat.startForeground(
             this, NOTIF_ID, progressNotification(this, null),
@@ -60,7 +77,7 @@ class PreloadService : Service() {
     private suspend fun CoroutineScope.track() {
         val nm = getSystemService(NotificationManager::class.java)
         val startDeadline = SystemClock.elapsedRealtime() + START_GRACE_MS
-        val hardDeadline = SystemClock.elapsedRealtime() + HARD_TIMEOUT_MS
+        var hardDeadline = SystemClock.elapsedRealtime() + HARD_TIMEOUT_MS
         var everRunning = false
         var lastKey: String? = null
         while (isActive) {
@@ -69,7 +86,9 @@ class PreloadService : Service() {
             when {
                 status?.running == true -> {
                     everRunning = true
-                    val key = "${status.doneMb}/${status.selectedMb}/${status.doneFiles}/${status.selectedFiles}"
+                    // En pausa no corre el tope de seguridad (puede quedar pausada horas).
+                    if (status.paused) hardDeadline = now + HARD_TIMEOUT_MS
+                    val key = "${status.doneMb}/${status.selectedMb}/${status.doneFiles}/${status.selectedFiles}/${status.paused}"
                     if (key != lastKey) {
                         lastKey = key
                         nm.notify(NOTIF_ID, progressNotification(this@PreloadService, status))
@@ -107,6 +126,8 @@ class PreloadService : Service() {
         private const val CHANNEL_ID = "preload"
         private const val NOTIF_ID = 7101
         private const val DONE_ID = 7102
+        private const val ACTION_PAUSE = "com.nubind.app.action.PRELOAD_PAUSE"
+        private const val ACTION_RESUME = "com.nubind.app.action.PRELOAD_RESUME"
         private const val POLL_MS = 2000L
         // Igual que BindViewModel: recorrer un remoto grande antes de la primera escritura puede tardar.
         private const val START_GRACE_MS = 60_000L
@@ -138,6 +159,12 @@ class PreloadService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        private fun actionIntent(ctx: Context, action: String): PendingIntent = PendingIntent.getService(
+            ctx, if (action == ACTION_PAUSE) 1 else 2,
+            Intent(ctx, PreloadService::class.java).setAction(action),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         private fun detail(ctx: Context, s: PreloadStatus) =
             ctx.getString(R.string.mb_archivos, s.doneMb, s.selectedMb, s.doneFiles, s.selectedFiles)
 
@@ -148,12 +175,11 @@ class PreloadService : Service() {
             // total conocido se muestra "revisando" con barra indeterminada.
             val known = s != null && s.selectedMb > 0
             val pct = if (known) (s!!.fraction * 100).toInt() else null
+            val paused = s?.paused == true
+            val titleBase = ctx.getString(if (paused) R.string.preload_pausada else R.string.precargando)
             val b = NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notif_preload)
-                .setContentTitle(
-                    if (pct != null) "${ctx.getString(R.string.precargando)} $pct%"
-                    else ctx.getString(R.string.precargando)
-                )
+                .setContentTitle(if (pct != null) "$titleBase $pct%" else titleBase)
                 .setContentText(if (known) detail(ctx, s!!) else ctx.getString(R.string.preload_scanning))
                 .setCategory(NotificationCompat.CATEGORY_PROGRESS)
                 .setOngoing(true)
@@ -163,7 +189,14 @@ class PreloadService : Service() {
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
                 .setContentIntent(openAppIntent(ctx))
             if (s != null && s.remote.isNotBlank()) b.setSubText(s.remote)
-            if (pct != null) b.setProgress(100, pct, false) else b.setProgress(0, 0, true)
+            // Pausada: la barra se queda quieta (no indeterminada) aunque aún no haya total.
+            if (pct != null) b.setProgress(100, pct, false) else b.setProgress(0, 0, !paused)
+            // Pausar / Reanudar sin abrir la app.
+            if (paused) {
+                b.addAction(android.R.drawable.ic_media_play, ctx.getString(R.string.preload_reanudar), actionIntent(ctx, ACTION_RESUME))
+            } else {
+                b.addAction(android.R.drawable.ic_media_pause, ctx.getString(R.string.preload_pausar), actionIntent(ctx, ACTION_PAUSE))
+            }
             return b.build()
         }
 

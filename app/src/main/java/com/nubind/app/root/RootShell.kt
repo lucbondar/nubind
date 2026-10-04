@@ -39,6 +39,9 @@ object ModulePaths {
     const val LOG_FILE = "$BASE/mount.log"
     /** Progreso de la precarga (lo escribe scripts/preload.sh). */
     const val PRELOAD_STATUS_FILE = "$BASE/preload_status.json"
+
+    /** Si existe, preload.sh está en pausa (la crea y borra la app; ver preload.sh). */
+    const val PRELOAD_PAUSE_FILE = "$BASE/preload.paused"
     /** Salida temporal de `rclone authorize` (contiene el token: se borra al terminar). */
     const val AUTH_OUT = "$BASE/auth.out"
     /** Progreso de la prueba de rendimiento (lo escribe scripts/perf_test.sh). */
@@ -99,8 +102,21 @@ object RootShell {
             "nohup sh ${ModulePaths.SCRIPTS}/preload.sh force >/dev/null 2>&1 ) &"
     )
 
+    /**
+     * preload_status.json más, si la precarga está en pausa, una línea extra
+     * `"paused":true` (sale de la existencia de preload.paused, no del JSON, así
+     * el cambio se ve al instante y no hay que esperar a que el script republique).
+     */
     fun preloadStatus(): String =
-        Shell.cmd("cat ${ModulePaths.PRELOAD_STATUS_FILE} 2>/dev/null").exec().out.joinToString("\n")
+        Shell.cmd(
+            "cat ${ModulePaths.PRELOAD_STATUS_FILE} 2>/dev/null; " +
+                "[ -f ${ModulePaths.PRELOAD_PAUSE_FILE} ] && echo '\"paused\":true'"
+        ).exec().out.joinToString("\n")
+
+    /** Pausa la precarga: los workers terminan el archivo en curso y esperan (ver preload.sh). */
+    fun preloadPause(): Result = run("touch ${ModulePaths.PRELOAD_PAUSE_FILE}")
+
+    fun preloadResume(): Result = run("rm -f ${ModulePaths.PRELOAD_PAUSE_FILE}")
 
     fun tailLog(lines: Int = 200): Result = run("tail -n $lines ${ModulePaths.LOG_FILE} 2>/dev/null")
 

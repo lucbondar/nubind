@@ -308,4 +308,8 @@
     <string name="upd_ksu_no_encontrada">No se encontró la app de KernelSU</string>
     <string name="upd_entendido">Entendido</string>
     <string name="upd_modulo_aviso_snackbar">Módulo desfasado: actualízalo desde la app KSU</string>
+    <string name="preload_pausar">Pausar</string>
+    <string name="preload_reanudar">Reanudar</string>
+    <string name="preload_pausada">En pausa</string>
+    <string name="preload_pausa_error">No se pudo pausar o reanudar la precarga: %1$s</string>
 </resources>

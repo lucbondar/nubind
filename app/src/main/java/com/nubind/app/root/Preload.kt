@@ -13,7 +13,9 @@ data class PreloadStatus(
     val selectedFiles: Int,
     val selectedMb: Int,
     val doneFiles: Int,
-    val doneMb: Int
+    val doneMb: Int,
+    /** En pausa: sigue "running", pero los workers esperan antes del próximo archivo. */
+    val paused: Boolean = false
 ) {
     /** Ya se cubrió todo lo que entraba en el presupuesto (puede haber quedado fuera por espacio). */
     val finished: Boolean get() = !running && selectedFiles > 0 && doneFiles >= selectedFiles
@@ -54,7 +56,10 @@ object PreloadStatusParser {
             selectedFiles = intField(json, "selected_files") ?: 0,
             selectedMb = intField(json, "selected_mb") ?: 0,
             doneFiles = intField(json, "done_files") ?: 0,
-            doneMb = intField(json, "done_mb") ?: 0
+            doneMb = intField(json, "done_mb") ?: 0,
+            // Solo tiene sentido con la precarga viva: si el proceso murió, la pausa no cuenta.
+            paused = running && !isStale(intField(json, "updated")) &&
+                (boolField(json, "paused") ?: false)
         )
     }
 }

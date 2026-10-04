@@ -309,4 +309,8 @@
     <string name="upd_ksu_no_encontrada">KernelSU app not found</string>
     <string name="upd_entendido">Got it</string>
     <string name="upd_modulo_aviso_snackbar">Module out of sync: update it from the KSU app</string>
+    <string name="preload_pausar">Pause</string>
+    <string name="preload_reanudar">Resume</string>
+    <string name="preload_pausada">Paused</string>
+    <string name="preload_pausa_error">Couldn\'t pause or resume the preload: %1$s</string>
 </resources>

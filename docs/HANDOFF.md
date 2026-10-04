@@ -30,7 +30,7 @@ También lo lee KSU mediante `updateJson` en `module/module.prop`.
 | `root/AppUpdater.kt` | Consulta update.json, descarga el APK y verifica SHA-256, instala con root, lee el `module.prop` instalado y decide el desfase (`isModuleBehind`) |
 | `assets/self_update.sh` | Instalador desacoplado de la app; reabre la app al terminar. Va en la app, no en el módulo, porque el módulo instalado puede ser más viejo |
 | `BindViewModel.kt` | `appUpdate`, `moduleNotice`, `checkForUpdates()`, `installUpdate()`, `checkModuleSync()` (se llama desde `setRootGranted`), `dismissModuleNotice()` |
-| `ui/components/UpdateBanner.kt` | `UpdateNotices()`, dentro de `HeaderCard` en `AboutScreen` |
+| `ui/components/UpdateBanner.kt` | `UpdateNotices()`, dentro de `HeaderCard` en `AboutScreen`. También `updateHeaderColors()`: con update disponible/descargando/instalando la tarjeta de cabecera entera pasa a verde (paleta fija `UpdateGreen`); es solo visual, no toca el flujo |
 | `AndroidManifest.xml` | `<queries>` con los paquetes de KernelSU, para poder abrirlos |
 | `res/values*/strings.xml` | Textos `upd_*`; todo string nuevo va en `values`, `values-es` y `values-pt-rBR` |
 
@@ -39,6 +39,9 @@ También lo lee KSU mediante `updateJson` en `module/module.prop`.
 2. Con update disponible aparece "Actualizar ahora": con root instala sola, sin root abre `apkUrl` en el navegador.
 3. Si el módulo KSU instalado trae un APK más viejo que la app, aparece un aviso: puede funcionar, pero para completar la actualización hay que descargar el módulo desde la app KSU. Botones "Abrir KernelSU" y "Entendido" (se descarta hasta que cambie la versión de la app o del módulo).
 4. Los módulos antiguos sin `appVersionCode` se comparan por número de versión (no detectan desfase entre builds de la misma versión).
+
+## Precarga: pausa
+`preload.sh` mira el archivo `preload.paused` (en el directorio del módulo) antes de cada archivo: el que se está leyendo termina y los workers esperan. La app lo crea/borra con `RootShell.preloadPause()/preloadResume()`; `preloadStatus()` añade `"paused":true` al JSON si el archivo existe (`PreloadStatus.paused`). Botón en la tarjeta de Inicio (`BindViewModel.setPreloadPaused`) y acción en la notificación (`PreloadService`, acciones `PRELOAD_PAUSE/RESUME`). El script y `unmount.sh` limpian la bandera; los topes de seguridad (app y servicio) no corren mientras está en pausa.
 
 ## Estado
 El código del actualizador se escribió sin poder compilarlo localmente. Si el CI da errores de compilación en estos archivos, corrígelos primero.

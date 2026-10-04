@@ -44,6 +44,7 @@ import com.nubind.app.ui.components.DualPaneContentWidth
 import com.nubind.app.ui.components.ScreenContainer
 import com.nubind.app.ui.components.SectionCard
 import com.nubind.app.ui.components.UpdateNotices
+import com.nubind.app.ui.components.updateHeaderColors
 import com.nubind.app.ui.components.rememberIsDualPane
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -110,10 +111,11 @@ fun AboutScreen(vm: BindViewModel) {
 
 @Composable
 private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
-    val scheme = MaterialTheme.colorScheme
+    // Se vuelve verde al encontrar una actualización (ver updateHeaderColors).
+    val (container, content) = updateHeaderColors(vm.appUpdate)
     Surface(
-        color = scheme.primaryContainer,
-        contentColor = scheme.onPrimaryContainer,
+        color = container,
+        contentColor = content,
         shape = MaterialTheme.shapes.extraLarge,
         modifier = modifier
     ) {

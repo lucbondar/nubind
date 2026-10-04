@@ -101,6 +101,7 @@ while [ -d "$MODDIR/preload.lock" ] && [ "$i" -lt 10 ]; do
     i=$((i + 1))
 done
 rm -rf "$MODDIR/preload.lock" "$MODDIR/.preload_list"
+rm -f "$MODDIR/preload.paused"
 
 # Libera la RAM de la caché en RAM (si estaba activa): el tmpfs es
 # descartable, así que basta con desmontarlo.

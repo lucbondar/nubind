@@ -594,7 +594,7 @@ class BindViewModel : ViewModel() {
      */
     private suspend fun CoroutineScope.watchPreload(announceIfNeverStarted: Boolean = false) {
         val startDeadline = SystemClock.elapsedRealtime() + PRELOAD_START_GRACE_MS
-        val hardDeadline = SystemClock.elapsedRealtime() + PRELOAD_TIMEOUT_MS
+        var hardDeadline = SystemClock.elapsedRealtime() + PRELOAD_TIMEOUT_MS
         var everRunning = false
         while (isActive) {
             delay(PRELOAD_POLL_MS)
@@ -607,6 +607,8 @@ class BindViewModel : ViewModel() {
             cacheKb = withContext(Dispatchers.IO) { RootShell.cacheSizeKb() }
             serverCacheKb = withContext(Dispatchers.IO) { RootShell.serverCacheSizesKb() }
             val now = SystemClock.elapsedRealtime()
+            // En pausa no avanza: el tope de seguridad cuenta solo el tiempo activo.
+            if (status?.paused == true) hardDeadline = now + PRELOAD_TIMEOUT_MS
             if (status?.running == true) {
                 // Notificación persistente (sigue el progreso con la app cerrada). Solo se
                 // arranca cuando la precarga realmente corre: en Equilibrado preload.sh sale
@@ -625,6 +627,26 @@ class BindViewModel : ViewModel() {
                 return
             }
             if (now > hardDeadline) return
+        }
+    }
+
+    /**
+     * Pausa o reanuda la precarga (botón de Inicio). preload.sh deja terminar el
+     * archivo en curso y los workers esperan antes del siguiente; reanudar sigue
+     * donde quedó, sin volver a listar el remoto.
+     */
+    fun setPreloadPaused(paused: Boolean) = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) {
+            if (paused) RootShell.preloadPause() else RootShell.preloadResume()
+        }
+        if (!result.success) {
+            message = Strings.get(R.string.preload_pausa_error, result.output.takeLast(200))
+            return@launch
+        }
+        // Se relee de inmediato (el estado de pausa sale del archivo-bandera).
+        preloadStatus = PreloadStatusParser.parse(withContext(Dispatchers.IO) { RootShell.preloadStatus() })
+        if (preloadStatus?.running == true && preloadJob?.isActive != true) {
+            preloadJob = viewModelScope.launch { watchPreload() }
         }
     }
 
