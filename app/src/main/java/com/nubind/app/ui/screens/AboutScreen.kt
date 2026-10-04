@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.filled.Check
@@ -310,6 +311,9 @@ private fun ShowLogsToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
         shape = RoundedCornerShape(corner),
         modifier = Modifier
             .fillMaxWidth()
+            // Recorte a la forma (que cambia con resorte) ANTES del toggleable: si no, el
+            // resplandor del toque se dibuja como un rectángulo de esquinas rectas.
+            .clip(RoundedCornerShape(corner))
             .toggleable(
                 value = checked,
                 role = Role.Switch,

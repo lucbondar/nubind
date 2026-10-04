@@ -201,7 +201,8 @@ private fun DontShowToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
         color = container,
         contentColor = content,
         shape = RoundedCornerShape(corner),
-        modifier = Modifier.toggleable(
+        // Recorte a la forma antes del toggleable: el resplandor del toque no debe salirse de la píldora.
+        modifier = Modifier.clip(RoundedCornerShape(corner)).toggleable(
             value = checked,
             role = Role.Checkbox,
             onValueChange = {
