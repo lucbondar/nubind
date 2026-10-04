@@ -157,6 +157,33 @@ object RootShell {
 
     fun loadProfiles(): List<RemoteProfile> = readConf().toProfiles()
 
+    /** rclone.conf tal cual, para el respaldo cifrado; null si no existe o no se pudo leer. */
+    fun readConfText(): String? {
+        val r = Shell.cmd("cat ${ModulePaths.RCLONE_CONF} 2>/dev/null").exec()
+        return if (r.isSuccess) r.out.joinToString("\n") else null
+    }
+
+    /** [added] servidores nuevos y [replaced] que ya existían con el mismo nombre. */
+    data class ImportResult(val result: Result, val added: Int, val replaced: Int)
+
+    /**
+     * Mezcla los servidores de un respaldo con los actuales: los de mismo nombre se reemplazan y el
+     * resto se conserva. Solo entran secciones de un tipo que la app conoce (ftp, drive, s3).
+     */
+    fun importProfiles(imported: Conf): ImportResult {
+        val types = RemoteType.values().map { it.rclone }.toSet()
+        val valid = imported.filter { it.value["type"] in types }
+        if (valid.isEmpty()) return ImportResult(Result(true, ""), 0, 0)
+        val conf = readConf()
+        var added = 0
+        var replaced = 0
+        for ((name, section) in valid) {
+            if (conf.containsKey(name)) replaced++ else added++
+            conf[name] = LinkedHashMap(section)
+        }
+        return ImportResult(writeConf(conf), added, replaced)
+    }
+
     /**
      * Crea el servidor, o lo edita si [original] no es null (con [name]
      * distinto es un renombrado). Con [pass] vacío al editar se conserva la

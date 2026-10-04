@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.nubind.app.BindViewModel
 import com.nubind.app.root.RemoteProfile
 import com.nubind.app.root.RemoteType
+import com.nubind.app.ui.components.BackupCard
 import com.nubind.app.ui.components.DualPaneContentWidth
 import com.nubind.app.ui.components.ScreenContainer
 import com.nubind.app.ui.components.ServerCardStack
@@ -147,6 +148,7 @@ fun ServersScreen(vm: BindViewModel) {
                     onClearCache = { vm.clearServerCache(it.name) }
                 )
             }
+            BackupCard(vm)
         }
     }
 
