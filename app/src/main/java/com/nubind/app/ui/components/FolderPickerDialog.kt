@@ -8,6 +8,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -70,6 +78,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** +1 al entrar a una subcarpeta (la página nueva viene de la derecha), -1 al subir o saltar a otra rama. */
+private fun folderNavDirection(from: String, to: String): Int =
+    if (to.startsWith(from.trimEnd('/') + "/")) 1 else -1
+
 /** Carpeta en la que abre el selector: la que contiene el destino actual, o la raíz. */
 fun folderPickerStartDir(initialPath: String): String =
     if (initialPath.startsWith("$STORAGE_ROOT/")) initialPath.substringBeforeLast('/') else STORAGE_ROOT
@@ -110,9 +122,14 @@ fun FolderPickerDialog(
     onPick: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var current by remember { mutableStateOf(folderPickerStartDir(initialPath)) }
-    // Si la carpeta ya se listó antes (o se precargó al abrir Inicio), la lista aparece al instante.
-    var dirs by remember { mutableStateOf(FolderListCache.peek(current)) }
+    val startDir = remember { folderPickerStartDir(initialPath) }
+    var current by remember { mutableStateOf(startDir) }
+    // Listado por carpeta (no uno solo): al navegar, la página que sale conserva su propia lista
+    // mientras se desliza, en vez de mostrar de golpe la de la carpeta nueva. Si la carpeta ya
+    // se listó antes (o se precargó al abrir Inicio), la lista aparece al instante.
+    val dirsByPath = remember {
+        mutableStateMapOf<String, List<String>>().also { m -> FolderListCache.peek(startDir)?.let { m[startDir] = it } }
+    }
     var reload by remember { mutableStateOf(0) }
     var creating by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
@@ -122,8 +139,9 @@ fun FolderPickerDialog(
     LaunchedEffect(current, reload) {
         // Lo ya conocido se muestra de inmediato y se refresca en silencio: sin parpadeo
         // de "cargando" ni cambios de tamaño del diálogo.
-        dirs = FolderListCache.peek(current)
-        dirs = FolderListCache.load(current)
+        val path = current
+        FolderListCache.peek(path)?.let { dirsByPath[path] = it }
+        dirsByPath[path] = FolderListCache.load(path)
     }
 
     val atRoot = current == STORAGE_ROOT
@@ -165,13 +183,35 @@ fun FolderPickerDialog(
             contentColor = scheme.onSecondaryContainer,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                current,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-            )
+            // La ruta cambia con deslizamiento corto y fundido, en el mismo sentido que la lista.
+            AnimatedContent(
+                targetState = current,
+                transitionSpec = {
+                    val dir = folderNavDirection(initialState, targetState)
+                    (fadeIn(tween(220, delayMillis = 60)) +
+                        slideInHorizontally(
+                            animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow),
+                            initialOffsetX = { dir * it / 8 }
+                        )) togetherWith
+                        (fadeOut(tween(110)) +
+                            slideOutHorizontally(
+                                animationSpec = spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow),
+                                targetOffsetX = { -dir * it / 8 }
+                            )) using
+                        SizeTransform(clip = true) { _, _ ->
+                            spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
+                        }
+                },
+                label = "folderPath"
+            ) { shownPath ->
+                Text(
+                    shownPath,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
         }
     }
 
@@ -223,71 +263,113 @@ fun FolderPickerDialog(
     }
 
     val infoNote: @Composable () -> Unit = {
-        Row(
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(horizontal = 4.dp)
-        ) {
-            Icon(
-                Icons.Default.Info,
-                contentDescription = null,
-                tint = scheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 2.dp).size(18.dp)
-            )
-            Text(
-                if (atRoot) Strings.get(R.string.entra_en_una_carpeta_para_poder)
-                else Strings.get(R.string.el_contenido_que_ya_tenga_esta),
-                style = MaterialTheme.typography.bodySmall,
-                color = scheme.onSurfaceVariant
-            )
+        // El texto cambia entre la raíz y una subcarpeta: fundido y altura con resorte.
+        AnimatedContent(
+            targetState = atRoot,
+            transitionSpec = {
+                fadeIn(tween(220, delayMillis = 90)) togetherWith fadeOut(tween(90)) using
+                    SizeTransform(clip = false) { _, _ ->
+                        spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
+                    }
+            },
+            label = "folderInfoNote"
+        ) { root ->
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    tint = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp).size(18.dp)
+                )
+                Text(
+                    if (root) Strings.get(R.string.entra_en_una_carpeta_para_poder)
+                    else Strings.get(R.string.el_contenido_que_ya_tenga_esta),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant
+                )
+            }
         }
     }
 
+    // Navegar entre carpetas: la página nueva entra deslizándose (desde la derecha al entrar a una
+    // carpeta, desde la izquierda al subir) con fundido, mientras la anterior sale hacia el lado
+    // contrario; la altura del diálogo se acomoda con resorte en vez de saltar. Cada página dibuja
+    // su propia carpeta (`dirsByPath[path]`), no la actual, para que la que sale no cambie de contenido.
     val folderList: @Composable (Modifier) -> Unit = { modifier ->
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = modifier
-        ) {
-            if (!atRoot) {
-                item {
-                    PickerRow(onClick = { current = current.substringBeforeLast('/').ifEmpty { STORAGE_ROOT } }) {
-                        IconTile(Icons.Default.ArrowUpward, scheme.secondaryContainer, scheme.onSecondaryContainer)
-                        Text(
-                            Strings.get(R.string.subir),
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f)
-                        )
+        AnimatedContent(
+            targetState = current,
+            modifier = modifier,
+            transitionSpec = {
+                val dir = folderNavDirection(initialState, targetState)
+                (fadeIn(tween(240, delayMillis = 70)) +
+                    slideInHorizontally(
+                        animationSpec = spring(0.86f, Spring.StiffnessMediumLow),
+                        initialOffsetX = { dir * it / 3 }
+                    )) togetherWith
+                    (fadeOut(tween(120)) +
+                        slideOutHorizontally(
+                            animationSpec = spring(0.86f, Spring.StiffnessMediumLow),
+                            targetOffsetX = { -dir * it / 4 }
+                        )) using
+                    SizeTransform(clip = true) { _, _ ->
+                        spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow)
+                    }
+            },
+            label = "folderPage"
+        ) { path ->
+            val pageAtRoot = path == STORAGE_ROOT
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth().then(if (landscape) Modifier.fillMaxHeight() else Modifier)
+            ) {
+                if (!pageAtRoot) {
+                    item(key = "up") {
+                        PickerRow(
+                            onClick = { current = path.substringBeforeLast('/').ifEmpty { STORAGE_ROOT } },
+                            modifier = Modifier.animateItem()
+                        ) {
+                            IconTile(Icons.Default.ArrowUpward, scheme.secondaryContainer, scheme.onSecondaryContainer)
+                            Text(
+                                Strings.get(R.string.subir),
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
-            }
-            val list = dirs
-            if (list == null) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                        SpinningRefreshIcon()
+                val list = dirsByPath[path]
+                if (list == null) {
+                    item(key = "loading") {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                            SpinningRefreshIcon()
+                        }
                     }
-                }
-            } else if (list.isEmpty()) {
-                item {
-                    Text(
-                        Strings.get(R.string.sin_subcarpetas),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = scheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 4.dp)
-                    )
-                }
-            } else {
-                items(list, key = { it }) { name ->
-                    PickerRow(onClick = { current = "$current/$name" }) {
-                        IconTile(Icons.Default.Folder, scheme.primaryContainer, scheme.onPrimaryContainer)
+                } else if (list.isEmpty()) {
+                    item(key = "empty") {
                         Text(
-                            name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            Strings.get(R.string.sin_subcarpetas),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = scheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 4.dp)
                         )
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = scheme.onSurfaceVariant)
+                    }
+                } else {
+                    items(list, key = { it }) { name ->
+                        PickerRow(onClick = { current = "$path/$name" }, modifier = Modifier.animateItem()) {
+                            IconTile(Icons.Default.Folder, scheme.primaryContainer, scheme.onPrimaryContainer)
+                            Text(
+                                name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = scheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -360,7 +442,7 @@ fun FolderPickerDialog(
 
 /** Fila-tarjeta de la lista: se aplasta con resorte al tocarla. */
 @Composable
-private fun PickerRow(onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
+private fun PickerRow(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -373,7 +455,7 @@ private fun PickerRow(onClick: () -> Unit, content: @Composable RowScope.() -> U
         interactionSource = source,
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .graphicsLayer {
                 scaleX = scale
