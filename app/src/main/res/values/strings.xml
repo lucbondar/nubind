@@ -284,4 +284,7 @@
     <string name="aviso_datos_moviles_texto">You\'re on mobile data (or a metered network). Maximum mode downloads the server\'s contents into the phone\'s cache and can use several GB of your data plan. Continue?</string>
     <string name="continuar_igual">Continue anyway</string>
     <string name="no_volver_a_mostrar">Don\'t show again</string>
+    <string name="preload_workers_title">Parallel downloads</string>
+    <string name="preload_workers_unit">downloads</string>
+    <string name="preload_workers_hint">Applies on the next preload, no remount needed. More downloads speed up many small files, but too many can hit the server\'s request limits (especially Google Drive).</string>
 </resources>

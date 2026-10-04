@@ -101,6 +101,8 @@ class BindViewModel : ViewModel() {
         private set
     /** Ajustes de rendimiento de S3; null en cada campo = automático. */
     var s3Perf by mutableStateOf(S3PerfSettings())
+    /** Descargas en paralelo de la precarga; null = por defecto (se aplica en la próxima precarga, sin remontar). */
+    var preloadWorkers by mutableStateOf<Int?>(null)
         private set
     var perfTest by mutableStateOf(PerfTestState())
         private set
@@ -216,6 +218,7 @@ class BindViewModel : ViewModel() {
         serverCacheKb = snap.serverCacheKb
         ramCache = snap.ramCache
         s3Perf = snap.s3Perf
+        preloadWorkers = withContext(Dispatchers.IO) { RootShell.readPreloadWorkers() }
         isMounted = snap.status.contains("\"mounted\":true")
         mountedRemote = if (isMounted) {
             Regex("\"remote\":\"([^\"]*)\"").find(snap.status)?.groupValues?.get(1)
@@ -621,6 +624,13 @@ class BindViewModel : ViewModel() {
         saveS3Perf(ModulePaths.S3_FEWER_REQ, value?.let { if (it) 1 else 0 })
     fun setS3DirCacheMin(value: Int?) = saveS3Perf(ModulePaths.S3_DIR_CACHE_MIN, value)
     fun resetS3Perf() = savePerf({ RootShell.resetS3Perf() })
+
+    /** preload.sh lo lee al arrancar cada corrida: aplica en la próxima precarga, sin remontar. */
+    fun setPreloadWorkers(value: Int?) = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) { RootShell.setPreloadWorkers(value) }
+        preloadWorkers = withContext(Dispatchers.IO) { RootShell.readPreloadWorkers() }
+        if (!result.success) message = Strings.get(R.string.error_al_guardar, result.output.take(200))
+    }
 
     private fun saveS3Perf(file: String, value: Int?) =
         savePerf({ RootShell.setS3PerfValue(file, value) })

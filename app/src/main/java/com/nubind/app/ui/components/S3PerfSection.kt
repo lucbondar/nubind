@@ -169,7 +169,7 @@ fun S3PerfSection(vm: BindViewModel, provider: S3Provider) {
 }
 
 @Composable
-private fun S3StepSlider(
+internal fun S3StepSlider(
     title: String,
     value: Int,
     isAuto: Boolean,

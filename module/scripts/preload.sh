@@ -212,7 +212,7 @@ FILELIST="$MODDIR/.preload_list"
 # archivos chicos (índices, configuraciones, shaders, manifiestos) y recién
 # después los paquetes grandes; así lo que más se pide al arrancar queda en
 # caché primero, y el presupuesto cubre la mayor cantidad de archivos posible.
-# S3 (Oracle, AWS, Cloudflare R2...) y Google Drive: el listado NO se hace recorriendo el
+# S3 (Oracle, AWS, Cloudflare R2...), Google Drive y FTP: el listado NO se hace recorriendo el
 # montaje con find. find baja carpeta por carpeta y cada carpeta es una
 # petición de listado al servidor, una detrás de otra; en un bucket con cientos
 # de carpetas (un juego de Unity) eso tarda minutos, y si el usuario cambiaba
@@ -225,13 +225,22 @@ FILELIST="$MODDIR/.preload_list"
 # find de siempre.
 LIST_DONE=0
 RTYPE="$(remote_type "$ACTIVE")"
-case "$RTYPE" in s3|drive) LSF_OK=1 ;; *) LSF_OK=0 ;; esac
+# FTP no tiene listado recursivo en el servidor, pero rclone sí recorre las
+# carpetas en paralelo (find sobre el montaje, de a una); se acota a 4
+# listados simultáneos para no saturar servidores FTP modestos (p. ej. los de
+# apps de Android, que cortan con "500 listing directory" si se les abusa).
+LSF_EXTRA=""
+case "$RTYPE" in
+    s3|drive) LSF_OK=1 ;;
+    ftp) LSF_OK=1; LSF_EXTRA="--checkers 4" ;;
+    *) LSF_OK=0 ;;
+esac
 if [ "$LSF_OK" = 1 ] && [ -x "$MODDIR/bin/rclone" ]; then
     . "$MODDIR/scripts/env.sh"
     LS_T0="$(date +%s)"
     "$MODDIR/bin/rclone" lsf "$ACTIVE:$(remote_root "$ACTIVE")" -R --files-only \
         --format sp --separator "$TAB" --fast-list \
-        --exclude '.nubind-test/**' ${DRIVE_PACER_OPTS:-} \
+        --exclude '.nubind-test/**' ${DRIVE_PACER_OPTS:-} $LSF_EXTRA \
         --config "$RCLONE_CONF" --cache-dir "$MODDIR/cache" \
         --log-level ERROR --log-file "$LOG_FILE" 2>/dev/null |
         awk -F "$TAB" -v t="$T" -v OFS="$TAB" \

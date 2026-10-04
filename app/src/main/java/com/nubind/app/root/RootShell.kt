@@ -33,6 +33,8 @@ object ModulePaths {
     const val S3_CHUNK_MB = "s3_chunk_mb"
     const val S3_FEWER_REQ = "s3_fewer_req"
     const val S3_DIR_CACHE_MIN = "s3_dir_cache_min"
+    /** Descargas en paralelo de la precarga (1-8; ausente = 4). Lo lee scripts/preload.sh en cada corrida. */
+    const val PRELOAD_WORKERS = "preload_workers"
     const val STATUS_FILE = "$BASE/status.json"
     const val LOG_FILE = "$BASE/mount.log"
     /** Progreso de la precarga (lo escribe scripts/preload.sh). */
@@ -463,6 +465,21 @@ object RootShell {
             "mkdir -p ${ModulePaths.CONFIG_DIR} && cd ${ModulePaths.CONFIG_DIR} && rm -f ${ModulePaths.S3_STREAMS} ${ModulePaths.S3_UPLOAD_CONC} " +
                 "${ModulePaths.S3_CHUNK_MB} ${ModulePaths.S3_FEWER_REQ} ${ModulePaths.S3_DIR_CACHE_MIN}"
         )
+
+    // ---- Descargas en paralelo de la precarga (ausente = automático) ----
+
+    fun readPreloadWorkers(): Int? =
+        Shell.cmd("cat ${ModulePaths.CONFIG_DIR}/${ModulePaths.PRELOAD_WORKERS} 2>/dev/null").exec().out
+            .joinToString("").trim().toIntOrNull()?.takeIf { it in PreloadPerf.WORKERS_MIN..PreloadPerf.WORKERS_MAX }
+
+    /** Con [value] null se borra el archivo y vuelve al valor por defecto. */
+    fun setPreloadWorkers(value: Int?): Result {
+        require(value == null || value in PreloadPerf.WORKERS_MIN..PreloadPerf.WORKERS_MAX) {
+            Strings.get(R.string.ajuste_s3_no_valido)
+        }
+        val path = "${ModulePaths.CONFIG_DIR}/${ModulePaths.PRELOAD_WORKERS}"
+        return if (value == null) run("rm -f $path") else writePerfValue(path, value.toString())
+    }
 
     // ---- Prueba de rendimiento ----
 

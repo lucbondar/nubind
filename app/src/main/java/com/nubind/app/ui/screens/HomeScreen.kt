@@ -62,6 +62,8 @@ import com.nubind.app.ui.components.OptionTile
 import com.nubind.app.ui.components.PerfTestSheet
 import com.nubind.app.ui.components.ScreenContainer
 import com.nubind.app.ui.components.S3PerfSection
+import com.nubind.app.ui.components.S3StepSlider
+import com.nubind.app.root.PreloadPerf
 import com.nubind.app.ui.components.SectionCard
 import com.nubind.app.ui.components.rememberIsDualPane
 import com.nubind.app.ui.components.serverIconFor
@@ -625,6 +627,20 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
                 )
             }
         }
+
+        S3StepSlider(
+            title = Strings.get(R.string.preload_workers_title),
+            value = vm.preloadWorkers ?: PreloadPerf.WORKERS_DEFAULT,
+            isAuto = vm.preloadWorkers == null,
+            range = PreloadPerf.WORKERS_MIN..PreloadPerf.WORKERS_MAX,
+            unit = Strings.get(R.string.preload_workers_unit),
+            onCommit = { vm.setPreloadWorkers(it) }
+        )
+        Text(
+            Strings.get(R.string.preload_workers_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = scheme.onSurfaceVariant
+        )
 
         FilledTonalButton(
             onClick = { vm.preloadNow() },

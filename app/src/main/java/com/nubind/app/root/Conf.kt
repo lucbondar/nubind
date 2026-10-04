@@ -146,6 +146,13 @@ data class S3PerfSettings(
  * Rangos y valores automáticos del rendimiento de S3. Los automáticos deben
  * coincidir con los de scripts/perf_opts.sh (s3_mount_opts).
  */
+/** Límites de las descargas en paralelo de la precarga (los mismos que aplica preload.sh). */
+object PreloadPerf {
+    const val WORKERS_MIN = 1
+    const val WORKERS_MAX = 8
+    const val WORKERS_DEFAULT = 4
+}
+
 object S3Perf {
     const val STREAMS_MIN = 1
     const val STREAMS_MAX = 12

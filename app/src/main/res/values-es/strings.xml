@@ -283,4 +283,7 @@
     <string name="aviso_datos_moviles_texto">Estás con datos móviles (o una red con límite). El modo Máximo descarga el contenido del servidor a la caché del teléfono y puede consumir varios GB de tu plan. ¿Querés continuar?</string>
     <string name="continuar_igual">Continuar igual</string>
     <string name="no_volver_a_mostrar">No volver a mostrar</string>
+    <string name="preload_workers_title">Descargas en paralelo</string>
+    <string name="preload_workers_unit">descargas</string>
+    <string name="preload_workers_hint">Se aplica en la próxima precarga, sin volver a montar. Más descargas aceleran los archivos chicos, pero demasiadas pueden chocar con los límites de peticiones del servidor (sobre todo Google Drive).</string>
 </resources>
