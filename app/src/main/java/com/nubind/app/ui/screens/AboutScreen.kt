@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.nubind.app.BindViewModel
 import com.nubind.app.BuildConfig
+import com.nubind.app.root.AppUpdateState
 import com.nubind.app.root.RootShell
 import com.nubind.app.ui.components.AnimatedLogo
 import com.nubind.app.ui.components.AppIcons
@@ -85,11 +86,18 @@ fun AboutScreen(vm: BindViewModel) {
         }
     }
 
+    // Al entrar a Acerca de se busca de nuevo, en silencio: así una actualización recién
+    // publicada aparece sin esperar a la búsqueda periódica.
+    LaunchedEffect(Unit) { vm.refreshUpdates(force = true) }
+
     val dualPane = rememberIsDualPane()
 
     ScreenContainer(
         title = Strings.get(R.string.acerca_de),
-        maxContentWidth = if (dualPane) DualPaneContentWidth else null
+        maxContentWidth = if (dualPane) DualPaneContentWidth else null,
+        // Deslizar hacia abajo busca actualizaciones (con aviso si falla la conexión).
+        refreshing = vm.appUpdate is AppUpdateState.Checking,
+        onRefresh = { vm.checkForUpdates(manual = true) }
     ) {
         // Cabecera: logo + nombre + versión. En vertical ocupa todo el ancho;
         // en apaisado ocupa la mitad y "Qué hace" va a su derecha.

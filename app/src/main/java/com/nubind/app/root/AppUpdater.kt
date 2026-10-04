@@ -72,9 +72,24 @@ object AppUpdater {
 
     // ---- Última versión publicada ----
 
-    /** Consulta update.json. Devuelve null sin red, con JSON inválido o sin datos de la app. */
-    fun fetchLatest(): UpdateInfo? {
-        val conn = open(UPDATE_JSON_URL)
+    /**
+     * Consulta update.json. Devuelve null sin red, con JSON inválido o sin datos de la app.
+     * Primero con un parámetro único en la URL y cabeceras no-cache, para esquivar copias
+     * viejas en la caché de GitHub justo después de publicar una build; si eso falla, con
+     * la URL normal.
+     */
+    fun fetchLatest(): UpdateInfo? =
+        fetchFrom("$UPDATE_JSON_URL?t=${System.currentTimeMillis()}") ?: fetchFrom(UPDATE_JSON_URL)
+
+    private fun fetchFrom(url: String): UpdateInfo? {
+        val conn = try {
+            open(url).apply {
+                setRequestProperty("Cache-Control", "no-cache")
+                setRequestProperty("Pragma", "no-cache")
+            }
+        } catch (_: Exception) {
+            return null
+        }
         return try {
             if (conn.responseCode != HttpURLConnection.HTTP_OK) null
             else parseUpdateJson(conn.inputStream.bufferedReader().use { it.readText() })
