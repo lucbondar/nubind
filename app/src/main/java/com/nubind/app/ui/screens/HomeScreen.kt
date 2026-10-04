@@ -58,7 +58,9 @@ import com.nubind.app.root.subtitle
 import com.nubind.app.root.defaultCacheGb
 import com.nubind.app.root.formatCacheKb
 import com.nubind.app.ui.components.DualPaneContentWidth
+import com.nubind.app.ui.components.FolderListCache
 import com.nubind.app.ui.components.FolderPickerDialog
+import com.nubind.app.ui.components.folderPickerStartDir
 import com.nubind.app.ui.components.MeteredDataDialog
 import com.nubind.app.ui.components.OptionTile
 import com.nubind.app.ui.components.PerfTestSheet
@@ -83,6 +85,11 @@ fun HomeScreen(vm: BindViewModel, onOpenServers: () -> Unit) {
     val mounted = vm.isMounted
     val active = vm.activeName
     var showPathDialog by remember { mutableStateOf(false) }
+
+    // Lista por adelantado la carpeta donde abre el selector: así "Elegir carpeta" aparece al instante.
+    LaunchedEffect(vm.targetPath, vm.rootGranted) {
+        if (vm.rootGranted == true) FolderListCache.prefetch(folderPickerStartDir(vm.targetPath))
+    }
     var showRamCacheConfirm by remember { mutableStateOf(false) }
     var showPerfTest by remember { mutableStateOf(false) }
     val heroColor by animateColorAsState(

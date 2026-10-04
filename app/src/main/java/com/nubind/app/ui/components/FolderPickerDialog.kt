@@ -1,6 +1,5 @@
 package com.nubind.app.ui.components
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -55,10 +54,34 @@ import com.nubind.app.R
 import com.nubind.app.Strings
 import com.nubind.app.root.RootShell
 import com.nubind.app.root.STORAGE_ROOT
-import com.nubind.app.ui.theme.AppMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** Carpeta en la que abre el selector: la que contiene el destino actual, o la raíz. */
+fun folderPickerStartDir(initialPath: String): String =
+    if (initialPath.startsWith("$STORAGE_ROOT/")) initialPath.substringBeforeLast('/') else STORAGE_ROOT
+
+/**
+ * Memoria de las carpetas ya listadas (listar con root tarda). El selector muestra lo que haya
+ * aquí al instante y refresca por detrás; Inicio precarga la carpeta de apertura con [prefetch].
+ */
+object FolderListCache {
+    private val map = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+
+    fun peek(path: String): List<String>? = map[path]
+
+    fun invalidate(path: String) {
+        map.remove(path)
+    }
+
+    suspend fun load(path: String): List<String> =
+        withContext(Dispatchers.IO) { RootShell.listDirs(path) }.also { map[path] = it }
+
+    suspend fun prefetch(path: String) {
+        if (map[path] == null) load(path)
+    }
+}
 
 /**
  * Explorador de carpetas del almacenamiento interno para elegir el destino
@@ -66,7 +89,7 @@ import kotlinx.coroutines.withContext
  *
  * Estilo Material 3 Expressive: diálogo muy redondeado, insignia de forma en la
  * cabecera, ruta en una píldora, carpetas como filas-tarjeta que se aplastan al
- * tocarlas, botones en píldora y el contenido cambia de tamaño con resorte.
+ * tocarlas y botones en píldora. Abre al instante (lista en caché, sin animar el tamaño).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -75,12 +98,9 @@ fun FolderPickerDialog(
     onPick: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var current by remember {
-        mutableStateOf(
-            if (initialPath.startsWith("$STORAGE_ROOT/")) initialPath.substringBeforeLast('/') else STORAGE_ROOT
-        )
-    }
-    var dirs by remember { mutableStateOf<List<String>?>(null) }
+    var current by remember { mutableStateOf(folderPickerStartDir(initialPath)) }
+    // Si la carpeta ya se listó antes (o se precargó al abrir Inicio), la lista aparece al instante.
+    var dirs by remember { mutableStateOf(FolderListCache.peek(current)) }
     var reload by remember { mutableStateOf(0) }
     var creating by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
@@ -88,8 +108,10 @@ fun FolderPickerDialog(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(current, reload) {
-        dirs = null
-        dirs = withContext(Dispatchers.IO) { RootShell.listDirs(current) }
+        // Lo ya conocido se muestra de inmediato y se refresca en silencio: sin parpadeo
+        // de "cargando" ni cambios de tamaño del diálogo.
+        dirs = FolderListCache.peek(current)
+        dirs = FolderListCache.load(current)
     }
 
     val atRoot = current == STORAGE_ROOT
@@ -120,10 +142,7 @@ fun FolderPickerDialog(
             }
         },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.animateContentSize(AppMotion.spatial())
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Ruta actual en una píldora.
                 Surface(
                     shape = RoundedCornerShape(20.dp),
@@ -166,6 +185,7 @@ fun FolderPickerDialog(
                                 newName = ""
                                 scope.launch {
                                     withContext(Dispatchers.IO) { RootShell.makeDir(target) }
+                                    FolderListCache.invalidate(current)
                                     current = target
                                     reload++
                                 }
