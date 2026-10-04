@@ -21,14 +21,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,6 +45,28 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.nubind.app.R
 import com.nubind.app.Strings
 import kotlin.math.PI
@@ -60,63 +78,188 @@ import kotlin.math.cos
  * puede gastar varios GB del plan. [onConfirm] recibe true si el usuario
  * marcó "No volver a mostrar" (solo se guarda al continuar; cancelar no lo
  * silencia).
+ *
+ * Expressive: la tarjeta entra con resorte, la insignia "salta" y el resto
+ * entra escalonado; el interruptor se llena de color al marcarse y los
+ * botones (apilados, a todo el ancho) se redondean más al pulsarlos.
+ * Cancelar es el botón pleno (lo seguro); continuar es el tonal de error.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MeteredDataDialog(onConfirm: (dontShowAgain: Boolean) -> Unit, onDismiss: () -> Unit) {
     var dontShow by remember { mutableStateOf(false) }
-    AlertDialog(
+    val scheme = MaterialTheme.colorScheme
+
+    val card = remember { Animatable(0f) }
+    val badgePop = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        launch { card.animateTo(1f, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow)) }
+        launch {
+            delay(120)
+            badgePop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessLow))
+        }
+    }
+
+    Dialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(36.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        icon = { MobileDataBadge() },
-        title = {
-            Text(
-                Strings.get(R.string.aviso_datos_moviles_titulo),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    Strings.get(R.string.aviso_datos_moviles_texto),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                        .toggleable(
-                            value = dontShow,
-                            role = Role.Checkbox,
-                            onValueChange = { dontShow = it }
-                        )
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Checkbox(checked = dontShow, onCheckedChange = null, modifier = Modifier.padding(8.dp))
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            color = scheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(40.dp),
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .widthIn(max = 420.dp)
+                .fillMaxWidth()
+                .graphicsLayer {
+                    val t = card.value
+                    alpha = t.coerceIn(0f, 1f)
+                    val sc = 0.82f + 0.18f * t
+                    scaleX = sc
+                    scaleY = sc
+                }
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(Modifier.graphicsLayer {
+                    val t = badgePop.value
+                    scaleX = t
+                    scaleY = t
+                    rotationZ = (1f - t) * -40f
+                }) { MobileDataBadge() }
+                Spacer(Modifier.height(20.dp))
+                Entrance(1) {
                     Text(
-                        Strings.get(R.string.no_volver_a_mostrar),
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(end = 12.dp)
+                        Strings.get(R.string.aviso_datos_moviles_titulo),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
+                Spacer(Modifier.height(12.dp))
+                Entrance(2) {
+                    Text(
+                        Strings.get(R.string.aviso_datos_moviles_texto),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = scheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Spacer(Modifier.height(18.dp))
+                Entrance(3) { DontShowToggle(checked = dontShow, onChange = { dontShow = it }) }
+                Spacer(Modifier.height(22.dp))
+                Entrance(4) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PressMorphButton(
+                            label = Strings.get(R.string.cancelar),
+                            container = scheme.primary,
+                            content = scheme.onPrimary,
+                            onClick = onDismiss
+                        )
+                        PressMorphButton(
+                            label = Strings.get(R.string.continuar_igual),
+                            container = scheme.errorContainer,
+                            content = scheme.onErrorContainer,
+                            onClick = { onConfirm(dontShow) }
+                        )
+                    }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(dontShow) }) { Text(Strings.get(R.string.continuar_igual)) }
-        },
-        dismissButton = {
-            FilledTonalButton(onClick = onDismiss) { Text(Strings.get(R.string.cancelar)) }
         }
+    }
+}
+
+/** "No volver a mostrar": píldora que se llena de color y muestra una marca al activarse. */
+@Composable
+private fun DontShowToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
+    val container by animateColorAsState(
+        if (checked) scheme.secondaryContainer else scheme.surfaceContainerHighest,
+        label = "dontShowContainer"
     )
+    val content by animateColorAsState(
+        if (checked) scheme.onSecondaryContainer else scheme.onSurfaceVariant,
+        label = "dontShowContent"
+    )
+    val corner by animateDpAsState(
+        if (checked) 28.dp else 16.dp,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "dontShowCorner"
+    )
+    val markScale by animateFloatAsState(
+        if (checked) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+        label = "dontShowMark"
+    )
+    Surface(
+        color = container,
+        contentColor = content,
+        shape = RoundedCornerShape(corner),
+        modifier = Modifier.toggleable(
+            value = checked,
+            role = Role.Checkbox,
+            onValueChange = {
+                haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                onChange(it)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 10.dp, end = 20.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(if (checked) scheme.secondary else scheme.outlineVariant.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    tint = scheme.onSecondary,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .graphicsLayer {
+                            scaleX = markScale
+                            scaleY = markScale
+                        }
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(Strings.get(R.string.no_volver_a_mostrar), style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+/** Botón de píldora a todo el ancho que se "aprieta" (esquinas menos redondas) mientras se pulsa. */
+@Composable
+private fun PressMorphButton(label: String, container: Color, content: Color, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val corner by animateDpAsState(
+        if (pressed) 16.dp else 28.dp,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 500f),
+        label = "pressCorner"
+    )
+    Surface(
+        onClick = onClick,
+        interactionSource = source,
+        color = container,
+        contentColor = content,
+        shape = RoundedCornerShape(corner),
+        modifier = Modifier.fillMaxWidth().height(56.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Text(label, style = MaterialTheme.typography.titleMedium)
+        }
+    }
 }
 
 /**
