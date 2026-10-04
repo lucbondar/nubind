@@ -218,6 +218,12 @@ jobs:
             git log -n 15 --pretty='- %s'
           } > changelog.md
 
+          # Zip del módulo: se arma antes que update.json para publicar su SHA-256
+          # (la app lo verifica al descargarlo desde el aviso de desfase). module.prop
+          # ya está sellado arriba.
+          (cd module && zip -r ../nubind-module.zip . -x "bin/README.txt")
+          ZIP_SHA=$(sha256sum nubind-module.zip | cut -d' ' -f1)
+
           # update.json y changelog.md viven en un release fijo ("updates"),
           # que se sobrescribe en cada corrida. /releases/latest NO sirve
           # acá porque GitHub ignora los pre-releases.
@@ -226,6 +232,7 @@ jobs:
             "version": "$VERSION",
             "versionCode": $CODE,
             "zipUrl": "https://github.com/$REPO/releases/download/$TAG/nubind-module.zip",
+            "zipSha256": "$ZIP_SHA",
             "changelog": "https://github.com/$REPO/releases/download/updates/changelog.md",
             "appVersion": "$APP_NAME",
             "appVersionCode": $APP_CODE,
@@ -234,9 +241,6 @@ jobs:
           }
           JSON
           sed -i 's/^          //' update.json
-
-          cd module
-          zip -r ../nubind-module.zip . -x "bin/README.txt"
 
       - name: Subir módulo
         uses: actions/upload-artifact@v6

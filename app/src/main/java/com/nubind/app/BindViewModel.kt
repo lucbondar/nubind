@@ -14,6 +14,7 @@ import com.nubind.app.root.DEFAULT_TARGET_PATH
 import com.nubind.app.root.DriveAuthParser
 import com.nubind.app.root.DriveAuthState
 import com.nubind.app.root.DriveOptions
+import com.nubind.app.root.ModuleFlashState
 import com.nubind.app.root.ModuleInfo
 import com.nubind.app.root.ModulePaths
 import com.nubind.app.root.S3Options
@@ -26,6 +27,7 @@ import com.nubind.app.root.PreloadStatus
 import com.nubind.app.root.PreloadStatusParser
 import com.nubind.app.root.RemoteProfile
 import com.nubind.app.root.RootShell
+import com.nubind.app.root.UpdateInfo
 import com.nubind.app.root.cleanHost
 import com.nubind.app.root.cleanTargetPath
 import com.nubind.app.root.formatCacheKb
@@ -134,6 +136,17 @@ class BindViewModel : ViewModel() {
     var moduleNotice by mutableStateOf<ModuleInfo?>(null)
         private set
 
+    /** Descarga y flasheo del módulo desde el aviso de desfase. */
+    var moduleFlash by mutableStateOf<ModuleFlashState>(ModuleFlashState.Idle)
+        private set
+
+    /** El módulo ya se flasheó y solo falta reiniciar para que se active. */
+    var modulePendingReboot by mutableStateOf(false)
+        private set
+
+    /** Última versión publicada que vio el actualizador (de ahí sale el zip del módulo). */
+    private var latestInfo: UpdateInfo? = null
+
     private var updateChecked = false
 
     /**
@@ -150,6 +163,7 @@ class BindViewModel : ViewModel() {
             appUpdate = AppUpdateState.Checking
             val started = SystemClock.elapsedRealtime()
             val info = withContext(Dispatchers.IO) { AppUpdater.fetchLatest() }
+            if (info != null) latestInfo = info
             // Que el estado "Buscando…" no parpadee si la respuesta es instantánea.
             val remaining = MIN_REFRESH_MS - (SystemClock.elapsedRealtime() - started)
             if (remaining > 0) delay(remaining)
@@ -196,6 +210,15 @@ class BindViewModel : ViewModel() {
     private fun checkModuleSync() {
         viewModelScope.launch {
             val module = withContext(Dispatchers.IO) { AppUpdater.readModuleInfo() }
+            // Un módulo ya flasheado espera al reinicio en modules_update: si trae esta
+            // versión de la app, el desfase ya está resuelto y solo falta reiniciar.
+            val pending = withContext(Dispatchers.IO) { AppUpdater.readPendingModuleInfo() }
+            modulePendingReboot = pending != null &&
+                !AppUpdater.isModuleBehind(pending, BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME)
+            if (modulePendingReboot) {
+                moduleNotice = null
+                return@launch
+            }
             val behind = module != null &&
                 AppUpdater.isModuleBehind(module, BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME)
             if (!behind || module == null || prefs().getString(KEY_MODULE_NOTICE_DISMISSED, null) == noticeKey(module)) {
@@ -203,8 +226,54 @@ class BindViewModel : ViewModel() {
                 return@launch
             }
             moduleNotice = module
-            message = Strings.get(R.string.upd_modulo_aviso_snackbar)
         }
+    }
+
+    /**
+     * Baja el zip del módulo de la última build publicada y lo flashea con root.
+     * Al terminar queda pendiente de reinicio ([modulePendingReboot]). Si el módulo
+     * publicado trae una app más vieja que la instalada no se flashea: bajaría la app.
+     */
+    fun flashModule() {
+        if (moduleFlash is ModuleFlashState.Downloading || moduleFlash is ModuleFlashState.Flashing) return
+        viewModelScope.launch {
+            val ctx = Strings.context()
+            moduleFlash = ModuleFlashState.Downloading(-1f)
+            val info = latestInfo ?: withContext(Dispatchers.IO) { AppUpdater.fetchLatest() }?.also { latestInfo = it }
+            val zipUrl = info?.zipUrl
+            if (info == null || zipUrl == null) {
+                moduleFlash = ModuleFlashState.Failed(Strings.get(R.string.upd_sin_conexion))
+                return@launch
+            }
+            if (info.appVersionCode < BuildConfig.VERSION_CODE) {
+                moduleFlash = ModuleFlashState.Failed(Strings.get(R.string.upd_modulo_publicado_viejo))
+                return@launch
+            }
+            val zip = try {
+                withContext(Dispatchers.IO) {
+                    AppUpdater.downloadFile(ctx.cacheDir, zipUrl, info.zipSha256, "nubind-module.zip") {
+                        moduleFlash = ModuleFlashState.Downloading(it)
+                    }
+                }
+            } catch (e: Exception) {
+                moduleFlash = ModuleFlashState.Failed(e.message ?: e.javaClass.simpleName)
+                return@launch
+            }
+            moduleFlash = ModuleFlashState.Flashing
+            // Si customize.sh reemplaza la app, Android mata este proceso: el script reabre la app.
+            val error = withContext(NonCancellable + Dispatchers.IO) { AppUpdater.flashModuleViaRoot(ctx, zip) }
+            if (error == null) {
+                moduleFlash = ModuleFlashState.Idle
+                moduleNotice = null
+                modulePendingReboot = true
+            } else {
+                moduleFlash = ModuleFlashState.Failed(error)
+            }
+        }
+    }
+
+    fun rebootDevice() {
+        viewModelScope.launch(Dispatchers.IO) { AppUpdater.reboot() }
     }
 
     fun dismissModuleNotice() {

@@ -14,7 +14,10 @@ data class UpdateInfo(
     val appVersion: String,
     val appVersionCode: Int,
     val apkUrl: String,
-    val apkSha256: String?
+    val apkSha256: String?,
+    /** zip del módulo de esa misma build (para descargarlo y flashearlo desde la app); null si update.json no lo trae. */
+    val zipUrl: String? = null,
+    val zipSha256: String? = null
 )
 
 /**
@@ -28,6 +31,15 @@ data class ModuleInfo(
     val appVersion: String?,
     val appVersionCode: Int?
 )
+
+/** Descarga y flasheo del módulo desde el aviso de desfase. */
+sealed interface ModuleFlashState {
+    data object Idle : ModuleFlashState
+    /** [progress] en 0f..1f; negativo = tamaño desconocido (indeterminado). */
+    data class Downloading(val progress: Float) : ModuleFlashState
+    data object Flashing : ModuleFlashState
+    data class Failed(val message: String) : ModuleFlashState
+}
 
 /** Estado del actualizador de la app (lo muestra el banner de Acerca de). */
 sealed interface AppUpdateState {
@@ -82,7 +94,9 @@ object AppUpdater {
             appVersion = o.optString("appVersion", ""),
             appVersionCode = code,
             apkUrl = url,
-            apkSha256 = o.optString("apkSha256", "").trim().ifEmpty { null }
+            apkSha256 = o.optString("apkSha256", "").trim().ifEmpty { null },
+            zipUrl = o.optString("zipUrl", "").takeIf { it.startsWith("https://") },
+            zipSha256 = o.optString("zipSha256", "").trim().ifEmpty { null }
         )
     } catch (_: Exception) {
         null
@@ -105,11 +119,16 @@ object AppUpdater {
      * recibe 0f..1f (solo si el servidor informa el tamaño).
      */
     @Throws(IOException::class)
-    fun download(cacheDir: File, info: UpdateInfo, onProgress: (Float) -> Unit): File {
+    fun download(cacheDir: File, info: UpdateInfo, onProgress: (Float) -> Unit): File =
+        downloadFile(cacheDir, info.apkUrl, info.apkSha256, "nubind-update.apk", onProgress)
+
+    /** Igual que [download] para cualquier archivo (el APK o el zip del módulo). */
+    @Throws(IOException::class)
+    fun downloadFile(cacheDir: File, url: String, sha256: String?, fileName: String, onProgress: (Float) -> Unit): File {
         val dir = File(cacheDir, "update").apply { mkdirs() }
-        val out = File(dir, "nubind-update.apk")
+        val out = File(dir, fileName)
         out.delete()
-        val conn = open(info.apkUrl)
+        val conn = open(url)
         try {
             if (conn.responseCode != HttpURLConnection.HTTP_OK) throw IOException("HTTP ${conn.responseCode}")
             val total = conn.contentLengthLong
@@ -135,7 +154,7 @@ object AppUpdater {
                     }
                 }
             }
-            val expected = info.apkSha256
+            val expected = sha256
             if (expected != null) {
                 val actual = digest.digest().joinToString("") { "%02x".format(it) }
                 if (!actual.equals(expected, ignoreCase = true)) throw IOException("SHA-256")
@@ -194,11 +213,70 @@ object AppUpdater {
         return "timeout"
     }
 
+    // ---- Flasheo del módulo (root) ----
+
+    private const val FLASH_WAIT_S = 240
+
+    /**
+     * Flashea [zip] (el módulo) con el gestor de root (ksud de KernelSU / KSU Next /
+     * SukiSU, o magisk). Lanza assets/flash_module.sh desacoplado, porque
+     * customize.sh reinstala la app y eso mata este proceso; el script reabre la
+     * app al terminar. Devuelve null si salió bien (el módulo queda a la espera de
+     * reiniciar) o el motivo del fallo. Bloqueante: llamar fuera del hilo principal.
+     */
+    fun flashModuleViaRoot(context: Context, zip: File): String? {
+        val script = File(zip.parentFile, "flash_module.sh")
+        try {
+            context.assets.open("flash_module.sh").use { input ->
+                script.outputStream().use { input.copyTo(it) }
+            }
+        } catch (e: IOException) {
+            return e.message ?: "flash_module.sh"
+        }
+
+        val result = "$TMP/nubind-flash.result"
+        val prep = Shell.cmd(
+            "rm -f $result",
+            "cp ${sq(zip.path)} $TMP/nubind-module.zip",
+            "chmod 644 $TMP/nubind-module.zip",
+            "cp ${sq(script.path)} $TMP/nubind-flash.sh",
+            "chmod 755 $TMP/nubind-flash.sh"
+        ).exec()
+        if (!prep.isSuccess) return prep.out.joinToString("\n").ifBlank { "cp" }
+
+        Shell.cmd(
+            "nohup sh $TMP/nubind-flash.sh $TMP/nubind-module.zip $APP_PACKAGE $APP_ACTIVITY $result " +
+                ">/dev/null 2>&1 &"
+        ).exec()
+
+        repeat(FLASH_WAIT_S) {
+            Thread.sleep(1000)
+            val out = Shell.cmd("cat $result 2>/dev/null").exec().out.joinToString("\n").trim()
+            if (out == "OK") return null
+            if (out.isNotEmpty()) return out
+        }
+        return "timeout"
+    }
+
+    /** Reinicia el teléfono (el módulo flasheado se activa al arrancar). */
+    fun reboot() {
+        Shell.cmd("svc power reboot || reboot").exec()
+    }
+
     // ---- Módulo KSU instalado ----
 
+    /**
+     * Módulo ya flasheado que espera al reinicio (KernelSU lo deja en modules_update
+     * hasta el próximo arranque), o null si no hay ninguno pendiente.
+     */
+    fun readPendingModuleInfo(): ModuleInfo? =
+        readModuleProp("${ModulePaths.UPDATE_DIR}/module.prop")
+
     /** module.prop del módulo instalado (con root), o null si no hay root o el módulo no está. */
-    fun readModuleInfo(): ModuleInfo? {
-        val res = Shell.cmd("cat ${ModulePaths.BASE}/module.prop 2>/dev/null").exec()
+    fun readModuleInfo(): ModuleInfo? = readModuleProp("${ModulePaths.BASE}/module.prop")
+
+    private fun readModuleProp(path: String): ModuleInfo? {
+        val res = Shell.cmd("cat ${sq(path)} 2>/dev/null").exec()
         if (!res.isSuccess) return null
         val props = HashMap<String, String>()
         for (line in res.out) {

@@ -10,6 +10,9 @@ import com.nubind.app.Strings
 object ModulePaths {
     const val MODULE_ID = "nubind"
     const val BASE = "/data/adb/modules/$MODULE_ID"
+
+    /** Dónde deja KernelSU un módulo recién flasheado hasta el próximo reinicio. */
+    const val UPDATE_DIR = "/data/adb/modules_update/$MODULE_ID"
     const val BIN = "$BASE/bin/rclone"
     const val SCRIPTS = "$BASE/scripts"
     const val CONFIG_DIR = "$BASE/config"

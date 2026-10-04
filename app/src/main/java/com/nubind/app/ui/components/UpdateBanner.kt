@@ -56,7 +56,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -67,9 +66,12 @@ import com.nubind.app.R
 import com.nubind.app.Strings
 import com.nubind.app.root.AppUpdateState
 import com.nubind.app.root.AppUpdater
+import com.nubind.app.root.ModuleFlashState
 import com.nubind.app.root.ModuleInfo
 import com.nubind.app.root.UpdateInfo
 import com.nubind.app.ui.theme.AppMotion
+import com.nubind.app.ui.theme.syncAmberPalette
+import com.nubind.app.ui.theme.updateGreenPalette
 
 /** Apps de KernelSU (y forks) que pueden tener instalado el módulo; se abre la primera que exista. */
 private val KsuPackages = listOf(
@@ -90,34 +92,6 @@ private fun AppUpdateState.kind(): UpdateKind? = when (this) {
     is AppUpdateState.Failed -> UpdateKind.FAILED
 }
 
-/**
- * Paleta verde de "hay actualización". Fija (no sale del color dinámico) para
- * que el verde se vea igual con cualquier fondo de pantalla. Se elige clara u
- * oscura según la luminancia de la superficie del tema.
- */
-internal class UpdateGreen(
-    val container: Color,
-    val onContainer: Color,
-    val accent: Color,
-    val onAccent: Color
-)
-
-@Composable
-internal fun updateGreen(): UpdateGreen {
-    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    return if (dark) UpdateGreen(
-        container = Color(0xFF0F5223),
-        onContainer = Color(0xFFB7F4B8),
-        accent = Color(0xFF8DDB90),
-        onAccent = Color(0xFF00390F)
-    ) else UpdateGreen(
-        container = Color(0xFFBDEFC0),
-        onContainer = Color(0xFF00210A),
-        accent = Color(0xFF1B6D2F),
-        onAccent = Color(0xFFFFFFFF)
-    )
-}
-
 /** Verde mientras hay una actualización por instalar, en curso de bajar o instalándose. */
 private fun AppUpdateState.isGreen(): Boolean =
     this is AppUpdateState.Available || this is AppUpdateState.Downloading || this is AppUpdateState.Installing
@@ -130,7 +104,7 @@ private fun AppUpdateState.isGreen(): Boolean =
 @Composable
 fun updateHeaderColors(state: AppUpdateState): Pair<Color, Color> {
     val scheme = MaterialTheme.colorScheme
-    val g = updateGreen()
+    val g = updateGreenPalette()
     val green = state.isGreen()
     val container by animateColorAsState(
         if (green) g.container else scheme.primaryContainer,
@@ -162,6 +136,7 @@ fun updateHeaderColors(state: AppUpdateState): Pair<Color, Color> {
 @Composable
 fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     val state = vm.appUpdate
     val notice = vm.moduleNotice
 
@@ -200,7 +175,28 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
             // Al descartarse, notice pasa a null antes de terminar la salida: se conserva el último.
             val shown = remember { arrayOfNulls<ModuleInfo>(1) }
             if (notice != null) shown[0] = notice
-            shown[0]?.let { ModuleNoticeCard(it, onDismiss = vm::dismissModuleNotice) }
+            shown[0]?.let {
+                ModuleNoticeCard(
+                    module = it,
+                    flash = vm.moduleFlash,
+                    onFlash = vm::flashModule,
+                    onOpenKsu = {
+                        val intent = KsuPackages.firstNotNullOfOrNull { pkg -> context.packageManager.getLaunchIntentForPackage(pkg) }
+                        if (intent != null) context.startActivity(intent)
+                        else Toast.makeText(context, Strings.get(R.string.upd_ksu_no_encontrada), Toast.LENGTH_LONG).show()
+                    },
+                    onDismiss = vm::dismissModuleNotice
+                )
+            }
+        }
+
+        // Módulo ya flasheado: falta reiniciar para que se active.
+        AnimatedVisibility(
+            visible = vm.modulePendingReboot,
+            enter = expandVertically(animationSpec = AppMotion.spatial()) + fadeIn(animationSpec = AppMotion.effects()),
+            exit = shrinkVertically(animationSpec = AppMotion.spatial()) + fadeOut(animationSpec = AppMotion.effects())
+        ) {
+            ModuleRebootCard(onReboot = vm::rebootDevice)
         }
     }
 }
@@ -219,7 +215,7 @@ private fun UpdateCard(
 ) {
     val scheme = MaterialTheme.colorScheme
     // Con la cabecera en verde (hay actualización) todo el bloque usa la paleta verde.
-    val g = updateGreen()
+    val g = updateGreenPalette()
     val green = kind == UpdateKind.AVAILABLE || kind == UpdateKind.DOWNLOADING || kind == UpdateKind.INSTALLING
     val accent = if (green) g.accent else scheme.primary
     val onAccent = if (green) g.onAccent else scheme.onPrimary
@@ -316,9 +312,9 @@ private fun UpdateCard(
                 UpdateKind.DOWNLOADING -> {
                     val p = (state as? AppUpdateState.Downloading)?.progress ?: -1f
                     if (p < 0f) {
-                        LinearWavyProgressIndicator(Modifier.fillMaxWidth(), color = accent)
+                        LinearWavyProgressIndicator(Modifier.fillMaxWidth(), color = accent, trackColor = accent.copy(alpha = 0.24f))
                     } else {
-                        LinearWavyProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth(), color = accent)
+                        LinearWavyProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth(), color = accent, trackColor = accent.copy(alpha = 0.24f))
                         Text("${(p * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
                     }
                 }
@@ -342,13 +338,19 @@ private fun UpdateCard(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ModuleNoticeCard(module: ModuleInfo, onDismiss: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val context = LocalContext.current
+private fun ModuleNoticeCard(
+    module: ModuleInfo,
+    flash: ModuleFlashState,
+    onFlash: () -> Unit,
+    onOpenKsu: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val p = syncAmberPalette()
+    val working = flash is ModuleFlashState.Downloading || flash is ModuleFlashState.Flashing
 
     Surface(
-        color = scheme.tertiaryContainer,
-        contentColor = scheme.onTertiaryContainer,
+        color = p.container,
+        contentColor = p.onContainer,
         shape = RoundedCornerShape(28.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -363,13 +365,27 @@ private fun ModuleNoticeCard(module: ModuleInfo, onDismiss: () -> Unit) {
                 CookieBadge(
                     icon = Icons.Default.Warning,
                     shape = MaterialShapes.Sunny.toShape(),
-                    background = scheme.tertiary,
-                    glyph = scheme.onTertiary,
-                    spinning = true
+                    background = p.accent,
+                    glyph = p.onAccent,
+                    spinning = !working
                 )
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(Strings.get(R.string.upd_modulo_titulo), style = MaterialTheme.typography.titleMedium)
-                    Text(Strings.get(R.string.upd_modulo_cuerpo), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        Strings.get(
+                            when (flash) {
+                                is ModuleFlashState.Downloading -> R.string.upd_modulo_descargando
+                                ModuleFlashState.Flashing -> R.string.upd_modulo_flasheando
+                                else -> R.string.upd_modulo_titulo
+                            }
+                        ),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        if (flash is ModuleFlashState.Failed) Strings.get(R.string.upd_modulo_fallo_detalle, flash.message)
+                        else Strings.get(R.string.upd_modulo_cuerpo),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 5
+                    )
                     Text(
                         Strings.get(
                             R.string.upd_modulo_versiones,
@@ -377,24 +393,81 @@ private fun ModuleNoticeCard(module: ModuleInfo, onDismiss: () -> Unit) {
                             com.nubind.app.BuildConfig.VERSION_NAME
                         ),
                         style = MaterialTheme.typography.labelMedium,
-                        color = scheme.onTertiaryContainer.copy(alpha = 0.7f),
+                        color = p.onContainer.copy(alpha = 0.7f),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                SquishButton(
-                    text = Strings.get(R.string.upd_abrir_ksu),
-                    colors = ButtonDefaults.buttonColors(containerColor = scheme.tertiary, contentColor = scheme.onTertiary),
-                    onClick = {
-                        val intent = KsuPackages.firstNotNullOfOrNull { context.packageManager.getLaunchIntentForPackage(it) }
-                        if (intent != null) context.startActivity(intent)
-                        else Toast.makeText(context, Strings.get(R.string.upd_ksu_no_encontrada), Toast.LENGTH_LONG).show()
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = onDismiss) { Text(Strings.get(R.string.upd_entendido)) }
+
+            when (flash) {
+                is ModuleFlashState.Downloading ->
+                    if (flash.progress < 0f) {
+                        LinearWavyProgressIndicator(Modifier.fillMaxWidth(), color = p.accent, trackColor = p.accent.copy(alpha = 0.24f))
+                    } else {
+                        LinearWavyProgressIndicator(
+                            progress = { flash.progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = p.accent,
+                            trackColor = p.accent.copy(alpha = 0.24f)
+                        )
+                        Text("${(flash.progress * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
+                    }
+                ModuleFlashState.Flashing ->
+                    LinearWavyProgressIndicator(Modifier.fillMaxWidth(), color = p.accent, trackColor = p.accent.copy(alpha = 0.24f))
+                else -> {
+                    SquishButton(
+                        text = Strings.get(if (flash is ModuleFlashState.Failed) R.string.upd_reintentar else R.string.upd_modulo_flashear),
+                        colors = ButtonDefaults.buttonColors(containerColor = p.accent, contentColor = p.onAccent),
+                        onClick = onFlash
+                    )
+                    // TextButton usa el color primario del tema por defecto: sobre ámbar se pierde.
+                    val textColors = ButtonDefaults.textButtonColors(contentColor = p.onContainer)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = onOpenKsu, colors = textColors) { Text(Strings.get(R.string.upd_abrir_ksu)) }
+                        TextButton(onClick = onDismiss, colors = textColors) { Text(Strings.get(R.string.upd_entendido)) }
+                    }
+                }
             }
+        }
+    }
+}
+
+/** Módulo flasheado con éxito: se activa al reiniciar. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ModuleRebootCard(onReboot: () -> Unit) {
+    val p = updateGreenPalette()
+    Surface(
+        color = p.container,
+        contentColor = p.onContainer,
+        shape = RoundedCornerShape(28.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                CookieBadge(
+                    icon = Icons.Default.Check,
+                    shape = MaterialShapes.Cookie9Sided.toShape(),
+                    background = p.accent,
+                    glyph = p.onAccent,
+                    spinning = false
+                )
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(Strings.get(R.string.upd_modulo_listo_titulo), style = MaterialTheme.typography.titleMedium)
+                    Text(Strings.get(R.string.upd_modulo_listo_cuerpo), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            SquishButton(
+                text = Strings.get(R.string.upd_reiniciar),
+                colors = ButtonDefaults.buttonColors(containerColor = p.accent, contentColor = p.onAccent),
+                onClick = onReboot
+            )
         }
     }
 }

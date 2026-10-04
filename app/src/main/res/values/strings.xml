@@ -303,14 +303,21 @@
     <string name="upd_sin_conexion">Couldn\'t reach the update server. Check your connection.</string>
     <string name="upd_sin_respuesta">The installer didn\'t respond. Try again.</string>
     <string name="upd_modulo_titulo">Module out of sync</string>
-    <string name="upd_modulo_cuerpo">Nubind may work, but for the update to be complete you need to download the module from the KSU app.</string>
+    <string name="upd_modulo_cuerpo">Nubind may work, but the module still carries an older app. Download and flash the module from here to finish the update.</string>
     <string name="upd_modulo_versiones">Module %1$s · App %2$s</string>
     <string name="upd_abrir_ksu">Open KernelSU</string>
     <string name="upd_ksu_no_encontrada">KernelSU app not found</string>
     <string name="upd_entendido">Got it</string>
-    <string name="upd_modulo_aviso_snackbar">Module out of sync: update it from the KSU app</string>
     <string name="preload_pausar">Pause</string>
     <string name="preload_reanudar">Resume</string>
     <string name="preload_pausada">Paused</string>
     <string name="preload_pausa_error">Couldn\'t pause or resume the preload: %1$s</string>
+    <string name="upd_modulo_flashear">Download and flash module</string>
+    <string name="upd_modulo_descargando">Downloading module…</string>
+    <string name="upd_modulo_flasheando">Flashing module…</string>
+    <string name="upd_modulo_fallo_detalle">Couldn\'t flash the module: %1$s</string>
+    <string name="upd_modulo_publicado_viejo">The published module carries an older app than the one you have installed, so nothing was flashed.</string>
+    <string name="upd_modulo_listo_titulo">Module installed</string>
+    <string name="upd_modulo_listo_cuerpo">Reboot your phone to finish applying it.</string>
+    <string name="upd_reiniciar">Reboot now</string>
 </resources>

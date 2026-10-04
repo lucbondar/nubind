@@ -14,6 +14,7 @@ También lo lee KSU mediante `updateJson` en `module/module.prop`.
 **Campos de update.json:**
 - Módulo: `version`, `versionCode`, `zipUrl`, `changelog`
 - App: `appVersion`, `appVersionCode`, `apkUrl`, `apkSha256`
+- Módulo (para el flasheo desde la app): `zipUrl` (ya existía) y `zipSha256` (nuevo; el CI arma el zip antes de escribir update.json)
 
 **Versiones (CI, `.github/workflows/build.yml`):**
 - `build-app` fija `APP_VERSION_CODE = run_number + 100`.
@@ -28,16 +29,18 @@ También lo lee KSU mediante `updateJson` en `module/module.prop`.
 | Archivo | Rol |
 |---|---|
 | `root/AppUpdater.kt` | Consulta update.json, descarga el APK y verifica SHA-256, instala con root, lee el `module.prop` instalado y decide el desfase (`isModuleBehind`) |
+| `assets/flash_module.sh` | Igual que `self_update.sh` pero para el módulo: `ksud module install <zip>` (o `magisk --install-module`), desacoplado porque `customize.sh` reinstala la app y mata el proceso; reabre la app al terminar |
 | `assets/self_update.sh` | Instalador desacoplado de la app; reabre la app al terminar. Va en la app, no en el módulo, porque el módulo instalado puede ser más viejo |
 | `BindViewModel.kt` | `appUpdate`, `moduleNotice`, `checkForUpdates()`, `installUpdate()`, `checkModuleSync()` (se llama desde `setRootGranted`), `dismissModuleNotice()` |
-| `ui/components/UpdateBanner.kt` | `UpdateNotices()`, dentro de `HeaderCard` en `AboutScreen`. También `updateHeaderColors()`: con update disponible/descargando/instalando la tarjeta de cabecera entera pasa a verde (paleta fija `UpdateGreen`); es solo visual, no toca el flujo |
+| `ui/components/UpdateBanner.kt` | `UpdateNotices()`, dentro de `HeaderCard` en `AboutScreen`. También `updateHeaderColors()`: con update disponible/descargando/instalando la tarjeta de cabecera entera pasa a verde (paleta fija `UpdateGreen`); es solo visual, no toca el flujo. Los colores de estado (verde = actualización/listo, ámbar = desfase) viven en `ui/theme/StatusColors.kt` |
 | `AndroidManifest.xml` | `<queries>` con los paquetes de KernelSU, para poder abrirlos |
 | `res/values*/strings.xml` | Textos `upd_*`; todo string nuevo va en `values`, `values-es` y `values-pt-rBR` |
 
 ## Comportamiento que no se debe romper
 1. Al abrir la app busca actualización en silencio; sin red no muestra nada.
 2. Con update disponible aparece "Actualizar ahora": con root instala sola, sin root abre `apkUrl` en el navegador.
-3. Si el módulo KSU instalado trae un APK más viejo que la app, aparece un aviso: puede funcionar, pero para completar la actualización hay que descargar el módulo desde la app KSU. Botones "Abrir KernelSU" y "Entendido" (se descarta hasta que cambie la versión de la app o del módulo).
+3. Si el módulo KSU instalado trae un APK más viejo que la app, aparece un aviso: puede funcionar, pero para completar la actualización hay que descargar el módulo desde la app KSU. Botones "Descargar y flashear módulo" (`BindViewModel.flashModule()`: baja `zipUrl`, verifica `zipSha256`, flashea con root; no flashea si el módulo publicado trae una app más vieja que la instalada), "Abrir KernelSU" y "Entendido" (se descarta hasta que cambie la versión de la app o del módulo). Ya no hay snackbar/toast de desfase al abrir la app.
+3b. Tras flashear, el módulo queda en `/data/adb/modules_update/nubind` hasta reiniciar: el aviso de desfase se reemplaza por una tarjeta verde "Módulo instalado" con botón "Reiniciar ahora" (`modulePendingReboot`).
 4. Los módulos antiguos sin `appVersionCode` se comparan por número de versión (no detectan desfase entre builds de la misma versión).
 
 ## Precarga: pausa

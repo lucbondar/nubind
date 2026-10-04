@@ -302,14 +302,21 @@
     <string name="upd_sin_conexion">No se pudo contactar al servidor de actualizaciones. Revisa tu conexión.</string>
     <string name="upd_sin_respuesta">El instalador no respondió. Inténtalo de nuevo.</string>
     <string name="upd_modulo_titulo">Módulo desfasado</string>
-    <string name="upd_modulo_cuerpo">Nubind puede funcionar, pero para que la actualización esté completa hay que descargar el módulo desde la app KSU.</string>
+    <string name="upd_modulo_cuerpo">Nubind puede funcionar, pero el módulo aún trae una app más vieja. Descarga y flashea el módulo desde aquí para completar la actualización.</string>
     <string name="upd_modulo_versiones">Módulo %1$s · App %2$s</string>
     <string name="upd_abrir_ksu">Abrir KernelSU</string>
     <string name="upd_ksu_no_encontrada">No se encontró la app de KernelSU</string>
     <string name="upd_entendido">Entendido</string>
-    <string name="upd_modulo_aviso_snackbar">Módulo desfasado: actualízalo desde la app KSU</string>
     <string name="preload_pausar">Pausar</string>
     <string name="preload_reanudar">Reanudar</string>
     <string name="preload_pausada">En pausa</string>
     <string name="preload_pausa_error">No se pudo pausar o reanudar la precarga: %1$s</string>
+    <string name="upd_modulo_flashear">Descargar y flashear módulo</string>
+    <string name="upd_modulo_descargando">Descargando módulo…</string>
+    <string name="upd_modulo_flasheando">Flasheando módulo…</string>
+    <string name="upd_modulo_fallo_detalle">No se pudo flashear el módulo: %1$s</string>
+    <string name="upd_modulo_publicado_viejo">El módulo publicado trae una app más vieja que la que tienes instalada, así que no se flasheó nada.</string>
+    <string name="upd_modulo_listo_titulo">Módulo instalado</string>
+    <string name="upd_modulo_listo_cuerpo">Reinicia el teléfono para terminar de aplicarlo.</string>
+    <string name="upd_reiniciar">Reiniciar ahora</string>
 </resources>
