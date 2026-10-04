@@ -32,15 +32,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
@@ -49,6 +46,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -56,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
@@ -72,12 +71,13 @@ import com.nubind.app.ui.theme.StatusPalette
 import com.nubind.app.ui.theme.syncAmberPalette
 import com.nubind.app.ui.theme.updateGreenPalette
 
-private enum class UpdateKind { CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, INSTALLING, FAILED }
+private enum class UpdateKind { CHECKING, AVAILABLE, DOWNLOADING, INSTALLING, FAILED }
 
 private fun AppUpdateState.kind(): UpdateKind? = when (this) {
     AppUpdateState.Idle -> null
     AppUpdateState.Checking -> UpdateKind.CHECKING
-    AppUpdateState.UpToDate -> UpdateKind.UP_TO_DATE
+    // Al día: no se muestra nada (sin tarjeta "Estás al día" ni botón de buscar de nuevo).
+    AppUpdateState.UpToDate -> null
     is AppUpdateState.Available -> UpdateKind.AVAILABLE
     is AppUpdateState.Downloading -> UpdateKind.DOWNLOADING
     AppUpdateState.Installing -> UpdateKind.INSTALLING
@@ -88,26 +88,37 @@ private fun AppUpdateState.kind(): UpdateKind? = when (this) {
 private fun AppUpdateState.isGreen(): Boolean =
     this is AppUpdateState.Available || this is AppUpdateState.Downloading || this is AppUpdateState.Installing
 
+/** Colores de la tarjeta de cabecera: degradado diagonal [start] -> [end] y color del contenido. */
+@Immutable
+class HeaderColors(val start: Color, val end: Color, val content: Color)
+
 /**
- * Colores (fondo, contenido) de la tarjeta de cabecera de Acerca de: los de
- * siempre (primaryContainer) y, cuando se encuentra una actualización o el módulo
- * quedó flasheado a la espera de reiniciar ([rebootPending]), verde, con
+ * Colores de la tarjeta de cabecera de Acerca de. Normalmente un degradado diagonal
+ * tomado del color dinámico (Monet): de primaryContainer a tertiaryContainer, con
+ * onPrimaryContainer encima (pares de contenedor, contraste garantizado en claro y
+ * oscuro). Cuando se encuentra una actualización o el módulo quedó flasheado a la
+ * espera de reiniciar ([rebootPending]), pasa a un degradado verde de estado (paleta
+ * fija, para que el verde siga siendo verde con cualquier fondo de pantalla), con
  * transición animada. Solo cambia el aspecto: no toca el flujo del actualizador.
  */
 @Composable
-fun updateHeaderColors(state: AppUpdateState, rebootPending: Boolean = false): Pair<Color, Color> {
+fun updateHeaderColors(state: AppUpdateState, rebootPending: Boolean = false): HeaderColors {
     val scheme = MaterialTheme.colorScheme
     val g = updateGreenPalette()
     val green = state.isGreen() || rebootPending
-    val container by animateColorAsState(
+    val start by animateColorAsState(
         if (green) g.container else scheme.primaryContainer,
-        animationSpec = tween(500), label = "headerContainer"
+        animationSpec = tween(500), label = "headerStart"
+    )
+    val end by animateColorAsState(
+        if (green) lerp(g.container, g.accent, 0.25f) else scheme.tertiaryContainer,
+        animationSpec = tween(500), label = "headerEnd"
     )
     val content by animateColorAsState(
         if (green) g.onContainer else scheme.onPrimaryContainer,
         animationSpec = tween(500), label = "headerContent"
     )
-    return container to content
+    return HeaderColors(start, end, content)
 }
 
 /**
@@ -137,10 +148,8 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // El contenido se anima por "tipo" de estado, no por cada tick de progreso.
-        // Con el reinicio pendiente, "Estás al día" sobra: la tarjeta de reinicio ya dice que todo está listo.
-        // Con el módulo desfasado también: sería incoherente decir "al día" junto al aviso de desfase.
         AnimatedContent(
-            targetState = state.kind().takeUnless { (vm.showRebootCard || notice != null) && it == UpdateKind.UP_TO_DATE },
+            targetState = state.kind(),
             transitionSpec = {
                 (fadeIn(animationSpec = AppMotion.effects()) +
                     scaleIn(animationSpec = AppMotion.spatial(), initialScale = 0.92f)) togetherWith
@@ -279,13 +288,6 @@ private fun UpdateCard(
                         glyph = onAccent,
                         spinning = true
                     )
-                    UpdateKind.UP_TO_DATE -> CookieBadge(
-                        icon = Icons.Default.Check,
-                        shape = MaterialShapes.Cookie9Sided.toShape(),
-                        background = accent,
-                        glyph = onAccent,
-                        spinning = false
-                    )
                     UpdateKind.FAILED -> CookieBadge(
                         icon = Icons.Default.Warning,
                         shape = MaterialShapes.Sunny.toShape(),
@@ -298,7 +300,6 @@ private fun UpdateCard(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     val (title, detail) = when (kind) {
                         UpdateKind.CHECKING -> Strings.get(R.string.upd_buscando) to null
-                        UpdateKind.UP_TO_DATE -> Strings.get(R.string.upd_al_dia) to null
                         UpdateKind.AVAILABLE -> Strings.get(R.string.upd_disponible) to
                             ((state as? AppUpdateState.Available)?.info?.let {
                                 Strings.get(R.string.upd_disponible_detalle, it.appVersion.ifEmpty { it.appVersionCode.toString() })
@@ -315,11 +316,6 @@ private fun UpdateCard(
                     }
                 }
 
-                if (kind == UpdateKind.UP_TO_DATE) {
-                    IconButton(onClick = onCheck) {
-                        Icon(Icons.Default.Refresh, contentDescription = Strings.get(R.string.upd_buscar_otra_vez))
-                    }
-                }
             }
 
             when (kind) {

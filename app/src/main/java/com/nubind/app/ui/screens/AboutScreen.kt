@@ -1,5 +1,6 @@
 package com.nubind.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
@@ -112,15 +115,15 @@ fun AboutScreen(vm: BindViewModel) {
 
 @Composable
 private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
-    // Se vuelve verde al encontrar una actualización (ver updateHeaderColors).
-    val (container, content) = updateHeaderColors(vm.appUpdate, vm.showRebootCard)
+    // Degradado Monet; se vuelve verde al encontrar una actualización (ver updateHeaderColors).
+    val colors = updateHeaderColors(vm.appUpdate, vm.showRebootCard)
     Surface(
-        color = container,
-        contentColor = content,
+        color = Color.Transparent,
+        contentColor = colors.content,
         shape = MaterialTheme.shapes.extraLarge,
         modifier = modifier
     ) {
-        Box {
+        Box(Modifier.background(Brush.linearGradient(listOf(colors.start, colors.end)))) {
             Column(
                 modifier = Modifier.padding(28.dp).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,

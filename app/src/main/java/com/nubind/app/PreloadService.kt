@@ -99,17 +99,17 @@ class PreloadService : Service() {
                     }
                 }
                 everRunning -> {
-                    finish(nm, status)
+                    finish(nm)
                     return
                 }
                 now > startDeadline -> {
                     // Nunca arrancó (perfil que no precarga, o el script falló antes de escribir nada).
-                    finish(nm, null)
+                    finish(nm)
                     return
                 }
             }
             if (now > hardDeadline) {
-                finish(nm, null)
+                finish(nm)
                 return
             }
             delay(POLL_MS)
@@ -117,12 +117,13 @@ class PreloadService : Service() {
     }
 
     /**
-     * Quita la notificación en curso. Solo si la precarga terminó completa deja un aviso
-     * descartable; si quedó incompleta (se desmontó, se cortó, no entró todo) no se muestra nada.
+     * Quita la notificación en curso al terminar (completa o no): no queda ningún aviso
+     * de "Listo", la notificación simplemente desaparece. También retira el aviso de
+     * "Listo" que dejaban versiones anteriores, por si quedó alguno.
      */
-    private fun finish(nm: NotificationManager, status: PreloadStatus?) {
+    private fun finish(nm: NotificationManager) {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        if (status != null && status.finished) nm.notify(DONE_ID, doneNotification(this, status))
+        nm.cancel(DONE_ID)
         stopSelf()
     }
 
@@ -256,21 +257,6 @@ class PreloadService : Service() {
             } else {
                 b.addAction(android.R.drawable.ic_media_pause, ctx.getString(R.string.preload_pausar), actionIntent(ctx, ACTION_PAUSE))
             }
-            return b.build()
-        }
-
-        private fun doneNotification(ctx: Context, s: PreloadStatus): Notification {
-            val state = ctx.getString(if (s.finished) R.string.listo else R.string.incompleta)
-            val b = NotificationCompat.Builder(ctx, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notif_preload)
-                .setContentTitle(ctx.getString(R.string.precarga_de_archivos))
-                .setContentText("$state · ${detail(ctx, s)}")
-                .setCategory(NotificationCompat.CATEGORY_STATUS)
-                .setSilent(true)
-                .setAutoCancel(true)
-                .setTimeoutAfter(60_000L)
-                .setContentIntent(openAppIntent(ctx))
-            if (s.remote.isNotBlank()) b.setSubText(s.remote)
             return b.build()
         }
     }
