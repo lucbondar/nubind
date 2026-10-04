@@ -155,6 +155,7 @@ fun LogsScreen(vm: BindViewModel) {
     var moveTick by remember { mutableStateOf(0) }
     // Alto del área táctil (px): recorrer todo ese alto con el dedo equivale a recorrer todo el log.
     val areaHeight = remember { floatArrayOf(0f) }
+    val hasEntries = entries.isNotEmpty()
     LaunchedEffect(moveTick) {
         delay(160)
         dir = 0
@@ -194,12 +195,14 @@ fun LogsScreen(vm: BindViewModel) {
                 .fillMaxWidth()
                 .weight(1f)
                 .onSizeChanged { areaHeight[0] = it.height.toFloat() }
-                .pointerInput(Unit) {
+                .pointerInput(hasEntries) {
                     // Pasada Initial. Los primeros 0,3 s solo observa (el desplazamiento normal sigue
                     // igual; si el dedo se mueve más que el umbral, se suelta). Si el dedo sigue quieto,
                     // entra el modo rápido y consume el gesto para que la lista no se mueva con el dedo.
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        // Sin logs no hay nada que recorrer: no se consume nada y el deslizar-para-actualizar sigue igual.
+                        if (!hasEntries) return@awaitEachGesture
                         val held = withTimeoutOrNull(FAST_HOLD_MS) {
                             while (true) {
                                 val ev = awaitPointerEvent(PointerEventPass.Initial)
@@ -242,13 +245,17 @@ fun LogsScreen(vm: BindViewModel) {
                         }
                     }
                 }
-                // Lupa real del sistema: amplía lo que hay bajo el dedo y se dibuja 2 cm por encima
-                // para que el dedo no tape. Sin dedo en modo rápido (Unspecified) no se muestra.
+                // Lupa real del sistema, 2 cm por encima del dedo. Amplía lo que hay donde está la
+                // propia lupa (fuente = su centro), no lo que tapa el dedo. Sin dedo en modo rápido
+                // (Unspecified) no se muestra.
                 .magnifier(
-                    sourceCenter = { finger },
+                    sourceCenter = {
+                        if (finger == Offset.Unspecified) Offset.Unspecified
+                        else Offset(finger.x, (finger.y - lensGapPx).coerceAtLeast(0f))
+                    },
                     magnifierCenter = {
                         if (finger == Offset.Unspecified) Offset.Unspecified
-                        else Offset(finger.x, finger.y - lensGapPx)
+                        else Offset(finger.x, (finger.y - lensGapPx).coerceAtLeast(0f))
                     },
                     zoom = 1.8f,
                     size = DpSize(96.dp, 96.dp),
@@ -281,7 +288,15 @@ fun LogsScreen(vm: BindViewModel) {
                             }
                     ) {
                         if (entries.isEmpty()) {
-                            LogEmptyState(Modifier.align(Alignment.Center))
+                            // Desplazable (aunque no haya nada que mover) para que el gesto de
+                            // deslizar hacia abajo llegue a ScreenContainer y actualice sin logs.
+                            Column(
+                                Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                LogEmptyState()
+                            }
                         } else {
                             LazyColumn(
                                 state = listState,
