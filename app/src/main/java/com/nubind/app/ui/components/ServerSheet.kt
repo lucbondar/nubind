@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -240,6 +241,11 @@ fun ServerSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // En "Nuevo servidor" la hoja mide siempre lo mismo (alto máximo) aunque cambie
+                // el tipo: si su alto cambiara con la animación del formulario, el ModalBottomSheet
+                // recalcularía sus anclas en cada fotograma y la hoja se deslizaría hacia abajo,
+                // rebotaría y dejaría ver el botón cortado o un hueco. Lo que sobra queda vacío.
+                .then(if (initial == null) Modifier.fillMaxHeight() else Modifier)
                 .verticalScroll(rememberScrollState())
                 .imePadding()
                 .navigationBarsPadding()
