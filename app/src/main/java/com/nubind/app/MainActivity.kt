@@ -342,12 +342,14 @@ private fun AppScaffold(vm: BindViewModel) {
             if (logsLeaving || !items.contains(Screen.Logs)) return
             scope.launch {
                 logsLeaving = true
-                val travel = if (items.getOrNull(pagerState.targetPage) == Screen.Logs) {
-                    launch { pagerState.animateScrollToPage(0) }
-                } else null
+                val fromLogs = items.getOrNull(pagerState.targetPage) == Screen.Logs
+                val travel = if (fromLogs) launch { pagerState.animateScrollToPage(0) } else null
                 delay(LogsExitMs)
                 travel?.join()
-                pendingScreen = items.getOrNull(pagerState.currentPage)
+                // Si algo interrumpió el viaje (otra animación del pager), se completa antes de quitar
+                // la pestaña: si no, al correrse los índices se vería Acerca de ocupando el sitio de Logs.
+                if (fromLogs && pagerState.currentPage != 0) pagerState.animateScrollToPage(0)
+                pendingScreen = if (fromLogs) Screen.Home else items.getOrNull(pagerState.currentPage)
                 vm.updateLogsHidden(true)
                 logsLeaving = false
             }
@@ -632,7 +634,15 @@ private fun FloatingPillNav(
                             }
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             // Tras el aviso se consume el resto del gesto: soltar no abre la pestaña Logs.
-                            if (fired) change.consume()
+                            // Y no se interpreta nada más: al plegarse el botón Logs la píldora se
+                            // reacomoda bajo el dedo quieto, la posición local cambia más que el umbral
+                            // y se tomaba por un arrastre que elegía la pestaña vecina (Acerca de),
+                            // cancelando el viaje a Inicio.
+                            if (fired) {
+                                change.consume()
+                                if (!change.pressed) break
+                                continue
+                            }
                             if (!change.pressed) break
                             if (!dragging && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
                                 dragging = true
