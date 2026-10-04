@@ -153,8 +153,25 @@ class BindViewModel : ViewModel() {
      * Módulo KSU instalado cuando trae un APK más viejo que esta app (desfase) y
      * el aviso no fue descartado; null = nada que avisar.
      */
-    var moduleNotice by mutableStateOf<ModuleInfo?>(null)
-        private set
+    private var noticeCandidate by mutableStateOf<ModuleInfo?>(null)
+
+    /** El usuario tocó la píldora durante una actualización de app: el aviso se muestra igual. */
+    private var noticeForced by mutableStateOf(false)
+
+    /**
+     * Aviso de desfase que se dibuja ahora. Mientras hay una actualización de la app por instalar
+     * (disponible, bajando, instalando o fallida con reintento) se queda recogido en su píldora
+     * ([moduleReminder]) a menos que el usuario la toque ([showModuleNoticeAgain]): primero va
+     * la actualización de la app, y al instalarla el módulo suele quedar al día o se resuelve después.
+     */
+    val moduleNotice: ModuleInfo?
+        get() {
+            val n = noticeCandidate ?: return null
+            val s = appUpdate
+            val updatePending = s is AppUpdateState.Available || s is AppUpdateState.Downloading ||
+                s is AppUpdateState.Installing || (s is AppUpdateState.Failed && s.info != null)
+            return if (updatePending && !noticeForced) null else n
+        }
 
     /**
      * Módulo KSU desfasado respecto de la app, se haya descartado o no el aviso. Con el aviso
@@ -168,7 +185,8 @@ class BindViewModel : ViewModel() {
     /** Desde la píldora: vuelve a mostrar el aviso de desfase. */
     fun showModuleNoticeAgain() {
         prefs().edit().remove(KEY_MODULE_NOTICE_DISMISSED).apply()
-        moduleNotice = moduleBehind
+        noticeCandidate = moduleBehind
+        noticeForced = true
     }
 
     /**
@@ -326,20 +344,22 @@ class BindViewModel : ViewModel() {
             }
             modulePendingReboot = rebootPending
             if (modulePendingReboot) {
-                moduleNotice = null
+                noticeCandidate = null
+                noticeForced = false
                 moduleBehind = null
                 return@launch
             }
             val behind = module != null &&
                 AppUpdater.isModuleBehind(module, BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME)
             if (!behind || module == null) {
-                moduleNotice = null
+                noticeCandidate = null
+                noticeForced = false
                 moduleBehind = null
                 return@launch
             }
             moduleBehind = module
             // Pospuesto: la tarjeta queda oculta (y la píldora de recordatorio visible) hasta que cambie la versión.
-            moduleNotice = if (prefs().getString(KEY_MODULE_NOTICE_DISMISSED, null) == noticeKey(module)) null else module
+            noticeCandidate = if (prefs().getString(KEY_MODULE_NOTICE_DISMISSED, null) == noticeKey(module)) null else module
         }
     }
 
@@ -378,7 +398,8 @@ class BindViewModel : ViewModel() {
             val error = withContext(NonCancellable + Dispatchers.IO) { AppUpdater.flashModuleViaRoot(ctx, zip) }
             if (error == null) {
                 moduleFlash = ModuleFlashState.Idle
-                moduleNotice = null
+                noticeCandidate = null
+                noticeForced = false
                 moduleBehind = null
                 rebootCardHidden = false
                 prefs().edit().putBoolean(KEY_REBOOT_POSTPONED, false).apply()
@@ -394,8 +415,9 @@ class BindViewModel : ViewModel() {
     }
 
     fun dismissModuleNotice() {
-        moduleNotice?.let { prefs().edit().putString(KEY_MODULE_NOTICE_DISMISSED, noticeKey(it)).apply() }
-        moduleNotice = null
+        noticeCandidate?.let { prefs().edit().putString(KEY_MODULE_NOTICE_DISMISSED, noticeKey(it)).apply() }
+        noticeCandidate = null
+        noticeForced = false
         // Descartar el aviso de desfase no debe ocultar una actualización nueva.
         refreshUpdates(force = true)
     }
