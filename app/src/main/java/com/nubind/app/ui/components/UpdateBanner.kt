@@ -47,7 +47,6 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,7 +57,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.nubind.app.BindViewModel
@@ -72,13 +70,6 @@ import com.nubind.app.root.UpdateInfo
 import com.nubind.app.ui.theme.AppMotion
 import com.nubind.app.ui.theme.syncAmberPalette
 import com.nubind.app.ui.theme.updateGreenPalette
-
-/** Apps de KernelSU (y forks) que pueden tener instalado el módulo; se abre la primera que exista. */
-private val KsuPackages = listOf(
-    "me.weishu.kernelsu",
-    "com.rifsxd.ksunext",
-    "com.sukisu.ultra"
-)
 
 private enum class UpdateKind { CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, INSTALLING, FAILED }
 
@@ -137,7 +128,6 @@ fun updateHeaderColors(state: AppUpdateState, rebootPending: Boolean = false): P
 @Composable
 fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
-    val context = LocalContext.current
     val state = vm.appUpdate
     val notice = vm.moduleNotice
 
@@ -147,8 +137,9 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
     ) {
         // El contenido se anima por "tipo" de estado, no por cada tick de progreso.
         // Con el reinicio pendiente, "Estás al día" sobra: la tarjeta de reinicio ya dice que todo está listo.
+        // Con el módulo desfasado también: sería incoherente decir "al día" junto al aviso de desfase.
         AnimatedContent(
-            targetState = state.kind().takeUnless { vm.modulePendingReboot && it == UpdateKind.UP_TO_DATE },
+            targetState = state.kind().takeUnless { (vm.modulePendingReboot || notice != null) && it == UpdateKind.UP_TO_DATE },
             transitionSpec = {
                 (fadeIn(animationSpec = AppMotion.effects()) +
                     scaleIn(animationSpec = AppMotion.spatial(), initialScale = 0.92f)) togetherWith
@@ -181,13 +172,7 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
                 ModuleNoticeCard(
                     module = it,
                     flash = vm.moduleFlash,
-                    onFlash = vm::flashModule,
-                    onOpenKsu = {
-                        val intent = KsuPackages.firstNotNullOfOrNull { pkg -> context.packageManager.getLaunchIntentForPackage(pkg) }
-                        if (intent != null) context.startActivity(intent)
-                        else vm.showNotice(Strings.get(R.string.upd_ksu_no_encontrada), NoticeKind.Warning)
-                    },
-                    onDismiss = vm::dismissModuleNotice
+                    onFlash = vm::flashModule
                 )
             }
         }
@@ -343,9 +328,7 @@ private fun UpdateCard(
 private fun ModuleNoticeCard(
     module: ModuleInfo,
     flash: ModuleFlashState,
-    onFlash: () -> Unit,
-    onOpenKsu: () -> Unit,
-    onDismiss: () -> Unit
+    onFlash: () -> Unit
 ) {
     val p = syncAmberPalette()
     val working = flash is ModuleFlashState.Downloading || flash is ModuleFlashState.Flashing
@@ -422,12 +405,6 @@ private fun ModuleNoticeCard(
                         colors = ButtonDefaults.buttonColors(containerColor = p.accent, contentColor = p.onAccent),
                         onClick = onFlash
                     )
-                    // TextButton usa el color primario del tema por defecto: sobre ámbar se pierde.
-                    val textColors = ButtonDefaults.textButtonColors(contentColor = p.onContainer)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = onOpenKsu, colors = textColors) { Text(Strings.get(R.string.upd_abrir_ksu)) }
-                        TextButton(onClick = onDismiss, colors = textColors) { Text(Strings.get(R.string.upd_entendido)) }
-                    }
                 }
             }
         }

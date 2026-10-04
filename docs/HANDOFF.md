@@ -39,7 +39,7 @@ También lo lee KSU mediante `updateJson` en `module/module.prop`.
 ## Comportamiento que no se debe romper
 1. Al abrir la app busca actualización en silencio; sin red no muestra nada.
 2. Con update disponible aparece "Actualizar ahora": con root instala sola, sin root abre `apkUrl` en el navegador.
-3. Si el módulo KSU instalado trae un APK más viejo que la app, aparece un aviso: puede funcionar, pero para completar la actualización hay que descargar el módulo desde la app KSU. Botones "Descargar y flashear módulo" (`BindViewModel.flashModule()`: baja `zipUrl`, verifica `zipSha256`, flashea con root; no flashea si el módulo publicado trae una app más vieja que la instalada), "Abrir KernelSU" y "Entendido" (se descarta hasta que cambie la versión de la app o del módulo). Ya no hay aviso emergente de desfase al abrir la app.
+3. Si el módulo KSU instalado trae un APK más viejo que la app, aparece un aviso: puede funcionar, pero para completar la actualización hay que descargar el módulo desde la app KSU. Un solo botón, "Descargar y flashear módulo" (`BindViewModel.flashModule()`: baja `zipUrl`, verifica `zipSha256`, flashea con root; no flashea si el módulo publicado trae una app más vieja que la instalada). Ya no hay "Abrir KernelSU" ni "Entendido": el aviso se queda hasta que el módulo se actualice (`dismissModuleNotice()` sigue en el ViewModel, sin uso en la UI). Mientras el aviso de desfase está visible se oculta "Estás al día", porque se contradicen. Ya no hay aviso emergente de desfase al abrir la app.
 3b. Tras flashear, el módulo queda en `/data/adb/modules_update/nubind` hasta reiniciar: el aviso de desfase se reemplaza por una tarjeta verde "Módulo instalado" con botón "Reiniciar ahora" (`modulePendingReboot`).
 4. Los módulos antiguos sin `appVersionCode` se comparan por número de versión (no detectan desfase entre builds de la misma versión).
 
@@ -54,8 +54,9 @@ Ya no hay `Toast` ni `Snackbar` en la app. Todo aviso de una sola vez pasa por `
 
 ## Reglas de trabajo
 - **Cada cambio sube la sub versión** (2.5.4 -> 2.5.5), sin esperar a que lo pidan. Va en tres sitios que deben coincidir: `versionName` en `app/build.gradle.kts`, y `version=v...` y `appVersion=...` en `module/module.prop`. El `versionCode` no se toca: lo fija el CI.
-- **Lo último de cada respuesta son los comandos para Termux**, y solo estos cuatro, apilados en un bloque, uno por línea, sin `cd` ni `unzip`. `ciwatch` va siempre al final, después del push:
+- **Lo último de cada respuesta son los comandos para Termux**, apilados en un bloque, uno por línea, sin `cd`. Siempre estos cinco y en este orden: primero el `unzip` del zip entregado (se descarga del chat a `/storage/emulated/0/Download/`) hacia `/storage/emulated/0/Download/nubind/`, luego git, y `ciwatch` al final:
   ```bash
+  unzip -o /storage/emulated/0/Download/<zip entregado>.zip -d /storage/emulated/0/Download/nubind/
   git add -A
   git commit -m "<versión>: <resumen>"
   git push origin preview
