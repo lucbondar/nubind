@@ -76,9 +76,9 @@ class BindViewModel : ViewModel() {
     var autostart by mutableStateOf(false)
         private set
     var logs by mutableStateOf("")
+        private set
     /** Pestaña Logs oculta de la barra (se guarda en prefs). Los logs siguen escribiéndose igual. */
     var logsHidden by mutableStateOf(prefs().getBoolean(KEY_LOGS_HIDDEN, false))
-        private set
         private set
     var rootGranted by mutableStateOf<Boolean?>(null)
         private set
