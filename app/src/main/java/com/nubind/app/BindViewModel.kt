@@ -157,6 +157,19 @@ class BindViewModel : ViewModel() {
     var modulePendingReboot by mutableStateOf(false)
         private set
 
+    /**
+     * El usuario pulsó "Lo haré luego" en la tarjeta de reinicio: se oculta solo en esta
+     * sesión (al abrir la app de nuevo vuelve, porque el reinicio sigue pendiente).
+     */
+    private var rebootCardHidden by mutableStateOf(false)
+
+    /** La tarjeta verde de reinicio (y la cabecera verde) se muestran. */
+    val showRebootCard: Boolean get() = modulePendingReboot && !rebootCardHidden
+
+    fun postponeReboot() {
+        rebootCardHidden = true
+    }
+
     /** Última versión publicada que vio el actualizador (de ahí sale el zip del módulo). */
     private var latestInfo: UpdateInfo? = null
 
@@ -278,6 +291,7 @@ class BindViewModel : ViewModel() {
             if (error == null) {
                 moduleFlash = ModuleFlashState.Idle
                 moduleNotice = null
+                rebootCardHidden = false
                 modulePendingReboot = true
             } else {
                 moduleFlash = ModuleFlashState.Failed(error)

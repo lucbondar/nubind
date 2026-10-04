@@ -68,6 +68,7 @@ import com.nubind.app.root.ModuleFlashState
 import com.nubind.app.root.ModuleInfo
 import com.nubind.app.root.UpdateInfo
 import com.nubind.app.ui.theme.AppMotion
+import com.nubind.app.ui.theme.StatusPalette
 import com.nubind.app.ui.theme.syncAmberPalette
 import com.nubind.app.ui.theme.updateGreenPalette
 
@@ -139,7 +140,7 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
         // Con el reinicio pendiente, "Estás al día" sobra: la tarjeta de reinicio ya dice que todo está listo.
         // Con el módulo desfasado también: sería incoherente decir "al día" junto al aviso de desfase.
         AnimatedContent(
-            targetState = state.kind().takeUnless { (vm.modulePendingReboot || notice != null) && it == UpdateKind.UP_TO_DATE },
+            targetState = state.kind().takeUnless { (vm.showRebootCard || notice != null) && it == UpdateKind.UP_TO_DATE },
             transitionSpec = {
                 (fadeIn(animationSpec = AppMotion.effects()) +
                     scaleIn(animationSpec = AppMotion.spatial(), initialScale = 0.92f)) togetherWith
@@ -172,18 +173,19 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
                 ModuleNoticeCard(
                     module = it,
                     flash = vm.moduleFlash,
-                    onFlash = vm::flashModule
+                    onFlash = vm::flashModule,
+                    onLater = vm::dismissModuleNotice
                 )
             }
         }
 
         // Módulo ya flasheado: falta reiniciar para que se active.
         AnimatedVisibility(
-            visible = vm.modulePendingReboot,
+            visible = vm.showRebootCard,
             enter = expandVertically(animationSpec = AppMotion.spatial()) + fadeIn(animationSpec = AppMotion.effects()),
             exit = shrinkVertically(animationSpec = AppMotion.spatial()) + fadeOut(animationSpec = AppMotion.effects())
         ) {
-            ModuleRebootCard(onReboot = vm::rebootDevice)
+            ModuleRebootCard(onReboot = vm::rebootDevice, onLater = vm::postponeReboot)
         }
     }
 }
@@ -328,7 +330,8 @@ private fun UpdateCard(
 private fun ModuleNoticeCard(
     module: ModuleInfo,
     flash: ModuleFlashState,
-    onFlash: () -> Unit
+    onFlash: () -> Unit,
+    onLater: () -> Unit
 ) {
     val p = syncAmberPalette()
     val working = flash is ModuleFlashState.Downloading || flash is ModuleFlashState.Flashing
@@ -400,11 +403,18 @@ private fun ModuleNoticeCard(
                 ModuleFlashState.Flashing ->
                     LinearWavyProgressIndicator(Modifier.fillMaxWidth(), color = p.accent, trackColor = p.accent.copy(alpha = 0.24f))
                 else -> {
-                    SquishButton(
-                        text = Strings.get(if (flash is ModuleFlashState.Failed) R.string.upd_reintentar else R.string.upd_modulo_flashear),
-                        colors = ButtonDefaults.buttonColors(containerColor = p.accent, contentColor = p.onAccent),
-                        onClick = onFlash
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SquishButton(
+                            text = Strings.get(if (flash is ModuleFlashState.Failed) R.string.upd_reintentar else R.string.upd_modulo_flashear),
+                            colors = ButtonDefaults.buttonColors(containerColor = p.accent, contentColor = p.onAccent),
+                            onClick = onFlash
+                        )
+                        SquishButton(
+                            text = Strings.get(R.string.upd_luego),
+                            colors = laterButtonColors(p),
+                            onClick = onLater
+                        )
+                    }
                 }
             }
         }
@@ -418,7 +428,7 @@ private fun ModuleNoticeCard(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ModuleRebootCard(onReboot: () -> Unit) {
+private fun ModuleRebootCard(onReboot: () -> Unit, onLater: () -> Unit) {
     val p = updateGreenPalette()
     Surface(
         color = p.onContainer.copy(alpha = 0.10f),
@@ -447,11 +457,18 @@ private fun ModuleRebootCard(onReboot: () -> Unit) {
                     Text(Strings.get(R.string.upd_modulo_listo_cuerpo), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            SquishButton(
-                text = Strings.get(R.string.upd_reiniciar),
-                colors = ButtonDefaults.buttonColors(containerColor = p.accent, contentColor = p.onAccent),
-                onClick = onReboot
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SquishButton(
+                    text = Strings.get(R.string.upd_reiniciar),
+                    colors = ButtonDefaults.buttonColors(containerColor = p.accent, contentColor = p.onAccent),
+                    onClick = onReboot
+                )
+                SquishButton(
+                    text = Strings.get(R.string.upd_luego),
+                    colors = laterButtonColors(p),
+                    onClick = onLater
+                )
+            }
         }
     }
 }
@@ -459,6 +476,16 @@ private fun ModuleRebootCard(onReboot: () -> Unit) {
 // ---------------------------------------------------------------------------
 // Piezas expressive
 // ---------------------------------------------------------------------------
+
+/**
+ * Botón secundario "Lo haré luego": mismo tamaño y forma que el principal (queda alineado
+ * justo debajo), pero tonal: velo del color del texto de la tarjeta, sin color pleno.
+ */
+@Composable
+private fun laterButtonColors(p: StatusPalette) = ButtonDefaults.buttonColors(
+    containerColor = p.onContainer.copy(alpha = 0.12f),
+    contentColor = p.onContainer
+)
 
 /**
  * Insignia expressive: una forma de Material (cookie, sunny…) que gira despacio

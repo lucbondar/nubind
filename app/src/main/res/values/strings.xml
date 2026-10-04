@@ -322,4 +322,5 @@
     <string name="upd_reiniciar">Reboot now</string>
     <string name="notice_channel_name">Alerts</string>
     <string name="notice_channel_desc">Short alerts such as errors when using the quick tile</string>
+    <string name="upd_luego">I'll do it later</string>
 </resources>
