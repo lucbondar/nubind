@@ -41,10 +41,14 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -212,6 +216,9 @@ private const val LabelHideDelayMs = 2000L
 /** Cuánto hay que mantener presionado el botón Logs de la píldora para ofrecer ocultarlo. */
 private const val LogsHideHoldMs = 3000L
 
+/** Lo que tarda en salir el botón Logs de la píldora (encoger + desvanecer) antes de quitarlo. */
+private const val LogsExitMs = 480L
+
 /** Alto del degradado que funde el contenido con la barra del sistema (retrato). */
 private val FadeHeight = 104.dp
 
@@ -256,6 +263,8 @@ private fun AppScaffold(vm: BindViewModel) {
     // el pager, la app viaja a esa pestaña (el indicador de la píldora se desliza hasta ella).
     var goToLogs by remember { mutableStateOf(false) }
     var logsEntering by remember { mutableStateOf(false) }
+    // Al ocultar Logs: el botón sale animado de la píldora antes de quitarlo de la lista.
+    var logsLeaving by remember { mutableStateOf(false) }
 
     // Al mostrar/ocultar Logs los índices del pager se corren: se vuelve a la misma pestaña
     // (o a Inicio si era la propia Logs).
@@ -283,13 +292,29 @@ private fun AppScaffold(vm: BindViewModel) {
 
     // Mostrar/ocultar Logs: los índices del pager se corren, así que se recuerda la pestaña
     // actual para quedarse en ella (si no, Acerca de saltaría a Logs sin querer).
+    // Ocultar (interruptor de Acerca de o mantener 3 s el botón): primero el botón Logs se
+    // encoge y se desvanece en la píldora (si estás en Logs, la app viaja a Inicio a la vez) y
+    // solo entonces se quita de la lista.
     fun setLogsVisible(visible: Boolean) {
-        pendingScreen = items.getOrNull(pagerState.currentPage)
         if (visible) {
+            pendingScreen = items.getOrNull(pagerState.currentPage)
             goToLogs = true
             logsEntering = true
+            vm.updateLogsHidden(false)
+        } else {
+            if (logsLeaving || !items.contains(Screen.Logs)) return
+            scope.launch {
+                logsLeaving = true
+                val travel = if (items.getOrNull(pagerState.targetPage) == Screen.Logs) {
+                    launch { pagerState.animateScrollToPage(0) }
+                } else null
+                delay(LogsExitMs)
+                travel?.join()
+                pendingScreen = items.getOrNull(pagerState.currentPage)
+                vm.updateLogsHidden(true)
+                logsLeaving = false
+            }
         }
-        vm.updateLogsHidden(!visible)
     }
 
     // Atrás desde otra pestaña vuelve a Inicio antes de cerrar la app.
@@ -320,6 +345,9 @@ private fun AppScaffold(vm: BindViewModel) {
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize().hazeSource(hazeState),
+                    // Clave por pantalla: al mostrar/ocultar Logs los índices se corren y, sin
+                    // clave, cada página se recomponía con otra pantalla (perdía scroll y estado).
+                    key = { items[it].javaClass.name },
                     beyondViewportPageCount = items.size
                 ) { page ->
                     when (items[page]) {
@@ -380,6 +408,7 @@ private fun AppScaffold(vm: BindViewModel) {
                 onSelect = ::goTo,
                 vertical = isLandscape,
                 logsEntering = logsEntering,
+                logsLeaving = logsLeaving,
                 onLogsLongPress = {
                     setLogsVisible(false)
                     vm.showNotice(Strings.get(R.string.logs_ocultos_aviso), NoticeKind.Info)
@@ -413,6 +442,7 @@ private fun FloatingPillNav(
     onSelect: (Int) -> Unit,
     vertical: Boolean,
     logsEntering: Boolean,
+    logsLeaving: Boolean,
     onLogsLongPress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -421,9 +451,12 @@ private fun FloatingPillNav(
 
     // Rectángulo de cada ítem en las coordenadas de la Row/Column que los
     // contiene (el mismo sistema en el que dibuja el indicador).
-    val bounds = remember(items.size) {
-        mutableStateListOf<Rect>().apply { repeat(items.size) { add(Rect.Zero) } }
-    }
+    // Por pantalla (no por índice): al quitar o añadir Logs los índices se corren, pero cada
+    // botón conserva su medida y el indicador no parpadea a tamaño cero.
+    val bounds = remember { mutableStateMapOf<Screen, Rect>() }
+    val currentItems by rememberUpdatedState(items)
+    val currentLogsLeaving by rememberUpdatedState(logsLeaving)
+    val lastTarget = remember { arrayOf(Rect.Zero) }
     var pressed by remember { mutableStateOf(false) }
     // Posición del dedo sobre el eje de la barra (null = no hay arrastre).
     var dragPos by remember { mutableStateOf<Float?>(null) }
@@ -435,8 +468,6 @@ private fun FloatingPillNav(
     val currentOnSelect by rememberUpdatedState(onSelect)
     val currentVertical by rememberUpdatedState(vertical)
     val currentLogsLongPress by rememberUpdatedState(onLogsLongPress)
-    val logsIndex = items.indexOf(Screen.Logs)
-    val currentLogsIndex by rememberUpdatedState(logsIndex)
 
     // La etiqueta de la pestaña activa se ve al cambiar de pestaña, al
     // tocar la píldora y mientras el dedo siga puesto; pasado un momento se
@@ -452,12 +483,15 @@ private fun FloatingPillNav(
     }
 
     // ---- Geometría objetivo del indicador --------------------------------
-    val target = bounds[selected]
+    val rawTarget = bounds[items[selected]] ?: Rect.Zero
+    if (!rawTarget.isEmpty) lastTarget[0] = rawTarget
+    // Mientras un botón se está midiendo de nuevo, el indicador se queda donde estaba.
+    val target = if (rawTarget.isEmpty) lastTarget[0] else rawTarget
     val drag = dragPos
     var tx = target.left
     var ty = target.top
     if (drag != null && !target.isEmpty) {
-        val real = bounds.filter { !it.isEmpty }
+        val real = items.mapNotNull { bounds[it] }.filter { !it.isEmpty }
         if (currentVertical) {
             val lo = real.minOf { it.top }
             val hi = real.maxOf { it.bottom }
@@ -511,9 +545,9 @@ private fun FloatingPillNav(
         }
     }
 
-    fun itemModifier(index: Int) = Modifier.onGloballyPositioned {
+    fun itemModifier(screen: Screen) = Modifier.onGloballyPositioned {
         val r = Rect(it.positionInParent(), it.size.toSize())
-        if (bounds[index] != r) bounds[index] = r
+        if (bounds[screen] != r) bounds[screen] = r
     }
 
     // Vidrio esmerilado: desenfoca lo que pasa por debajo y lo tiñe con
@@ -546,8 +580,8 @@ private fun FloatingPillNav(
                     // Mantener 3 s sobre el botón Logs (sin arrastrar) oculta la pestaña.
                     val t0 = System.nanoTime()
                     var fired = false
-                    val onLogsItem = currentLogsIndex >= 0 &&
-                        bounds.getOrNull(currentLogsIndex)?.contains(Offset(down.position.x - padPx, down.position.y - padPx)) == true
+                    val onLogsItem = currentItems.contains(Screen.Logs) &&
+                        bounds[Screen.Logs]?.contains(Offset(down.position.x - padPx, down.position.y - padPx)) == true
                     try {
                         while (true) {
                             val armed = onLogsItem && !dragging && !fired
@@ -575,8 +609,10 @@ private fun FloatingPillNav(
                                 // Ítem bajo el dedo (o el más cercano si cae en un hueco).
                                 var best = currentSelected
                                 var bestDist = Float.MAX_VALUE
-                                bounds.forEachIndexed { i, r ->
-                                    if (!r.isEmpty) {
+                                currentItems.forEachIndexed { i, sc ->
+                                    val r = bounds[sc] ?: Rect.Zero
+                                    // El botón Logs que está saliendo no se puede elegir.
+                                    if (!r.isEmpty && !(currentLogsLeaving && sc == Screen.Logs)) {
                                         val start = if (currentVertical) r.top else r.left
                                         val end = if (currentVertical) r.bottom else r.right
                                         val d = max(max(start - c, c - end), 0f)
@@ -606,8 +642,9 @@ private fun FloatingPillNav(
                         key(screen) {
                             PillEntrance(
                                 animateIn = logsEntering && screen == Screen.Logs,
+                                visible = !(logsLeaving && screen == Screen.Logs),
                                 vertical = true,
-                                modifier = itemModifier(index)
+                                modifier = itemModifier(screen)
                             ) {
                                 PillItem(
                                     screen = screen,
@@ -629,8 +666,9 @@ private fun FloatingPillNav(
                         key(screen) {
                             PillEntrance(
                                 animateIn = logsEntering && screen == Screen.Logs,
+                                visible = !(logsLeaving && screen == Screen.Logs),
                                 vertical = false,
-                                modifier = itemModifier(index)
+                                modifier = itemModifier(screen)
                             ) {
                                 PillItem(
                                     screen = screen,
@@ -651,25 +689,32 @@ private fun FloatingPillNav(
 /**
  * Envoltorio de cada botón de la píldora. Con [animateIn] (solo el botón Logs al activarlo)
  * el botón entra con resorte: crece desde el centro, se ensancha y se desvanece hacia dentro.
- * Sin [animateIn] aparece ya en su sitio. El [modifier] (medición de límites) va en el
- * contenedor de la animación para que las coordenadas sigan siendo las de la fila/columna.
+ * Con [visible] en false (Logs al ocultarse) sale al revés: se desvanece, se encoge y se pliega
+ * hasta desaparecer, y la píldora se cierra con resorte. Sin [animateIn] aparece ya en su sitio.
+ * El [modifier] (medición de límites) va en el contenedor de la animación para que las
+ * coordenadas sigan siendo las de la fila/columna.
  */
 @Composable
 private fun PillEntrance(
     animateIn: Boolean,
+    visible: Boolean,
     vertical: Boolean,
     modifier: Modifier,
     content: @Composable () -> Unit
 ) {
-    val visible = remember { MutableTransitionState(!animateIn).apply { targetState = true } }
+    val state = remember { MutableTransitionState(!animateIn).apply { targetState = true } }
+    state.targetState = visible
     AnimatedVisibility(
-        visibleState = visible,
+        visibleState = state,
         modifier = modifier,
         enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
             scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow), initialScale = 0.3f) +
             (if (vertical) expandVertically(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow))
             else expandHorizontally(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow))),
-        exit = ExitTransition.None
+        exit = fadeOut(tween(200)) +
+            scaleOut(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow), targetScale = 0.3f) +
+            (if (vertical) shrinkVertically(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
+            else shrinkHorizontally(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)))
     ) { content() }
 }
 
