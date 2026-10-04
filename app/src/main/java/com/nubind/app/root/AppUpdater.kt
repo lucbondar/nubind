@@ -17,7 +17,9 @@ data class UpdateInfo(
     val apkSha256: String?,
     /** zip del módulo de esa misma build (para descargarlo y flashearlo desde la app); null si update.json no lo trae. */
     val zipUrl: String? = null,
-    val zipSha256: String? = null
+    val zipSha256: String? = null,
+    /** changelog.md que publica el CI (el mismo que lee KernelSU vía update.json); null si no viene. */
+    val changelogUrl: String? = null
 )
 
 /**
@@ -111,10 +113,41 @@ object AppUpdater {
             apkUrl = url,
             apkSha256 = o.optString("apkSha256", "").trim().ifEmpty { null },
             zipUrl = o.optString("zipUrl", "").takeIf { it.startsWith("https://") },
-            zipSha256 = o.optString("zipSha256", "").trim().ifEmpty { null }
+            zipSha256 = o.optString("zipSha256", "").trim().ifEmpty { null },
+            changelogUrl = o.optString("changelog", "").takeIf { it.startsWith("https://") }
         )
     } catch (_: Exception) {
         null
+    }
+
+    /**
+     * Últimos cambios de changelog.md (el mismo archivo que lee KernelSU): una línea "- ..." por
+     * commit, la más nueva primero. Devuelve hasta [max] líneas sin el guion, o null si no se
+     * pudo bajar. Bloqueante: llamar fuera del hilo principal.
+     */
+    fun fetchChangelog(url: String, max: Int = 10): List<String>? {
+        val conn = try {
+            open("$url?t=${System.currentTimeMillis()}").apply {
+                setRequestProperty("Cache-Control", "no-cache")
+            }
+        } catch (_: Exception) {
+            return null
+        }
+        return try {
+            if (conn.responseCode != HttpURLConnection.HTTP_OK) null
+            else conn.inputStream.bufferedReader().use { it.readText() }
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.startsWith("- ") }
+                .map { it.removePrefix("- ").trim() }
+                .filter { it.isNotEmpty() }
+                .take(max)
+                .toList()
+        } catch (_: Exception) {
+            null
+        } finally {
+            conn.disconnect()
+        }
     }
 
     private fun open(url: String): HttpURLConnection =

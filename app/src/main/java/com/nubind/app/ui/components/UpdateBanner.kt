@@ -62,6 +62,20 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nubind.app.BindViewModel
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.nubind.app.R
 import com.nubind.app.Strings
 import com.nubind.app.root.AppUpdateState
@@ -389,11 +403,32 @@ private fun UpdateCard(
 
             when (kind) {
                 UpdateKind.AVAILABLE -> (state as? AppUpdateState.Available)?.info?.let { info ->
-                    SquishButton(
-                        text = Strings.get(R.string.upd_actualizar_ahora),
-                        colors = ButtonDefaults.buttonColors(containerColor = onAccent, contentColor = accent),
-                        onClick = { onUpdate(info) }
-                    )
+                    var changesOpen by remember(info.appVersionCode) { mutableStateOf(false) }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SquishButton(
+                            text = Strings.get(R.string.upd_actualizar_ahora),
+                            colors = ButtonDefaults.buttonColors(containerColor = onAccent, contentColor = accent),
+                            onClick = { onUpdate(info) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (info.changelogUrl != null) {
+                            ChangelogPill(
+                                open = changesOpen,
+                                color = onAccent,
+                                onClick = { changesOpen = !changesOpen }
+                            )
+                        }
+                    }
+                    if (info.changelogUrl != null) {
+                        ChangelogList(
+                            url = info.changelogUrl,
+                            open = changesOpen,
+                            color = onAccent
+                        )
+                    }
                 }
                 UpdateKind.DOWNLOADING -> {
                     val p = (state as? AppUpdateState.Downloading)?.progress ?: -1f
@@ -585,6 +620,121 @@ private fun ModuleRebootCard(onReboot: () -> Unit, onLater: () -> Unit) {
 // ---------------------------------------------------------------------------
 // Piezas expressive
 // ---------------------------------------------------------------------------
+
+/**
+ * Píldora "Cambios" a la derecha de "Actualizar ahora": se aprieta al pulsarla, el chevron gira
+ * con resorte y, abierta, se llena un poco más. [color] es el del texto/fondo del botón principal.
+ */
+@Composable
+private fun ChangelogPill(open: Boolean, color: Color, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.92f else 1f,
+        animationSpec = spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium),
+        label = "pillSquish"
+    )
+    val fill by animateColorAsState(
+        color.copy(alpha = if (open) 0.34f else 0.18f),
+        animationSpec = tween(250), label = "pillFill"
+    )
+    val rotation by animateFloatAsState(
+        targetValue = if (open) 180f else 0f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+        label = "pillChevron"
+    )
+    Surface(
+        onClick = onClick,
+        interactionSource = source,
+        color = fill,
+        contentColor = color,
+        shape = RoundedCornerShape(50),
+        modifier = Modifier
+            .height(52.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 18.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(Strings.get(R.string.upd_cambios), style = MaterialTheme.typography.labelLarge)
+            Icon(
+                Icons.Default.ExpandMore,
+                contentDescription = if (open) Strings.get(R.string.contraer) else Strings.get(R.string.expandir),
+                modifier = Modifier.rotate(rotation)
+            )
+        }
+    }
+}
+
+/**
+ * Lista desplegable con los últimos 10 cambios de changelog.md. Se baja la primera vez que se abre
+ * y se conserva mientras la tarjeta siga a la vista. Las líneas empiezan por la versión
+ * ("2.5.41: ..."), que se resalta en negrita.
+ */
+@Composable
+private fun ChangelogList(url: String, open: Boolean, color: Color) {
+    var lines by remember(url) { mutableStateOf<List<String>?>(null) }
+    var failed by remember(url) { mutableStateOf(false) }
+    LaunchedEffect(open, url) {
+        if (open && lines == null) {
+            val got = withContext(Dispatchers.IO) { AppUpdater.fetchChangelog(url, 10) }
+            if (got.isNullOrEmpty()) failed = true else { failed = false; lines = got }
+        }
+    }
+    AnimatedVisibility(
+        visible = open,
+        enter = expandVertically(animationSpec = AppMotion.spatial()) + fadeIn(animationSpec = AppMotion.effects()),
+        exit = shrinkVertically(animationSpec = AppMotion.spatial()) + fadeOut(animationSpec = AppMotion.effects())
+    ) {
+        Surface(
+            color = color.copy(alpha = 0.14f),
+            contentColor = color,
+            shape = RoundedCornerShape(22.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val shown = lines
+                when {
+                    shown != null -> shown.forEach { line -> ChangelogRow(line, color) }
+                    failed -> Text(Strings.get(R.string.upd_cambios_error), style = MaterialTheme.typography.bodyMedium)
+                    else -> LinearWavyProgressIndicator(
+                        Modifier.fillMaxWidth(), color = color, trackColor = color.copy(alpha = 0.24f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChangelogRow(line: String, color: Color) {
+    val m = Regex("""^(v?\d+(?:\.\d+)+)\s*:\s*(.*)$""").find(line)
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            Modifier
+                .padding(top = 7.dp)
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.7f))
+        )
+        Text(
+            text = if (m != null) buildAnnotatedString {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(m.groupValues[1]) }
+                append("  ")
+                append(m.groupValues[2])
+            } else AnnotatedString(line),
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
 
 /**
  * Botón secundario "Lo haré luego": mismo tamaño y forma que el principal (queda alineado
