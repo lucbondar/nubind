@@ -174,6 +174,19 @@ WORKERS="$(cat "$MODDIR/config/preload_workers" 2>/dev/null)"
 case "$WORKERS" in ''|*[!0-9]*|0) WORKERS=4 ;; esac
 [ "$WORKERS" -gt 8 ] && WORKERS=8
 
+# Límite de velocidad total (config/preload_limit, en MB/s; ausente = sin
+# límite). Se reparte a partes iguales entre los workers y se aplica con
+# sleep entre archivos sobre el promedio acumulado de cada worker: no recorta
+# picos dentro de un mismo archivo, pero mantiene la media bajo el tope.
+LIMIT="$(cat "$MODDIR/config/preload_limit" 2>/dev/null)"
+case "$LIMIT" in ''|*[!0-9]*) LIMIT=0 ;; esac
+[ "$LIMIT" -gt 1000 ] && LIMIT=1000
+RATE_KB=0
+if [ "$LIMIT" -gt 0 ]; then
+    RATE_KB=$(( LIMIT * 1024 / WORKERS ))
+    [ "$RATE_KB" -lt 1 ] && RATE_KB=1
+fi
+
 # Tope de tiempo por archivo: 300 s como mínimo, y 4 s por MB para los
 # grandes (equivale a aguantar hasta ~0,25 MB/s). Un tope fijo cortaba a
 # medias los archivos grandes con enlace lento.
@@ -372,7 +385,7 @@ if [ "$MARKER_OK" = 1 ]; then
     exit 0
 fi
 
-echo "$(date): Precarga: '$ACTIVE', $TOTAL archivos, hasta ${BUDGET_MB} MB (tope $MAX_FILES archivos), $WORKERS en paralelo" >> "$LOG_FILE"
+echo "$(date): Precarga: '$ACTIVE', $TOTAL archivos, hasta ${BUDGET_MB} MB (tope $MAX_FILES archivos), $WORKERS en paralelo, límite $([ "$LIMIT" -gt 0 ] && echo "$LIMIT MB/s" || echo "ninguno")" >> "$LOG_FILE"
 
 # ---- Selección y reparto en un solo awk (sin transferir datos ni lanzar un
 # proceso por archivo). El presupuesto se cuenta en bytes: antes se sumaban
@@ -390,7 +403,7 @@ set -- $(awk -F "$TAB" -v budget="$BUDGET_MB" -v maxf="$MAX_FILES" \
         used += b
         p = n % workers
         n++
-        print int(b / 1048576), b, substr($0, index($0, "\t") + 1) > (dir "/.preload_part_" p)
+        print int(b / 1048576), b, int(b / 1024), substr($0, index($0, "\t") + 1) > (dir "/.preload_part_" p)
     }
     END { printf "%d %d\n", n, used / 1048576 }
 ' "$FILELIST" 2>/dev/null)
@@ -402,14 +415,17 @@ write_status true 0 0
 preload_worker() {
     # $1 = archivo con las rutas de este worker; $2 = número del worker (solo para el log)
     ok=0
-    while IFS="$TAB" read -r SZ_MB SZ_B f; do
+    lim_t0="$(date +%s)"; lim_kb=0
+    while IFS="$TAB" read -r SZ_MB SZ_B SZ_KB f; do
         [ -n "$f" ] || continue
         # En pausa: espera aquí (entre archivos). Si la corrida principal
         # muere mientras tanto, no se queda esperando para siempre.
         while [ -f "$PAUSE_FLAG" ]; do
             kill -0 "$MAIN_PID" 2>/dev/null || break
+            lim_t0="$(date +%s)"; lim_kb=0   # tras una pausa el límite parte de cero
             sleep 1
         done
+        case "$SZ_KB" in ''|*[!0-9]*) SZ_KB=0 ;; esac
         case "$SZ_MB" in ''|*[!0-9]*) SZ_MB=0 ;; esac
         TL=$(( SZ_MB * 4 ))
         [ "$TL" -lt 300 ] && TL=300
@@ -424,6 +440,15 @@ preload_worker() {
             # Solo este worker escribe en su propio archivo: sin condiciones
             # de carrera entre workers. Lo lee el monitor de progreso.
             echo "$SZ_B" >> "$MODDIR/.preload_progress_$2"
+            if [ "$RATE_KB" -gt 0 ]; then
+                lim_kb=$(( lim_kb + SZ_KB ))
+                want=$(( lim_kb / RATE_KB ))
+                while [ $(( $(date +%s) - lim_t0 )) -lt "$want" ]; do
+                    [ -f "$PAUSE_FLAG" ] && break
+                    kill -0 "$MAIN_PID" 2>/dev/null || break
+                    sleep 1
+                done
+            fi
         else
             echo "$(date): Precarga[$2]: falló ${f#$T/}" >> "$LOG_FILE"
         fi

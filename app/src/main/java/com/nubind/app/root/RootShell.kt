@@ -38,6 +38,8 @@ object ModulePaths {
     const val S3_DIR_CACHE_MIN = "s3_dir_cache_min"
     /** Descargas en paralelo de la precarga (1-8; ausente = 4). Lo lee scripts/preload.sh en cada corrida. */
     const val PRELOAD_WORKERS = "preload_workers"
+    /** Límite de velocidad de la precarga en MB/s (ausente = sin límite). Lo lee scripts/preload.sh. */
+    const val PRELOAD_LIMIT = "preload_limit"
     const val STATUS_FILE = "$BASE/status.json"
     const val LOG_FILE = "$BASE/mount.log"
     /** Progreso de la precarga (lo escribe scripts/preload.sh). */
@@ -527,6 +529,21 @@ object RootShell {
             Strings.get(R.string.ajuste_s3_no_valido)
         }
         val path = "${ModulePaths.CONFIG_DIR}/${ModulePaths.PRELOAD_WORKERS}"
+        return if (value == null) run("rm -f $path") else writePerfValue(path, value.toString())
+    }
+
+    // ---- Límite de velocidad de la precarga (ausente = sin límite) ----
+
+    fun readPreloadLimit(): Int? =
+        Shell.cmd("cat ${ModulePaths.CONFIG_DIR}/${ModulePaths.PRELOAD_LIMIT} 2>/dev/null").exec().out
+            .joinToString("").trim().toIntOrNull()?.takeIf { it in 1..PreloadPerf.LIMIT_MAX_MBPS }
+
+    /** Con [value] null se borra el archivo y vuelve a no haber límite. */
+    fun setPreloadLimit(value: Int?): Result {
+        require(value == null || value in 1..PreloadPerf.LIMIT_MAX_MBPS) {
+            Strings.get(R.string.ajuste_s3_no_valido)
+        }
+        val path = "${ModulePaths.CONFIG_DIR}/${ModulePaths.PRELOAD_LIMIT}"
         return if (value == null) run("rm -f $path") else writePerfValue(path, value.toString())
     }
 

@@ -575,7 +575,33 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
     SectionCard(
         title = Strings.get(R.string.precarga_de_archivos),
         icon = AppIcons.Download,
-        subtitle = Strings.get(R.string.baja_los_archivos_del_remoto_a)
+        subtitle = Strings.get(R.string.baja_los_archivos_del_remoto_a),
+        expandable = true,
+        // Descargas en paralelo y límite de velocidad: "más opciones" al desplegar.
+        extra = {
+            S3StepSlider(
+                title = Strings.get(R.string.preload_workers_title),
+                value = vm.preloadWorkers ?: PreloadPerf.WORKERS_DEFAULT,
+                isAuto = vm.preloadWorkers == null,
+                range = PreloadPerf.WORKERS_MIN..PreloadPerf.WORKERS_MAX,
+                unit = Strings.get(R.string.preload_workers_unit),
+                onCommit = { vm.setPreloadWorkers(it) }
+            )
+            Text(
+                Strings.get(R.string.preload_workers_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant
+            )
+            PreloadLimitSlider(
+                valueMbps = vm.preloadLimit ?: 0,
+                onCommit = { vm.setPreloadLimit(it.takeIf { v -> v > 0 }) }
+            )
+            Text(
+                Strings.get(R.string.preload_limit_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant
+            )
+        }
     ) {
         if (!hasData) {
             // Mientras preload.sh recorre el remoto todavía no hay totales
@@ -639,20 +665,6 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
             }
         }
 
-        S3StepSlider(
-            title = Strings.get(R.string.preload_workers_title),
-            value = vm.preloadWorkers ?: PreloadPerf.WORKERS_DEFAULT,
-            isAuto = vm.preloadWorkers == null,
-            range = PreloadPerf.WORKERS_MIN..PreloadPerf.WORKERS_MAX,
-            unit = Strings.get(R.string.preload_workers_unit),
-            onCommit = { vm.setPreloadWorkers(it) }
-        )
-        Text(
-            Strings.get(R.string.preload_workers_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = scheme.onSurfaceVariant
-        )
-
         // Pausar / reanudar: solo mientras la precarga está viva.
         if (status?.running == true) {
             val paused = status.paused
@@ -683,5 +695,43 @@ private fun PreloadCard(vm: BindViewModel, mounted: Boolean) {
                 style = MaterialTheme.typography.titleMedium
             )
         }
+    }
+}
+
+/** Slider del límite de velocidad de la precarga: 0 = sin límite, 1..LIMIT_MAX_MBPS MB/s. */
+@Composable
+private fun PreloadLimitSlider(valueMbps: Int, onCommit: (Int) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
+    var draft by remember(valueMbps) { mutableStateOf(valueMbps.toFloat()) }
+    var lastTick by remember(valueMbps) { mutableStateOf(valueMbps) }
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(Strings.get(R.string.preload_limit_title), style = MaterialTheme.typography.titleSmall)
+            Text(
+                if (draft.roundToInt() == 0) Strings.get(R.string.preload_limit_off)
+                else "${draft.roundToInt()} ${Strings.get(R.string.preload_limit_unit)}",
+                style = MaterialTheme.typography.titleSmall,
+                color = scheme.primary
+            )
+        }
+        Slider(
+            value = draft,
+            onValueChange = {
+                draft = it
+                val rounded = it.roundToInt()
+                if (rounded != lastTick) {
+                    lastTick = rounded
+                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                }
+            },
+            onValueChangeFinished = { onCommit(draft.roundToInt()) },
+            valueRange = 0f..PreloadPerf.LIMIT_MAX_MBPS.toFloat(),
+            steps = PreloadPerf.LIMIT_MAX_MBPS - 1
+        )
     }
 }

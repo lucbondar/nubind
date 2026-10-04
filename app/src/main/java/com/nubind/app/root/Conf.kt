@@ -153,6 +153,9 @@ object PreloadPerf {
     const val WORKERS_MIN = 1
     const val WORKERS_MAX = 8
     const val WORKERS_DEFAULT = 4
+
+    /** Límite de velocidad total de la precarga en MB/s (0 = sin límite; lo aplica preload.sh). */
+    const val LIMIT_MAX_MBPS = 50
 }
 
 object S3Perf {

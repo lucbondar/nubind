@@ -287,6 +287,10 @@
     <string name="preload_workers_title">Downloads em paralelo</string>
     <string name="preload_workers_unit">downloads</string>
     <string name="preload_workers_hint">Vale na próxima pré-carga, sem remontar. Mais downloads aceleram muitos arquivos pequenos, mas demais pode bater nos limites de requisições do servidor (principalmente o Google Drive).</string>
+    <string name="preload_limit_title">Limite de velocidade de download</string>
+    <string name="preload_limit_off">Sem limite</string>
+    <string name="preload_limit_unit">MB/s</string>
+    <string name="preload_limit_hint">Teto total dividido entre todos os downloads em paralelo. Vale na próxima pré-carga, sem remontar. É calculado em média entre arquivos, então dentro de um arquivo grande pode haver picos acima.</string>
     <string name="carpeta_ftp_opcional">Pasta (opcional)</string>
     <string name="carpeta_ftp_ayuda">Monta apenas esta pasta do servidor, p. ex. /Jogos. Vazio monta o servidor inteiro, que pode demorar para listar e pré-carregar.</string>
     <string name="upd_buscando">Procurando atualizações…</string>

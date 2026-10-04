@@ -116,6 +116,9 @@ class BindViewModel : ViewModel() {
     /** Descargas en paralelo de la precarga; null = por defecto (se aplica en la próxima precarga, sin remontar). */
     var preloadWorkers by mutableStateOf<Int?>(null)
         private set
+    /** Límite de velocidad de la precarga en MB/s; null = sin límite (también en la próxima precarga). */
+    var preloadLimit by mutableStateOf<Int?>(null)
+        private set
     var perfTest by mutableStateOf(PerfTestState())
         private set
     /** Progreso de la precarga de archivos a la caché (SectionCard de Inicio en perfil Máximo). Null = no aplica. */
@@ -502,6 +505,7 @@ class BindViewModel : ViewModel() {
         ramCache = snap.ramCache
         s3Perf = snap.s3Perf
         preloadWorkers = withContext(Dispatchers.IO) { RootShell.readPreloadWorkers() }
+        preloadLimit = withContext(Dispatchers.IO) { RootShell.readPreloadLimit() }
         isMounted = snap.status.contains("\"mounted\":true")
         mountedRemote = if (isMounted) {
             Regex("\"remote\":\"([^\"]*)\"").find(snap.status)?.groupValues?.get(1)
@@ -1057,6 +1061,12 @@ class BindViewModel : ViewModel() {
     fun setPreloadWorkers(value: Int?) = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) { RootShell.setPreloadWorkers(value) }
         preloadWorkers = withContext(Dispatchers.IO) { RootShell.readPreloadWorkers() }
+        if (!result.success) showNotice(Strings.get(R.string.error_al_guardar, result.output.take(200)), NoticeKind.Error)
+    }
+
+    fun setPreloadLimit(value: Int?) = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) { RootShell.setPreloadLimit(value) }
+        preloadLimit = withContext(Dispatchers.IO) { RootShell.readPreloadLimit() }
         if (!result.success) showNotice(Strings.get(R.string.error_al_guardar, result.output.take(200)), NoticeKind.Error)
     }
 

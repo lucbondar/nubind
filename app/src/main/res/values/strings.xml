@@ -288,6 +288,10 @@
     <string name="preload_workers_title">Parallel downloads</string>
     <string name="preload_workers_unit">downloads</string>
     <string name="preload_workers_hint">Applies on the next preload, no remount needed. More downloads speed up many small files, but too many can hit the server\'s request limits (especially Google Drive).</string>
+    <string name="preload_limit_title">Download speed limit</string>
+    <string name="preload_limit_off">No limit</string>
+    <string name="preload_limit_unit">MB/s</string>
+    <string name="preload_limit_hint">Total cap shared by all parallel downloads. Applies on the next preload, no remount needed. It is averaged between files, so short bursts inside a large file can go over it.</string>
     <string name="carpeta_ftp_opcional">Folder (optional)</string>
     <string name="carpeta_ftp_ayuda">Mounts only this folder of the server, e.g. /Games. Empty mounts the whole server, which can be slow to list and preload.</string>
     <string name="upd_buscando">Looking for updates…</string>

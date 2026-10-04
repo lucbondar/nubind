@@ -58,6 +58,10 @@ import com.nubind.app.Strings
  * contenido (útil para tarjetas largas); el subtítulo, si hay, siempre
  * queda visible como resumen aunque esté plegada. [initiallyExpanded]
  * solo importa si [expandable] es true.
+ *
+ * Con [extra] (junto con [expandable]) el encabezado solo pliega/despliega
+ * ese bloque de "más opciones"; [content] queda siempre visible debajo del
+ * subtítulo. Sirve para tarjetas con estado/acciones que no deben ocultarse.
  */
 @Composable
 fun SectionCard(
@@ -67,6 +71,7 @@ fun SectionCard(
     subtitle: String? = null,
     expandable: Boolean = false,
     initiallyExpanded: Boolean = false,
+    extra: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -111,9 +116,18 @@ fun SectionCard(
                     color = scheme.onSurfaceVariant
                 )
             }
-            AnimatedVisibility(visible = expanded) {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    content()
+            if (extra != null) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { content() }
+                AnimatedVisibility(visible = expanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        extra()
+                    }
+                }
+            } else {
+                AnimatedVisibility(visible = expanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        content()
+                    }
                 }
             }
         }
