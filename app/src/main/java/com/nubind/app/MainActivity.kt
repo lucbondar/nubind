@@ -292,7 +292,15 @@ private fun AppScaffold(vm: BindViewModel) {
     // vez de aparecer ya en su sitio final sin transición.
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+    // Al ocultar Logs: el botón sale animado de la píldora antes de quitarlo de la lista.
+    var logsLeaving by remember { mutableStateOf(false) }
+
+    // Mientras el botón Logs sale de la píldora no se acepta ninguna selección. Al soltar tras los
+    // 3 s, el clic del propio botón Logs (el hijo recibe el "arriba" antes que el gesto de la
+    // píldora, así que consumir después no lo cancela) llamaba a goTo(2): cortaba el viaje a Inicio
+    // y, al quitar Logs de la lista, el índice 2 pasaba a ser Acerca de (se veía esa pantalla).
     fun goTo(page: Int) {
+        if (logsLeaving) return
         scope.launch { pagerState.animateScrollToPage(page) }
     }
 
@@ -300,8 +308,6 @@ private fun AppScaffold(vm: BindViewModel) {
     // el pager, la app viaja a esa pestaña (el indicador de la píldora se desliza hasta ella).
     var goToLogs by remember { mutableStateOf(false) }
     var logsEntering by remember { mutableStateOf(false) }
-    // Al ocultar Logs: el botón sale animado de la píldora antes de quitarlo de la lista.
-    var logsLeaving by remember { mutableStateOf(false) }
 
     // Al mostrar/ocultar Logs los índices del pager se corren: se vuelve a la misma pestaña
     // (o a Inicio si era la propia Logs).
