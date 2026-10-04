@@ -77,8 +77,11 @@ class BindViewModel : ViewModel() {
         private set
     var logs by mutableStateOf("")
         private set
-    /** Pestaña Logs oculta de la barra (se guarda en prefs). Los logs siguen escribiéndose igual. */
-    var logsHidden by mutableStateOf(prefs().getBoolean(KEY_LOGS_HIDDEN, false))
+    /**
+     * Pestaña Logs oculta de la barra (se guarda en prefs). Viene oculta por defecto; se activa
+     * en Acerca de › Sistema › Mostrar Logs. Los logs siguen escribiéndose igual.
+     */
+    var logsHidden by mutableStateOf(prefs().getBoolean(KEY_LOGS_HIDDEN, true))
         private set
     var rootGranted by mutableStateOf<Boolean?>(null)
         private set
@@ -1132,7 +1135,13 @@ class BindViewModel : ViewModel() {
 
     fun updateLogsHidden(hidden: Boolean) {
         logsHidden = hidden
-        prefs().edit().putBoolean(KEY_LOGS_HIDDEN, hidden).apply()
+        val p = prefs()
+        p.edit().putBoolean(KEY_LOGS_HIDDEN, hidden).apply()
+        // Al activarla por primera vez se explica, una única vez, cómo volver a ocultarla.
+        if (!hidden && !p.getBoolean(KEY_LOGS_HIDE_HINT_SHOWN, false)) {
+            p.edit().putBoolean(KEY_LOGS_HIDE_HINT_SHOWN, true).apply()
+            showNotice(Strings.get(R.string.logs_mostrar_aviso), NoticeKind.Info)
+        }
     }
 
     fun refreshLogs() = viewModelScope.launch {
@@ -1197,6 +1206,7 @@ class BindViewModel : ViewModel() {
         const val KEY_MODULE_NOTICE_DISMISSED = "module_notice_dismissed"
         const val KEY_REBOOT_POSTPONED = "reboot_postponed"
         const val KEY_LOGS_HIDDEN = "logs_hidden"
+        const val KEY_LOGS_HIDE_HINT_SHOWN = "logs_hide_hint_shown"
         const val AUTH_POLL_MS = 600L
         const val MIN_REFRESH_MS = 500L
         const val REFRESH_UPDATES_MS = 30_000L

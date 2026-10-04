@@ -1,6 +1,21 @@
 package com.nubind.app.ui.screens
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialShapes
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.toShape
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
+import com.nubind.app.ui.components.CookieBadge
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -78,7 +93,11 @@ private const val X_URL = "https://x.com/cruzmartinlbdt"
 private const val TELEGRAM_URL = "https://t.me/lcruz_23"
 
 @Composable
-fun AboutScreen(vm: BindViewModel) {
+fun AboutScreen(
+    vm: BindViewModel,
+    /** Mostrar/ocultar la pestaña Logs; MainActivity lo usa para conservar la pestaña actual. */
+    onLogsVisibleChange: (Boolean) -> Unit = { vm.updateLogsHidden(!it) }
+) {
     val scheme = MaterialTheme.colorScheme
     val uriHandler = LocalUriHandler.current
 
@@ -117,13 +136,13 @@ fun AboutScreen(vm: BindViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) { Entrance(2) { SystemCard(vm, rcloneVersion) } }
+                Column(modifier = Modifier.weight(1f)) { Entrance(2) { SystemCard(vm, rcloneVersion, onLogsVisibleChange) } }
                 Column(modifier = Modifier.weight(1f)) { Entrance(3) { LinksCard(uriHandler) } }
             }
         } else {
             HeaderCard(vm, modifier = Modifier.fillMaxWidth())
             Entrance(1) { WhatItDoesCard() }
-            Entrance(2) { SystemCard(vm, rcloneVersion) }
+            Entrance(2) { SystemCard(vm, rcloneVersion, onLogsVisibleChange) }
             Entrance(3) { LinksCard(uriHandler) }
         }
 
@@ -235,7 +254,7 @@ private fun StepRow(number: Int, text: String) {
 }
 
 @Composable
-private fun SystemCard(vm: BindViewModel, rcloneVersion: String?) {
+private fun SystemCard(vm: BindViewModel, rcloneVersion: String?, onLogsVisibleChange: (Boolean) -> Unit) {
     SectionCard(title = Strings.get(R.string.sistema), icon = Icons.Default.Build) {
         val scheme = MaterialTheme.colorScheme
         InfoRow(
@@ -254,18 +273,90 @@ private fun SystemCard(vm: BindViewModel, rcloneVersion: String?) {
         )
         InfoRow("rclone", rcloneVersion ?: "—")
         InfoRow(Strings.get(R.string.interfaz), "Jetpack Compose · Material 3 Expressive")
-        // Aquí se vuelve a mostrar la pestaña Logs si se ocultó (mantener 3 s su botón en la barra).
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                Strings.get(R.string.logs_pestana),
-                style = MaterialTheme.typography.bodyMedium,
-                color = scheme.onSurfaceVariant
+        // Logs viene oculta: aquí se muestra (y se vuelve a ocultar).
+        ShowLogsToggle(checked = !vm.logsHidden, onChange = onLogsVisibleChange)
+    }
+}
+
+/**
+ * "Mostrar Logs": tarjeta tocable en la que el contenedor se llena de color, las esquinas
+ * se redondean con resorte, la insignia de forma gira y el interruptor lleva marca en el pulgar.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ShowLogsToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
+    val container by animateColorAsState(
+        if (checked) scheme.primaryContainer else scheme.surfaceContainerHighest,
+        label = "showLogsContainer"
+    )
+    val content by animateColorAsState(
+        if (checked) scheme.onPrimaryContainer else scheme.onSurface,
+        label = "showLogsContent"
+    )
+    val support by animateColorAsState(
+        if (checked) scheme.onPrimaryContainer.copy(alpha = 0.78f) else scheme.onSurfaceVariant,
+        label = "showLogsSupport"
+    )
+    val corner by animateDpAsState(
+        if (checked) 32.dp else 20.dp,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "showLogsCorner"
+    )
+    Surface(
+        color = container,
+        contentColor = content,
+        shape = RoundedCornerShape(corner),
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = {
+                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    onChange(it)
+                }
             )
-            Switch(checked = !vm.logsHidden, onCheckedChange = { vm.updateLogsHidden(!it) })
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 18.dp, top = 14.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CookieBadge(
+                icon = Icons.AutoMirrored.Rounded.List,
+                shape = MaterialShapes.Cookie9Sided.toShape(),
+                background = if (checked) scheme.primary else scheme.secondaryContainer,
+                glyph = if (checked) scheme.onPrimary else scheme.onSecondaryContainer,
+                spinning = checked,
+                size = 44.dp
+            )
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    Strings.get(R.string.logs_mostrar),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = content
+                )
+                Text(
+                    Strings.get(if (checked) R.string.logs_mostrar_on else R.string.logs_mostrar_off),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = support
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            // El toque lo maneja toda la tarjeta (toggleable), no el interruptor.
+            Switch(
+                checked = checked,
+                onCheckedChange = null,
+                thumbContent = {
+                    Icon(
+                        if (checked) Icons.Default.Check else Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                    )
+                }
+            )
         }
     }
 }

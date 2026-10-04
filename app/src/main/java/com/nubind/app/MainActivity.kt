@@ -224,7 +224,8 @@ private const val FadeStrengthLandscape = 0.6f
 
 @Composable
 private fun AppScaffold(vm: BindViewModel) {
-    // Logs se puede ocultar (mantener presionado su botón 3 s); se vuelve a mostrar en Acerca de.
+    // Logs viene oculta por defecto: se activa en Acerca de (Mostrar Logs) y se oculta de nuevo
+    // ahí mismo o manteniendo presionado su botón 3 s.
     val items = remember(vm.logsHidden) {
         if (vm.logsHidden) listOf(Screen.Home, Screen.Servers, Screen.About)
         else listOf(Screen.Home, Screen.Servers, Screen.Logs, Screen.About)
@@ -256,6 +257,13 @@ private fun AppScaffold(vm: BindViewModel) {
         }
     }
     var askHideLogs by remember { mutableStateOf(false) }
+
+    // Mostrar/ocultar Logs desde Acerca de: los índices del pager se corren, así que se
+    // recuerda la pestaña actual para quedarse en ella (si no, Acerca de saltaría a Logs).
+    fun setLogsVisible(visible: Boolean) {
+        pendingScreen = items.getOrNull(pagerState.currentPage)
+        vm.updateLogsHidden(!visible)
+    }
 
     // Atrás desde otra pestaña vuelve a Inicio antes de cerrar la app.
     BackHandler(enabled = pagerState.currentPage != 0) { goTo(0) }
@@ -303,7 +311,7 @@ private fun AppScaffold(vm: BindViewModel) {
                         Screen.Home -> HomeScreen(vm, onOpenServers = { goTo(1) })
                         Screen.Servers -> ServersScreen(vm)
                         Screen.Logs -> LogsScreen(vm)
-                        Screen.About -> AboutScreen(vm)
+                        Screen.About -> AboutScreen(vm, onLogsVisibleChange = ::setLogsVisible)
                     }
                 }
             }
