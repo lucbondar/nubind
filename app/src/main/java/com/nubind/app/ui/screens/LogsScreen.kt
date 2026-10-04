@@ -50,7 +50,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.magnifier
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -72,12 +71,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.toShape
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -85,13 +81,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.DpSize
 import com.nubind.app.ui.components.CookieBadge
 import com.nubind.app.ui.theme.syncAmberPalette
 import com.nubind.app.ui.theme.updateGreenPalette
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import com.nubind.app.BindViewModel
@@ -151,35 +147,16 @@ fun LogsScreen(vm: BindViewModel) {
     // 2 cm físicos (según los dpi reales de la pantalla) entre el dedo y la lupa.
     val lensGapPx = remember { context.resources.displayMetrics.ydpi / 2.54f * 2f }
     // Modo desplazamiento rápido: se activa al sostener el dedo quieto ~0,3 s sobre el log.
-    // Mientras dura, de la mitad de la página hacia abajo baja y de la mitad hacia arriba sube,
-    // más rápido cuanto más lejos de la mitad esté el dedo.
+    // Después el log sigue el deslizamiento del dedo: arriba = sube, abajo = baja. El avance es
+    // el recorrido del dedo multiplicado por un factor que crece con la velocidad del deslizamiento.
     var fast by remember { mutableStateOf(false) }
     var finger by remember { mutableStateOf(Offset.Unspecified) }
-    var areaHeight by remember { mutableFloatStateOf(0f) }
-    val dir by remember {
-        derivedStateOf {
-            when {
-                !fast || finger == Offset.Unspecified || areaHeight <= 0f -> 0
-                finger.y >= areaHeight / 2f -> 1
-                else -> -1
-            }
-        }
-    }
-    LaunchedEffect(fast) {
-        if (!fast) return@LaunchedEffect
-        var last = withFrameNanos { it }
-        while (true) {
-            val now = withFrameNanos { it }
-            val dt = (now - last) / 1_000_000_000f
-            last = now
-            val d = dir
-            if (d != 0) {
-                val half = areaHeight / 2f
-                val t = (abs(finger.y - half) / half).coerceIn(0f, 1f)
-                val dpPerSecond = FAST_MIN_DP_S + (FAST_MAX_DP_S - FAST_MIN_DP_S) * t * t
-                listState.scrollBy(d * dpPerSecond * density * dt)
-            }
-        }
+    // Dirección del último movimiento (-1 sube, 1 baja, 0 quieto) solo para los indicadores.
+    var dir by remember { mutableStateOf(0) }
+    var moveTick by remember { mutableStateOf(0) }
+    LaunchedEffect(moveTick) {
+        delay(160)
+        dir = 0
     }
 
     ScreenContainer(
@@ -215,7 +192,6 @@ fun LogsScreen(vm: BindViewModel) {
             Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .onSizeChanged { areaHeight = it.height.toFloat() }
                 .pointerInput(Unit) {
                     // Pasada Initial. Los primeros 0,3 s solo observa (el desplazamiento normal sigue
                     // igual; si el dedo se mueve más que el umbral, se suelta). Si el dedo sigue quieto,
@@ -235,6 +211,7 @@ fun LogsScreen(vm: BindViewModel) {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         finger = down.position
                         fast = true
+                        var speed = 0f // dp/s suavizada
                         try {
                             while (true) {
                                 val ev = awaitPointerEvent(PointerEventPass.Initial)
@@ -242,10 +219,25 @@ fun LogsScreen(vm: BindViewModel) {
                                 c.consume()
                                 if (!c.pressed) break
                                 finger = c.position
+                                val dy = c.position.y - c.previousPosition.y
+                                val dt = (c.uptimeMillis - c.previousUptimeMillis).coerceAtLeast(1L) / 1000f
+                                if (dy == 0f) {
+                                    speed *= 0.6f
+                                } else {
+                                    val inst = abs(dy) / density / dt
+                                    speed = speed * 0.5f + inst * 0.5f
+                                    // Lento = casi 1:1 con el dedo; rápido = hasta FAST_MAX_GAIN veces.
+                                    val t = (speed / FAST_REF_DP_S).coerceIn(0f, 1f)
+                                    val gain = 1f + (FAST_MAX_GAIN - 1f) * t * t
+                                    listState.dispatchRawDelta(dy * gain)
+                                    dir = if (dy < 0f) -1 else 1
+                                    moveTick++
+                                }
                             }
                         } finally {
                             fast = false
                             finger = Offset.Unspecified
+                            dir = 0
                         }
                     }
                 }
@@ -327,10 +319,11 @@ fun LogsScreen(vm: BindViewModel) {
     }
 }
 
-// Modo rápido: espera para activarlo y velocidad (dp/s) cerca de la mitad y en el borde de la página.
+// Modo rápido: espera para activarlo, velocidad del dedo (dp/s) a partir de la cual el factor
+// llega al máximo, y factor máximo de avance respecto al recorrido del dedo.
 private const val FAST_HOLD_MS = 300L
-private const val FAST_MIN_DP_S = 500f
-private const val FAST_MAX_DP_S = 5000f
+private const val FAST_REF_DP_S = 1500f
+private const val FAST_MAX_GAIN = 14f
 
 // ---------------------------------------------------------------------------
 // Modelo y piezas del log
