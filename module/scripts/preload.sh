@@ -223,6 +223,19 @@ FILELIST="$MODDIR/.preload_list"
 # montaje, así que lo que entra a la caché es lo mismo. En Drive se descartan
 # los archivos de tamaño desconocido (Docs/Sheets, que lsf da como -1). Si lsf falla, se cae al
 # find de siempre.
+# Tope de archivos por corrida (config/preload_max_files; por defecto 20000).
+# Hay remotos con miles de archivos sueltos que no se acercan al presupuesto
+# en MB; sigue habiendo un tope (y no "sin límite") para no recorrer para
+# siempre un remoto enorme con contenido que nadie va a abrir.
+MAX_FILES="$(cat "$MODDIR/config/preload_max_files" 2>/dev/null)"
+case "$MAX_FILES" in ''|*[!0-9]*|0) MAX_FILES=20000 ;; esac
+[ "$MAX_FILES" -gt 200000 ] && MAX_FILES=200000
+
+# Tope del listado: no tiene sentido anotar mucho más de lo que se va a usar. Un
+# FTP con todo el almacenamiento de un teléfono puede tener cientos de miles de
+# archivos y recorrerlos todos tardaría una eternidad. Se corta al llegar a
+# 3 veces el tope de archivos (rclone termina solo al cerrarse la tubería).
+LIST_CAP=$(( MAX_FILES * 3 ))
 LIST_DONE=0
 RTYPE="$(remote_type "$ACTIVE")"
 # FTP no tiene listado recursivo en el servidor, pero rclone sí recorre las
@@ -232,23 +245,30 @@ RTYPE="$(remote_type "$ACTIVE")"
 LSF_EXTRA=""
 case "$RTYPE" in
     s3|drive) LSF_OK=1 ;;
-    ftp) LSF_OK=1; LSF_EXTRA="--checkers 4" ;;
+    # Android/data no se puede listar por FTP en Android moderno (el servidor
+    # responde 500 y la app seguía intentándolo): se omite.
+    ftp) LSF_OK=1; LSF_EXTRA="--checkers 4 --exclude /Android/data/**" ;;
     *) LSF_OK=0 ;;
 esac
 if [ "$LSF_OK" = 1 ] && [ -x "$MODDIR/bin/rclone" ]; then
     . "$MODDIR/scripts/env.sh"
     LS_T0="$(date +%s)"
+    set -f   # que el shell no expanda el "**" de --exclude
     "$MODDIR/bin/rclone" lsf "$ACTIVE:$(remote_root "$ACTIVE")" -R --files-only \
         --format sp --separator "$TAB" --fast-list \
         --exclude '.nubind-test/**' ${DRIVE_PACER_OPTS:-} $LSF_EXTRA \
         --config "$RCLONE_CONF" --cache-dir "$MODDIR/cache" \
         --log-level ERROR --log-file "$LOG_FILE" 2>/dev/null |
-        awk -F "$TAB" -v t="$T" -v OFS="$TAB" \
-            '{ i = index($0, "\t"); if (i && $1 + 0 >= 0) print $1, t "/" substr($0, i + 1) }' \
+        awk -F "$TAB" -v t="$T" -v OFS="$TAB" -v cap="$LIST_CAP" \
+            'NR > cap { exit } { i = index($0, "\t"); if (i && $1 + 0 >= 0) print $1, t "/" substr($0, i + 1) }' \
         > "$FILELIST.raw"
+    set +f
     if [ -s "$FILELIST.raw" ]; then
         LIST_DONE=1
         echo "$(date): Precarga: listado de '$ACTIVE' con rclone lsf en $(( $(date +%s) - LS_T0 ))s" >> "$LOG_FILE"
+        LIST_N="$(wc -l < "$FILELIST.raw" 2>/dev/null | tr -d ' ')"
+        [ "${LIST_N:-0}" -ge "$LIST_CAP" ] && \
+            echo "$(date): Precarga: el listado se cortó en $LIST_CAP archivos; conviene acotar la carpeta que se monta" >> "$LOG_FILE"
     else
         echo "$(date): Precarga: rclone lsf no devolvió nada en $(( $(date +%s) - LS_T0 ))s, se usa find sobre el montaje" >> "$LOG_FILE"
     fi
@@ -315,14 +335,6 @@ if [ "$MARKER_OK" = 1 ]; then
     write_status false "$TOTAL" "$DONE_MB"
     exit 0
 fi
-
-# Tope de archivos por corrida (config/preload_max_files; por defecto 20000).
-# Hay remotos con miles de archivos sueltos que no se acercan al presupuesto
-# en MB; sigue habiendo un tope (y no "sin límite") para no recorrer para
-# siempre un remoto enorme con contenido que nadie va a abrir.
-MAX_FILES="$(cat "$MODDIR/config/preload_max_files" 2>/dev/null)"
-case "$MAX_FILES" in ''|*[!0-9]*|0) MAX_FILES=20000 ;; esac
-[ "$MAX_FILES" -gt 200000 ] && MAX_FILES=200000
 
 echo "$(date): Precarga: '$ACTIVE', $TOTAL archivos, hasta ${BUDGET_MB} MB (tope $MAX_FILES archivos), $WORKERS en paralelo" >> "$LOG_FILE"
 
