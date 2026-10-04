@@ -54,11 +54,12 @@ Ya no hay `Toast` ni `Snackbar` en la app. Todo aviso de una sola vez pasa por `
 
 ## Reglas de trabajo
 - **Cada cambio sube la sub versión** (2.5.4 -> 2.5.5), sin esperar a que lo pidan. Va en tres sitios que deben coincidir: `versionName` en `app/build.gradle.kts`, y `version=v...` y `appVersion=...` en `module/module.prop`. El `versionCode` no se toca: lo fija el CI.
-- **Lo último de cada respuesta son los comandos para Termux**, y solo estos tres, apilados en un bloque, uno por línea, sin `cd` ni `unzip`:
+- **Lo último de cada respuesta son los comandos para Termux**, y solo estos cuatro, apilados en un bloque, uno por línea, sin `cd` ni `unzip`. `ciwatch` va siempre al final, después del push:
   ```bash
   git add -A
   git commit -m "<versión>: <resumen>"
   git push origin preview
+  ciwatch
   ```
   La rama de trabajo es `preview`.
 
