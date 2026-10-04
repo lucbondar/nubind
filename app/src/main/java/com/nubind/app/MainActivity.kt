@@ -20,6 +20,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
@@ -40,7 +41,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
@@ -255,30 +260,39 @@ private fun AppScaffold(vm: BindViewModel) {
             pagerState.scrollToPage(items.indexOf(s).coerceAtLeast(0))
             pendingScreen = null
         }
+        if (goToLogs) {
+            goToLogs = false
+            val logsPage = items.indexOf(Screen.Logs)
+            if (logsPage >= 0) {
+                delay(350L) // deja ver cómo entra el botón antes de viajar
+                pagerState.animateScrollToPage(logsPage)
+            }
+        }
     }
-    var askHideLogs by remember { mutableStateOf(false) }
+    // Al mostrar Logs desde Acerca de: el botón entra animado en la píldora y, tras asentarse
+    // el pager, la app viaja a esa pestaña (el indicador de la píldora se desliza hasta ella).
+    var goToLogs by remember { mutableStateOf(false) }
+    var logsEntering by remember { mutableStateOf(false) }
+    LaunchedEffect(logsEntering) {
+        if (logsEntering) {
+            delay(1500L)
+            logsEntering = false
+        }
+    }
 
-    // Mostrar/ocultar Logs desde Acerca de: los índices del pager se corren, así que se
-    // recuerda la pestaña actual para quedarse en ella (si no, Acerca de saltaría a Logs).
+    // Mostrar/ocultar Logs: los índices del pager se corren, así que se recuerda la pestaña
+    // actual para quedarse en ella (si no, Acerca de saltaría a Logs sin querer).
     fun setLogsVisible(visible: Boolean) {
         pendingScreen = items.getOrNull(pagerState.currentPage)
+        if (visible) {
+            goToLogs = true
+            logsEntering = true
+        }
         vm.updateLogsHidden(!visible)
     }
 
     // Atrás desde otra pestaña vuelve a Inicio antes de cerrar la app.
     BackHandler(enabled = pagerState.currentPage != 0) { goTo(0) }
-
-    if (askHideLogs) {
-        HideLogsDialog(
-            onConfirm = {
-                askHideLogs = false
-                pendingScreen = items.getOrNull(pagerState.currentPage)
-                vm.updateLogsHidden(true)
-                vm.showNotice(Strings.get(R.string.logs_ocultos_aviso), NoticeKind.Info)
-            },
-            onDismiss = { askHideLogs = false }
-        )
-    }
 
     Scaffold(
         // Avisos expressive (reemplazan al snackbar): el propio host se cierra solo.
@@ -364,25 +378,17 @@ private fun AppScaffold(vm: BindViewModel) {
                 hazeState = hazeState,
                 onSelect = ::goTo,
                 vertical = isLandscape,
-                onLogsLongPress = { askHideLogs = true },
+                logsEntering = logsEntering,
+                onLogsLongPress = {
+                    setLogsVisible(false)
+                    vm.showNotice(Strings.get(R.string.logs_ocultos_aviso), NoticeKind.Info)
+                },
                 modifier = Modifier
                     .align(BiasAlignment(hBias, vBias))
                     .padding(12.dp)
             )
         }
     }
-}
-
-@Composable
-private fun HideLogsDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
-        title = { Text(Strings.get(R.string.logs_ocultar_titulo)) },
-        text = { Text(Strings.get(R.string.logs_ocultar_texto)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(Strings.get(R.string.logs_ocultar)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.get(R.string.cancelar)) } }
-    )
 }
 
 /**
@@ -405,6 +411,7 @@ private fun FloatingPillNav(
     hazeState: HazeState,
     onSelect: (Int) -> Unit,
     vertical: Boolean,
+    logsEntering: Boolean,
     onLogsLongPress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -535,7 +542,7 @@ private fun FloatingPillNav(
                     val down = awaitFirstDown(requireUnconsumed = false)
                     pressed = true
                     var dragging = false
-                    // Mantener 3 s sobre el botón Logs (sin arrastrar) ofrece ocultar la pestaña.
+                    // Mantener 3 s sobre el botón Logs (sin arrastrar) oculta la pestaña.
                     val t0 = System.nanoTime()
                     var fired = false
                     val onLogsItem = currentLogsIndex >= 0 &&
@@ -595,13 +602,20 @@ private fun FloatingPillNav(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     items.forEachIndexed { index, screen ->
-                        PillItem(
-                            screen = screen,
-                            selected = selected == index,
-                            vertical = true,
-                            onClick = { onSelect(index) },
-                            modifier = itemModifier(index)
-                        )
+                        key(screen) {
+                            PillEntrance(
+                                animateIn = logsEntering && screen == Screen.Logs,
+                                vertical = true,
+                                modifier = itemModifier(index)
+                            ) {
+                                PillItem(
+                                    screen = screen,
+                                    selected = selected == index,
+                                    vertical = true,
+                                    onClick = { onSelect(index) }
+                                )
+                            }
+                        }
                     }
                 }
             } else {
@@ -611,19 +625,51 @@ private fun FloatingPillNav(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     items.forEachIndexed { index, screen ->
-                        PillItem(
-                            screen = screen,
-                            selected = selected == index,
-                            vertical = false,
-                            showLabel = labelVisible,
-                            onClick = { onSelect(index) },
-                            modifier = itemModifier(index)
-                        )
+                        key(screen) {
+                            PillEntrance(
+                                animateIn = logsEntering && screen == Screen.Logs,
+                                vertical = false,
+                                modifier = itemModifier(index)
+                            ) {
+                                PillItem(
+                                    screen = screen,
+                                    selected = selected == index,
+                                    vertical = false,
+                                    showLabel = labelVisible,
+                                    onClick = { onSelect(index) }
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * Envoltorio de cada botón de la píldora. Con [animateIn] (solo el botón Logs al activarlo)
+ * el botón entra con resorte: crece desde el centro, se ensancha y se desvanece hacia dentro.
+ * Sin [animateIn] aparece ya en su sitio. El [modifier] (medición de límites) va en el
+ * contenedor de la animación para que las coordenadas sigan siendo las de la fila/columna.
+ */
+@Composable
+private fun PillEntrance(
+    animateIn: Boolean,
+    vertical: Boolean,
+    modifier: Modifier,
+    content: @Composable () -> Unit
+) {
+    val visible = remember { MutableTransitionState(!animateIn).apply { targetState = true } }
+    AnimatedVisibility(
+        visibleState = visible,
+        modifier = modifier,
+        enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) +
+            scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow), initialScale = 0.3f) +
+            (if (vertical) expandVertically(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow))
+            else expandHorizontally(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow))),
+        exit = ExitTransition.None
+    ) { content() }
 }
 
 @Composable

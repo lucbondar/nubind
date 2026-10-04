@@ -363,9 +363,6 @@
     <string name="respaldo_elegir_archivo">Escolher arquivo de backup…</string>
     <string name="respaldo_guardar_como">Escolher local e exportar</string>
     <string name="respaldo_importar_existente">Importar um backup</string>
-    <string name="logs_ocultar_titulo">Ocultar a aba Logs?</string>
-    <string name="logs_ocultar_texto">A aba vai sumir da barra. Os logs continuam sendo gravados em segundo plano. Para mostrar de novo: Sobre › Sistema › Mostrar Logs.</string>
-    <string name="logs_ocultar">Ocultar</string>
     <string name="logs_ocultos_aviso">Aba Logs oculta. Para mostrar de novo: Sobre › Sistema › Mostrar Logs.</string>
     <string name="logs_mostrar">Mostrar Logs</string>
     <string name="logs_mostrar_on">Visível na barra inferior</string>

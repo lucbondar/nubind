@@ -364,9 +364,6 @@
     <string name="respaldo_elegir_archivo">Choose backup file…</string>
     <string name="respaldo_guardar_como">Choose location and export</string>
     <string name="respaldo_importar_existente">Import a backup</string>
-    <string name="logs_ocultar_titulo">Hide the Logs tab?</string>
-    <string name="logs_ocultar_texto">The tab will disappear from the bar. Logs keep being written in the background. To show it again: About › System › Show Logs.</string>
-    <string name="logs_ocultar">Hide</string>
     <string name="logs_ocultos_aviso">Logs tab hidden. Show it again in About › System › Show Logs.</string>
     <string name="logs_mostrar">Show Logs</string>
     <string name="logs_mostrar_on">Visible in the bottom bar</string>
