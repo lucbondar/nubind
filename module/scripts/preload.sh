@@ -109,6 +109,9 @@ cleanup() {
     [ -n "$HB_PID" ] && kill "$HB_PID" 2>/dev/null
     [ -n "$MONITOR_PID" ] && kill "$MONITOR_PID" 2>/dev/null
     [ -n "$WPIDS" ] && kill $WPIDS 2>/dev/null
+    # Listado en curso (rclone lsf): si esta corrida se corta a medio listar,
+    # no puede quedar huérfano recorriendo el remoto.
+    [ -n "$LSF_PID" ] && { pkill -f "$MODDIR/bin/rclone lsf" 2>/dev/null; kill "$LSF_PID" 2>/dev/null; }
     # Candado y temporales: solo si siguen siendo de esta corrida (una nueva
     # puede haberlos tomado ya).
     [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ] || return 0
@@ -253,17 +256,42 @@ esac
 if [ "$LSF_OK" = 1 ] && [ -x "$MODDIR/bin/rclone" ]; then
     . "$MODDIR/scripts/env.sh"
     LS_T0="$(date +%s)"
-    set -f   # que el shell no expanda el "**" de --exclude
-    "$MODDIR/bin/rclone" lsf "$ACTIVE:$(remote_root "$ACTIVE")" -R --files-only \
-        --format sp --separator "$TAB" --fast-list \
-        --exclude '.nubind-test/**' ${DRIVE_PACER_OPTS:-} $LSF_EXTRA \
-        --config "$RCLONE_CONF" --cache-dir "$MODDIR/cache" \
-        --log-level ERROR --log-file "$LOG_FILE" 2>/dev/null |
-        awk -F "$TAB" -v t="$T" -v OFS="$TAB" -v cap="$LIST_CAP" \
-            'NR > cap { exit } { i = index($0, "\t"); if (i && $1 + 0 >= 0) print $1, t "/" substr($0, i + 1) }' \
-        > "$FILELIST.raw"
-    set +f
-    if [ -s "$FILELIST.raw" ]; then
+    # Tiempo máximo de listado (config/preload_list_timeout, en segundos; por
+    # defecto 120, entre 10 y 3600). Un FTP con todo el almacenamiento de un
+    # teléfono puede no terminar nunca de listarse; pasado el límite se corta
+    # y se precarga lo ya listado (se avisa en el log).
+    LIST_TIMEOUT="$(cat "$MODDIR/config/preload_list_timeout" 2>/dev/null)"
+    case "$LIST_TIMEOUT" in ''|*[!0-9]*) LIST_TIMEOUT=120 ;; esac
+    [ "$LIST_TIMEOUT" -lt 10 ] && LIST_TIMEOUT=10
+    [ "$LIST_TIMEOUT" -gt 3600 ] && LIST_TIMEOUT=3600
+    LIST_TIMED_OUT=0
+    : > "$FILELIST.raw"
+    (
+        set -f   # que el shell no expanda el "**" de --exclude
+        "$MODDIR/bin/rclone" lsf "$ACTIVE:$(remote_root "$ACTIVE")" -R --files-only \
+            --format sp --separator "$TAB" --fast-list \
+            --exclude '.nubind-test/**' ${DRIVE_PACER_OPTS:-} $LSF_EXTRA \
+            --config "$RCLONE_CONF" --cache-dir "$MODDIR/cache" \
+            --log-level ERROR --log-file "$LOG_FILE" 2>/dev/null |
+            awk -F "$TAB" -v t="$T" -v OFS="$TAB" -v cap="$LIST_CAP" \
+                'NR > cap { exit } { i = index($0, "\t"); if (i && $1 + 0 >= 0) print $1, t "/" substr($0, i + 1) }' \
+            > "$FILELIST.raw"
+    ) &
+    LSF_PID=$!
+    while kill -0 "$LSF_PID" 2>/dev/null; do
+        if [ $(( $(date +%s) - LS_T0 )) -ge "$LIST_TIMEOUT" ]; then
+            LIST_TIMED_OUT=1
+            pkill -f "$MODDIR/bin/rclone lsf" 2>/dev/null
+            break
+        fi
+        sleep 1
+    done
+    wait "$LSF_PID" 2>/dev/null
+    LSF_PID=""
+    if [ "$LIST_TIMED_OUT" = 1 ]; then
+        LIST_DONE=1
+        echo "$(date): Precarga: el listado de '$ACTIVE' pasó de ${LIST_TIMEOUT}s y se cortó; se usa lo listado hasta ahora ($(wc -l < "$FILELIST.raw" 2>/dev/null | tr -d ' ') archivos). Conviene acotar la carpeta que se monta" >> "$LOG_FILE"
+    elif [ -s "$FILELIST.raw" ]; then
         LIST_DONE=1
         echo "$(date): Precarga: listado de '$ACTIVE' con rclone lsf en $(( $(date +%s) - LS_T0 ))s" >> "$LOG_FILE"
         LIST_N="$(wc -l < "$FILELIST.raw" 2>/dev/null | tr -d ' ')"
