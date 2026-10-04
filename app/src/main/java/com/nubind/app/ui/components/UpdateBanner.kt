@@ -99,23 +99,35 @@ class HeaderColors(val start: Color, val end: Color, val content: Color)
  * oscuro). Cuando se encuentra una actualización o el módulo quedó flasheado a la
  * espera de reiniciar ([rebootPending]), pasa a un degradado verde de estado (paleta
  * fija, para que el verde siga siendo verde con cualquier fondo de pantalla), con
- * transición animada. Solo cambia el aspecto: no toca el flujo del actualizador.
+ * transición animada. Si el aviso de desfase del módulo está a la vista ([moduleBehind]),
+ * pasa igual a un degradado ámbar; el verde manda si coinciden. Solo cambia el aspecto:
+ * no toca el flujo del actualizador.
  */
 @Composable
-fun updateHeaderColors(state: AppUpdateState, rebootPending: Boolean = false): HeaderColors {
+fun updateHeaderColors(
+    state: AppUpdateState,
+    rebootPending: Boolean = false,
+    moduleBehind: Boolean = false
+): HeaderColors {
     val scheme = MaterialTheme.colorScheme
     val g = updateGreenPalette()
+    val a = syncAmberPalette()
     val green = state.isGreen() || rebootPending
+    val status = when {
+        green -> g
+        moduleBehind -> a
+        else -> null
+    }
     val start by animateColorAsState(
-        if (green) g.container else scheme.primaryContainer,
+        status?.container ?: scheme.primaryContainer,
         animationSpec = tween(500), label = "headerStart"
     )
     val end by animateColorAsState(
-        if (green) lerp(g.container, g.accent, 0.25f) else scheme.tertiaryContainer,
+        status?.let { lerp(it.container, it.accent, 0.25f) } ?: scheme.tertiaryContainer,
         animationSpec = tween(500), label = "headerEnd"
     )
     val content by animateColorAsState(
-        if (green) g.onContainer else scheme.onPrimaryContainer,
+        status?.onContainer ?: scheme.onPrimaryContainer,
         animationSpec = tween(500), label = "headerContent"
     )
     return HeaderColors(start, end, content)
@@ -380,8 +392,10 @@ private fun ModuleNoticeCard(
     val p = syncAmberPalette()
     val working = flash is ModuleFlashState.Downloading || flash is ModuleFlashState.Flashing
 
+    // Va sobre la cabecera, que con el aviso a la vista se pone ámbar (ver updateHeaderColors):
+    // velo translúcido del mismo ámbar, como la tarjeta de reinicio sobre el verde.
     Surface(
-        color = p.container,
+        color = p.onContainer.copy(alpha = 0.10f),
         contentColor = p.onContainer,
         shape = RoundedCornerShape(28.dp),
         modifier = Modifier.fillMaxWidth()

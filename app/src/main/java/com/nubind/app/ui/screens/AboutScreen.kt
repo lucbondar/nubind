@@ -158,8 +158,8 @@ private fun Entrance(index: Int, content: @Composable () -> Unit) {
 
 @Composable
 private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
-    // Degradado Monet; se vuelve verde al encontrar una actualización (ver updateHeaderColors).
-    val colors = updateHeaderColors(vm.appUpdate, vm.showRebootCard)
+    // Degradado Monet; verde con actualización/reinicio pendiente, ámbar con el aviso de desfase (ver updateHeaderColors).
+    val colors = updateHeaderColors(vm.appUpdate, vm.showRebootCard, vm.moduleNotice != null)
     Surface(
         color = Color.Transparent,
         contentColor = colors.content,
