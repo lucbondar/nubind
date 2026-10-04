@@ -1,6 +1,7 @@
 package com.nubind.app.ui.screens
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -46,7 +47,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.magnifier
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -66,29 +71,36 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.toShape
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.DpSize
 import com.nubind.app.ui.components.CookieBadge
 import com.nubind.app.ui.theme.syncAmberPalette
 import com.nubind.app.ui.theme.updateGreenPalette
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.abs
 import com.nubind.app.BindViewModel
 import com.nubind.app.ui.components.ScreenContainer
 import kotlinx.coroutines.launch
 import com.nubind.app.R
 import com.nubind.app.Strings
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun LogsScreen(vm: BindViewModel) {
     LaunchedEffect(Unit) { vm.refreshLogs() }
@@ -135,26 +147,38 @@ fun LogsScreen(vm: BindViewModel) {
     val entries = remember(vm.logs) { parseLogEntries(vm.logs) }
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
-    var pressing by remember { mutableStateOf(false) }
-    var showJump by remember { mutableStateOf(false) }
-    var bump by remember { mutableStateOf(0) }
-    // Sostener el toque ~0,3 s sobre el log muestra los botones; al soltar se quedan un
-    // momento para poder tocarlos y se esconden solos (tocar uno reinicia la cuenta).
-    LaunchedEffect(pressing, bump) {
-        if (pressing) {
-            delay(300)
-            if (!showJump) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            showJump = true
-        } else if (showJump) {
-            delay(2500)
-            showJump = false
+    val density = LocalDensity.current.density
+    // 2 cm físicos (según los dpi reales de la pantalla) entre el dedo y la lupa.
+    val lensGapPx = remember { context.resources.displayMetrics.ydpi / 2.54f * 2f }
+    // Modo desplazamiento rápido: se activa al sostener el dedo quieto ~0,3 s sobre el log.
+    // Mientras dura, de la mitad de la página hacia abajo baja y de la mitad hacia arriba sube,
+    // más rápido cuanto más lejos de la mitad esté el dedo.
+    var fast by remember { mutableStateOf(false) }
+    var finger by remember { mutableStateOf(Offset.Unspecified) }
+    var areaHeight by remember { mutableFloatStateOf(0f) }
+    val dir by remember {
+        derivedStateOf {
+            when {
+                !fast || finger == Offset.Unspecified || areaHeight <= 0f -> 0
+                finger.y >= areaHeight / 2f -> 1
+                else -> -1
+            }
         }
     }
-    fun jump(toEnd: Boolean) {
-        bump++
-        scope.launch {
-            if (entries.isEmpty()) return@launch
-            if (toEnd) listState.animateScrollToItem(entries.lastIndex) else listState.animateScrollToItem(0)
+    LaunchedEffect(fast) {
+        if (!fast) return@LaunchedEffect
+        var last = withFrameNanos { it }
+        while (true) {
+            val now = withFrameNanos { it }
+            val dt = (now - last) / 1_000_000_000f
+            last = now
+            val d = dir
+            if (d != 0) {
+                val half = areaHeight / 2f
+                val t = (abs(finger.y - half) / half).coerceIn(0f, 1f)
+                val dpPerSecond = FAST_MIN_DP_S + (FAST_MAX_DP_S - FAST_MIN_DP_S) * t * t
+                listState.scrollBy(d * dpPerSecond * density * dt)
+            }
         }
     }
 
@@ -191,17 +215,53 @@ fun LogsScreen(vm: BindViewModel) {
             Modifier
                 .fillMaxWidth()
                 .weight(1f)
+                .onSizeChanged { areaHeight = it.height.toFloat() }
                 .pointerInput(Unit) {
-                    // Solo observa (pasada Initial, sin consumir): el desplazamiento sigue igual.
+                    // Pasada Initial. Los primeros 0,3 s solo observa (el desplazamiento normal sigue
+                    // igual; si el dedo se mueve más que el umbral, se suelta). Si el dedo sigue quieto,
+                    // entra el modo rápido y consume el gesto para que la lista no se mueva con el dedo.
                     awaitEachGesture {
-                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                        pressing = true
-                        do {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
-                        } while (event.changes.any { it.pressed })
-                        pressing = false
+                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        val held = withTimeoutOrNull(FAST_HOLD_MS) {
+                            while (true) {
+                                val ev = awaitPointerEvent(PointerEventPass.Initial)
+                                val c = ev.changes.firstOrNull { it.id == down.id }
+                                if (c == null || !c.pressed ||
+                                    (c.position - down.position).getDistance() > viewConfiguration.touchSlop
+                                ) break
+                            }
+                        } == null
+                        if (!held) return@awaitEachGesture
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        finger = down.position
+                        fast = true
+                        try {
+                            while (true) {
+                                val ev = awaitPointerEvent(PointerEventPass.Initial)
+                                val c = ev.changes.firstOrNull { it.id == down.id } ?: break
+                                c.consume()
+                                if (!c.pressed) break
+                                finger = c.position
+                            }
+                        } finally {
+                            fast = false
+                            finger = Offset.Unspecified
+                        }
                     }
                 }
+                // Lupa real del sistema: amplía lo que hay bajo el dedo y se dibuja 2 cm por encima
+                // para que el dedo no tape. Sin dedo en modo rápido (Unspecified) no se muestra.
+                .magnifier(
+                    sourceCenter = { finger },
+                    magnifierCenter = {
+                        if (finger == Offset.Unspecified) Offset.Unspecified
+                        else Offset(finger.x, finger.y - lensGapPx)
+                    },
+                    zoom = 1.8f,
+                    size = DpSize(96.dp, 96.dp),
+                    cornerRadius = 48.dp,
+                    elevation = 8.dp
+                )
         ) {
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -243,30 +303,34 @@ fun LogsScreen(vm: BindViewModel) {
                 }
             }
 
-            // Botones de desplazamiento rápido: aparecen con resorte al sostener el toque.
+            // Indicadores (no se tocan): aparecen con resorte en modo rápido. El de la dirección
+            // activa deja su hueco (aro) porque es la lupa la que sigue al dedo.
             Column(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                JumpButton(
-                    visible = showJump && entries.isNotEmpty(),
-                    enabled = listState.canScrollBackward,
+                JumpIndicator(
+                    visible = fast && entries.isNotEmpty(),
+                    active = dir == -1,
                     icon = Icons.Default.KeyboardArrowUp,
-                    description = Strings.get(R.string.log_ir_al_inicio),
-                    onClick = { jump(false) }
+                    description = Strings.get(R.string.log_ir_al_inicio)
                 )
-                JumpButton(
-                    visible = showJump && entries.isNotEmpty(),
-                    enabled = listState.canScrollForward,
+                JumpIndicator(
+                    visible = fast && entries.isNotEmpty(),
+                    active = dir == 1,
                     icon = Icons.Default.KeyboardArrowDown,
-                    description = Strings.get(R.string.log_ir_al_final),
-                    onClick = { jump(true) }
+                    description = Strings.get(R.string.log_ir_al_final)
                 )
             }
         }
     }
 }
+
+// Modo rápido: espera para activarlo y velocidad (dp/s) cerca de la mitad y en el borde de la página.
+private const val FAST_HOLD_MS = 300L
+private const val FAST_MIN_DP_S = 500f
+private const val FAST_MAX_DP_S = 5000f
 
 // ---------------------------------------------------------------------------
 // Modelo y piezas del log
@@ -402,26 +466,44 @@ private fun LogEmptyState(modifier: Modifier = Modifier) {
     }
 }
 
-/** Botón flotante pequeño que entra y sale con resorte; atenuado si ya no hay hacia dónde ir. */
+/** Indicador flotante (no tocable) que entra y sale con resorte; activo = aro vacío, la lupa lo reemplaza. */
 @Composable
-private fun JumpButton(
+private fun JumpIndicator(
     visible: Boolean,
-    enabled: Boolean,
+    active: Boolean,
     icon: ImageVector,
-    description: String,
-    onClick: () -> Unit
+    description: String
 ) {
+    val scheme = MaterialTheme.colorScheme
+    val fill by animateFloatAsState(
+        targetValue = if (active) 0f else 0.6f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "jumpFill"
+    )
+    val ring by animateFloatAsState(
+        targetValue = if (active) 1f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "jumpRing"
+    )
     AnimatedVisibility(
         visible = visible,
         enter = scaleIn(spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium)) + fadeIn(),
         exit = scaleOut(spring(stiffness = Spring.StiffnessMedium)) + fadeOut()
     ) {
-        SmallFloatingActionButton(
-            onClick = { if (enabled) onClick() },
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (enabled) 1f else 0.5f),
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = if (enabled) 1f else 0.5f)
+        Surface(
+            modifier = Modifier.size(44.dp),
+            shape = CircleShape,
+            color = scheme.primaryContainer.copy(alpha = fill),
+            border = BorderStroke(2.dp, scheme.primary.copy(alpha = ring))
         ) {
-            Icon(icon, contentDescription = description)
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    icon,
+                    contentDescription = description,
+                    tint = if (active) scheme.primary else scheme.onPrimaryContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }
