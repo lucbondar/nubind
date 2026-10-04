@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.os.SystemClock
 import androidx.annotation.RequiresApi
@@ -211,7 +212,9 @@ class PreloadService : Service() {
                 .setShowWhen(false)
                 .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
                 .setContentIntent(openAppIntent(ctx))
-                .setRequestPromotedOngoing(true)
+                // setRequestPromotedOngoing no existe en el SDK 36 público: se pide con el extra
+                // que lee el sistema (Notification.EXTRA_REQUEST_PROMOTED_ONGOING).
+                .addExtras(Bundle().apply { putBoolean("android.requestPromotedOngoing", true) })
             if (pct != null) b.setShortCriticalText("$pct%")
             if (s != null && s.remote.isNotBlank()) b.setSubText(s.remote)
             val (icon, label, action) =
