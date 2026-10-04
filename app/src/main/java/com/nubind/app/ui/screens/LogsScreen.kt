@@ -84,6 +84,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import kotlin.math.roundToInt
 import com.nubind.app.ui.components.CookieBadge
 import com.nubind.app.ui.theme.syncAmberPalette
 import com.nubind.app.ui.theme.updateGreenPalette
@@ -160,6 +169,19 @@ fun LogsScreen(vm: BindViewModel) {
         delay(160)
         dir = 0
     }
+    // Barra de desplazamiento: aparece al desplazar (o al entrar a la pantalla) y se va 1,3 s después
+    // de parar; se puede arrastrar. `barDragging` = el dedo está sobre ella.
+    var barDragging by remember { mutableStateOf(false) }
+    var barShown by remember { mutableStateOf(true) }
+    val scrolling = listState.isScrollInProgress
+    LaunchedEffect(scrolling, fast, barDragging) {
+        if (scrolling || fast || barDragging) {
+            barShown = true
+        } else {
+            delay(1300)
+            barShown = false
+        }
+    }
 
     ScreenContainer(
         title = "Logs",
@@ -201,6 +223,8 @@ fun LogsScreen(vm: BindViewModel) {
                     // entra el modo rápido y consume el gesto para que la lista no se mueva con el dedo.
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        // Sobre la barra de desplazamiento visible manda ella (arrastre propio).
+                        if (barShown && down.position.x >= size.width - ScrollbarTouchWidth.toPx()) return@awaitEachGesture
                         // Sin logs no hay nada que recorrer: no se consume nada y el deslizar-para-actualizar sigue igual.
                         if (!hasEntries) return@awaitEachGesture
                         val held = withTimeoutOrNull(FAST_HOLD_MS) {
@@ -301,11 +325,17 @@ fun LogsScreen(vm: BindViewModel) {
                             LazyColumn(
                                 state = listState,
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 16.dp),
+                                contentPadding = PaddingValues(start = 12.dp, end = 20.dp, top = 6.dp, bottom = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 itemsIndexed(entries) { _, e -> LogRow(e) }
                             }
+                            LogScrollbar(
+                                state = listState,
+                                shown = barShown,
+                                emphasized = barDragging || fast,
+                                onDragging = { barDragging = it }
+                            )
                         }
                     }
                 }
@@ -332,6 +362,176 @@ fun LogsScreen(vm: BindViewModel) {
                 )
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Barra de desplazamiento expressive
+// ---------------------------------------------------------------------------
+
+private val ScrollbarTouchWidth = 28.dp
+private val ScrollbarMinThumb = 48.dp
+private val ScrollbarGap = 4.dp // separación entre líneas (la misma de LazyColumn)
+
+/** Pulgar: posición y alto en px dentro de la pista, y los datos para convertir arrastre en desplazamiento. */
+private class ThumbGeom(val top: Float, val height: Float, val travel: Float, val maxScroll: Float)
+
+/**
+ * Estima el pulgar a partir de lo visible: el largo total es el tamaño medio de las líneas visibles por el
+ * número de líneas (como el modo rápido). Devuelve null si todo cabe en pantalla.
+ */
+private fun LazyListState.thumbGeom(trackH: Float, minThumbPx: Float, gapPx: Float): ThumbGeom? {
+    val info = layoutInfo
+    val vis = info.visibleItemsInfo
+    val total = info.totalItemsCount
+    if (vis.isEmpty() || total == 0 || trackH <= 0f) return null
+    val avg = vis.sumOf { it.size }.toFloat() / vis.size + gapPx
+    val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+    val content = avg * total
+    if (viewport <= 0f || content <= viewport) return null
+    val h = (viewport / content * trackH).coerceIn(minThumbPx.coerceAtMost(trackH), trackH)
+    val travel = trackH - h
+    val maxScroll = content - viewport
+    val firstSize = vis.first().size + gapPx
+    val pos = (firstVisibleItemIndex + firstVisibleItemScrollOffset / firstSize) * avg
+    var progress = (pos / maxScroll).coerceIn(0f, 1f)
+    // En los extremos el pulgar llega siempre al borde, aunque la estimación se quede corta.
+    if (!canScrollForward) progress = 1f else if (!canScrollBackward) progress = 0f
+    return ThumbGeom(progress * travel, h, travel, maxScroll)
+}
+
+/**
+ * Barra de desplazamiento del log: pulgar en píldora que aparece con resorte al desplazar, se ensancha
+ * (con rebote) y se tiñe de color primario al sujetarlo, y muestra una burbuja "línea / total" a su lado.
+ * Arrastrar el pulgar recorre el log entero. Solo recibe toques mientras está visible.
+ */
+@Composable
+private fun LogScrollbar(
+    state: LazyListState,
+    shown: Boolean,
+    emphasized: Boolean,
+    onDragging: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scheme = MaterialTheme.colorScheme
+    val haptics = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val minThumbPx = with(density) { ScrollbarMinThumb.toPx() }
+    val gapPx = with(density) { ScrollbarGap.toPx() }
+
+    val appear by animateFloatAsState(
+        targetValue = if (shown) 1f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "sbAppear"
+    )
+    val emph by animateFloatAsState(
+        targetValue = if (emphasized) 1f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "sbEmph"
+    )
+    val thumbWidth by animateDpAsState(
+        targetValue = if (emphasized) 14.dp else if (shown) 6.dp else 3.dp,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium),
+        label = "sbWidth"
+    )
+    val thumbColor = scheme.primary
+    val trackColor = scheme.onSurface
+
+    Box(modifier.fillMaxSize()) {
+        // Burbuja con la posición, a la altura del pulgar y a su izquierda.
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 34.dp)
+                .fillMaxHeight()
+                .layout { measurable, constraints ->
+                    val p = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+                    val maxH = constraints.maxHeight
+                    layout(p.width, maxH) {
+                        val g = state.thumbGeom(maxH.toFloat(), minThumbPx, gapPx)
+                        val cy = if (g == null) 0f else g.top + g.height / 2f
+                        val y = (cy - p.height / 2f).roundToInt().coerceIn(0, (maxH - p.height).coerceAtLeast(0))
+                        p.place(0, y)
+                    }
+                }
+        ) {
+            AnimatedVisibility(
+                visible = emphasized,
+                enter = scaleIn(
+                    animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium),
+                    transformOrigin = TransformOrigin(1f, 0.5f)
+                ) + fadeIn(),
+                exit = scaleOut(
+                    animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                    transformOrigin = TransformOrigin(1f, 0.5f)
+                ) + fadeOut()
+            ) {
+                Surface(
+                    color = scheme.primaryContainer,
+                    shape = RoundedCornerShape(50),
+                    shadowElevation = 4.dp
+                ) {
+                    Text(
+                        text = "${state.firstVisibleItemIndex + 1} / ${state.layoutInfo.totalItemsCount}",
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = scheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                    )
+                }
+            }
+        }
+
+        // Franja táctil + dibujo de pista y pulgar (se leen en la fase de dibujo: sin recomponer).
+        Box(
+            Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(ScrollbarTouchWidth)
+                .drawBehind {
+                    if (appear <= 0.01f) return@drawBehind
+                    val g = state.thumbGeom(size.height, minThumbPx, gapPx) ?: return@drawBehind
+                    val cx = size.width - 10.dp.toPx()
+                    val w = thumbWidth.toPx().coerceAtLeast(1f)
+                    if (emph > 0.01f) {
+                        val tw = w + 6.dp.toPx()
+                        drawRoundRect(
+                            color = trackColor.copy(alpha = (0.10f * emph * appear).coerceIn(0f, 1f)),
+                            topLeft = Offset(cx - tw / 2f, 0f),
+                            size = Size(tw, size.height),
+                            cornerRadius = CornerRadius(tw / 2f)
+                        )
+                    }
+                    drawRoundRect(
+                        color = thumbColor.copy(alpha = (appear * (0.55f + 0.45f * emph)).coerceIn(0f, 1f)),
+                        topLeft = Offset(cx - w / 2f, g.top),
+                        size = Size(w, g.height),
+                        cornerRadius = CornerRadius(w / 2f)
+                    )
+                }
+                .then(
+                    if (shown) {
+                        Modifier.pointerInput(Unit) {
+                            detectVerticalDragGestures(
+                                onDragStart = {
+                                    onDragging(true)
+                                    haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                },
+                                onDragEnd = { onDragging(false) },
+                                onDragCancel = { onDragging(false) },
+                                onVerticalDrag = { change, dy ->
+                                    change.consume()
+                                    val g = state.thumbGeom(size.height.toFloat(), minThumbPx, gapPx)
+                                    if (g != null && g.travel > 0f) {
+                                        // Dedo hacia abajo = hacia el final, como en el modo rápido.
+                                        state.dispatchRawDelta(dy * g.maxScroll / g.travel)
+                                    }
+                                }
+                            )
+                        }
+                    } else Modifier
+                )
+        )
     }
 }
 

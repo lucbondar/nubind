@@ -177,6 +177,7 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 
 - Cada línea se interpreta (formato del módulo y de rclone) y se dibuja con una **barra de color por severidad**: error rojo, aviso ámbar, listo verde, info neutra. Arriba, píldoras con el total de líneas, errores y avisos. Compartir envía el log completo.
 - **Desplazamiento rápido:** mantén el dedo quieto ~0,3 s sobre el log y vibra; después el log sigue tu deslizamiento, y deslizar por el alto del área táctil recorre el log entero. Una **lupa** del sistema (Android 9 o superior) se coloca 2 cm sobre el dedo y amplía lo que hay allí; flechas arriba/abajo indican la dirección.
+- **Barra de desplazamiento expressive:** un pulgar en píldora aparece con resorte al desplazar el log y se va solo al parar. Se puede **arrastrar** para recorrer el log entero: al sujetarlo se ensancha con rebote, se tiñe del color primario, vibra y muestra una burbuja con la posición («línea / total»).
 - **Oculta por defecto:** la pestaña Logs se activa en **Acerca de > Sistema > Mostrar Logs** (la primera vez se explica cómo volver a ocultarla). Se oculta con el mismo interruptor o **manteniendo 3 s** el botón Logs de la barra, sin confirmación y con animación. Ocultarla no detiene el registro.
 
 ### Avisos expressive
