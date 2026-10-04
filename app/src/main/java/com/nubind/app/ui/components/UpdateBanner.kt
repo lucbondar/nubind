@@ -207,9 +207,16 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
  */
 @Composable
 fun UpdateReminderChip(vm: BindViewModel, modifier: Modifier = Modifier) {
-    val reboot = vm.rebootReminder
+    val rebootNow = vm.rebootReminder
+    val show = rebootNow || vm.moduleReminder
+    // Al tocar la píldora el estado cambia antes de que acabe su salida (fade): sin esto, durante
+    // ese instante se redibujaba con el texto y el color ámbar de "Módulo desfasado". Se conserva
+    // el último tipo que estuvo visible.
+    val lastKind = remember { booleanArrayOf(false) }
+    if (show) lastKind[0] = rebootNow
+    val reboot = lastKind[0]
     AnimatedVisibility(
-        visible = reboot || vm.moduleReminder,
+        visible = show,
         modifier = modifier,
         enter = fadeIn(animationSpec = AppMotion.effects()) + scaleIn(animationSpec = AppMotion.spatial(), initialScale = 0.8f),
         exit = fadeOut(animationSpec = AppMotion.effects())
