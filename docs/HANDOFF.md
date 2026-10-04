@@ -96,16 +96,62 @@ Ya no hay `Toast` ni `Snackbar` en la app. Todo aviso de una sola vez pasa por `
 
 ## Reglas de trabajo
 - **Cada cambio sube la sub versión** (2.5.4 -> 2.5.5), sin esperar a que lo pidan. Va en tres sitios que deben coincidir: `versionName` en `app/build.gradle.kts`, y `version=v...` y `appVersion=...` en `module/module.prop`. El `versionCode` no se toca: lo fija el CI.
-- **Lo último de cada respuesta son los comandos para Termux**, apilados en un bloque, uno por línea, sin `cd`. Siempre estos cinco y en este orden: primero el `unzip` del zip entregado (se descarga del chat a `/storage/emulated/0/Download/`) hacia `/storage/emulated/0/Download/nubind/`, luego git, y `ciwatch` al final:
+- **Lo último de cada respuesta son los comandos para Termux**, apilados en un bloque, uno por línea, sin `cd`. Siempre estos cinco y en este orden: primero el `unzip` del zip entregado (se descarga del chat a `/storage/emulated/0/Download/`) hacia `/storage/emulated/0/Download/nubind/`, luego git, y `cinotif` al final:
   ```bash
   unzip -o /storage/emulated/0/Download/<zip entregado>.zip -d /storage/emulated/0/Download/nubind/
   git add -A
   git commit -m "<versión>: <resumen>"
   git push origin preview
-  ciwatch
+  cinotif
   ```
   La rama de trabajo es `preview`.
   Excepción: `unzip -o` solo añade y sobrescribe, nunca borra. Si un cambio elimina o renombra archivos, se añade una línea `rm -f <ruta>` (sin `cd`, ruta desde la raíz del repo) justo después del `unzip` por cada archivo eliminado; si no, el repo conserva el archivo viejo y el CI lo compila (pasó con `BackupCard.kt` en 2.5.35: borrado en el zip, pero seguía en el repo y rompió la compilación).
+
+## Termux: `cinotif` y `ciwatch`
+Ambas son funciones del `~/.zshrc` del usuario (no están en el repo). `ciwatch` espera el run del commit con `gh run watch` y, si falla, guarda los logs en `~/storage/downloads/logs_<id>.zip`. **No se puede enviar su salida a `termux-notification` con una tubería**: `gh run watch` redibuja la pantalla en vez de imprimir líneas y el `while read` no recibe nada. Por eso existe `cinotif` (necesita el paquete `termux-api` y la app Termux:API con permiso de notificaciones): busca el run igual, pero consulta el estado cada 5 s con `gh run view --json status,conclusion,jobs` y actualiza una notificación fija (`--id ci`, `--ongoing`) con \"Paso N/M · <paso en curso>\". Al terminar bien muestra \"✅ Compilación exitosa\" con vibración; si falla, \"❌ Falló (<conclusión>)\", vibra y guarda los mismos logs en Descargas; con Ctrl+C quita la notificación fija (`always`). Se escribió sin poder ejecutarla: si algo falla, `ciwatch` sigue sirviendo. Para reinstalarla, pegar esto en Termux y `source ~/.zshrc`:
+  ```zsh
+  cinotif() {
+    local br sha id i out st co done_n total cur t
+    br=$(git branch --show-current)
+    sha=$(git rev-parse HEAD)
+    t="CI ${sha[1,7]}"
+    echo "Esperando el run de ${sha[1,7]}..."
+    termux-notification --id ci --title "$t" --content "Esperando el run..." --ongoing --alert-once
+    {
+      for i in {1..30}; do
+        id=$(gh run list --branch "$br" --commit "$sha" --limit 1 --json databaseId -q '.[0].databaseId')
+        [ -n "$id" ] && break
+        sleep 2
+      done
+      [ -z "$id" ] && {
+        echo "No apareció ningún run para este commit"
+        termux-notification --id ci --title "$t" --content "No apareció ningún run"
+        return 1
+      }
+      while true; do
+        out=$(gh run view "$id" --json status,conclusion,jobs -q '[.status, (.conclusion // "-"), ([.jobs[].steps[]? | select(.status=="completed")] | length), ([.jobs[].steps[]?] | length), (first(.jobs[].steps[]? | select(.status=="in_progress") | .name) // "-")] | @tsv')
+        if [ -z "$out" ]; then sleep 5; continue; fi
+        IFS=$'\t' read -r st co done_n total cur <<< "$out"
+        [ "$st" = "completed" ] && break
+        echo "paso $done_n/$total · $cur"
+        termux-notification --id ci --title "$t" --content "Paso $done_n/$total · $cur" --ongoing --alert-once
+        sleep 5
+      done
+      if [ "$co" = "success" ]; then
+        echo "Compilación exitosa"
+        termux-notification --id ci --title "$t" --content "✅ Compilación exitosa" --priority high --vibrate 300,150,300
+        return 0
+      fi
+      echo "Terminó con: $co"
+      gh api "repos/{owner}/{repo}/actions/runs/$id/logs" > ~/storage/downloads/logs_$id.zip && echo "Logs guardados en ~/storage/downloads/logs_$id.zip"
+      termux-notification --id ci --title "$t" --content "❌ Falló ($co). Logs en Descargas: logs_$id.zip" --priority high --vibrate 300,150,300
+      return 1
+    } always {
+      [ "$st" = "completed" ] || [ -z "$id" ] || termux-notification-remove ci
+    }
+  }
+  ```
+  Con la pantalla apagada Android puede pausar Termux: usar `termux-wake-lock` o quitarle la restricción de batería.
 
 ## Estado
 El código del actualizador se escribió sin poder compilarlo localmente. Si el CI da errores de compilación en estos archivos, corrígelos primero.
