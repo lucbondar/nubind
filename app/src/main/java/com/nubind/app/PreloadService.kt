@@ -8,8 +8,11 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.drawable.Icon
+import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -168,7 +171,60 @@ class PreloadService : Service() {
         private fun detail(ctx: Context, s: PreloadStatus) =
             ctx.getString(R.string.mb_archivos, s.doneMb, s.selectedMb, s.doneFiles, s.selectedFiles)
 
+        // Colores del progreso expressive: azul de la nube mientras baja, ámbar en pausa
+        // (el mismo ámbar del aviso de desfase de la app).
+        private const val PROGRESS_BLUE = 0xFF4A90D9.toInt()
+        private const val PROGRESS_AMBER = 0xFFF5BE48.toInt()
+
+        /**
+         * Android 16+: notificación Material 3 Expressive con [Notification.ProgressStyle]
+         * (barra segmentada con esquinas redondeadas y la nube viajando por la barra) y
+         * pedida como "actualización en vivo": la barra de estado muestra una píldora con
+         * el porcentaje. En versiones anteriores se usa la notificación de siempre.
+         */
+        @RequiresApi(36)
+        private fun expressiveNotification(ctx: Context, s: PreloadStatus?): Notification {
+            val known = s != null && s.selectedMb > 0
+            val pct = if (known) (s!!.fraction * 100).toInt() else null
+            val paused = s?.paused == true
+            val titleBase = ctx.getString(if (paused) R.string.preload_pausada else R.string.precargando)
+            val color = if (paused) PROGRESS_AMBER else PROGRESS_BLUE
+
+            // 4 tramos con separación: se rellenan según el avance (el resto queda atenuado).
+            val segments = List(4) { Notification.ProgressStyle.Segment(25).setColor(color) }
+            val style = Notification.ProgressStyle()
+                .setProgressSegments(segments)
+                .setStyledByProgress(true)
+                .setProgressTrackerIcon(Icon.createWithResource(ctx, R.drawable.ic_notif_preload))
+            // Pausada: la barra se queda quieta (no indeterminada) aunque aún no haya total.
+            if (pct != null) style.setProgress(pct) else style.setProgressIndeterminate(!paused)
+
+            val b = Notification.Builder(ctx, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notif_preload)
+                .setContentTitle(if (pct != null) "$titleBase $pct%" else titleBase)
+                .setContentText(if (known) detail(ctx, s!!) else ctx.getString(R.string.preload_scanning))
+                .setStyle(style)
+                .setColor(color)
+                .setCategory(Notification.CATEGORY_PROGRESS)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(false)
+                .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+                .setContentIntent(openAppIntent(ctx))
+                .setRequestPromotedOngoing(true)
+            if (pct != null) b.setShortCriticalText("$pct%")
+            if (s != null && s.remote.isNotBlank()) b.setSubText(s.remote)
+            val (icon, label, action) =
+                if (paused) Triple(android.R.drawable.ic_media_play, R.string.preload_reanudar, ACTION_RESUME)
+                else Triple(android.R.drawable.ic_media_pause, R.string.preload_pausar, ACTION_PAUSE)
+            b.addAction(
+                Notification.Action.Builder(Icon.createWithResource(ctx, icon), ctx.getString(label), actionIntent(ctx, action)).build()
+            )
+            return b.build()
+        }
+
         private fun progressNotification(ctx: Context, s: PreloadStatus?): Notification {
+            if (Build.VERSION.SDK_INT >= 36) return expressiveNotification(ctx, s)
             // preload.sh publica "running" desde que recorre el remoto, antes de saber qué
             // va a descargar (selected_mb = 0). PreloadStatus.fraction da 1f en ese caso,
             // así que sin esta guarda se mostraba "100% · 0 / 0 MB". Mientras no haya un

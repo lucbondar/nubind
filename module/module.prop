@@ -1,9 +1,9 @@
 id=nubind
 name=Nubind
-version=v2.5.17
+version=v2.5.18
 versionCode=51
 author=you
 description=Monta un remoto (FTP, Google Drive o S3) via rclone y lo expone como bind en el almacenamiento interno.
 updateJson=https://github.com/lucbondar/nubind/releases/download/updates/update.json
-appVersion=2.5.17
+appVersion=2.5.18
 appVersionCode=51
