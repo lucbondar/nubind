@@ -25,9 +25,16 @@
 
 ## Actualizaciones
 
-Al abrir la app (pestaña **Acerca de**) se consulta `update.json`; si hay una build más nueva aparece un aviso con **Actualizar ahora**: descarga el APK, verifica su SHA-256 y lo instala con root (la app se reabre sola).
+Nubind se actualiza solo desde la propia app, a partir de `update.json` (publicado por el CI en el release fijo `updates`, el mismo que lee KernelSU).
 
-Si después de actualizar la app el módulo KSU instalado trae un APK más viejo, un aviso explica que Nubind puede funcionar, pero que para completar la actualización hay que descargar el módulo desde la app de KernelSU.
+- **Búsqueda silenciosa:** al abrir la app, al volver a ella (máx. cada 30 s), cada 5 min mientras está a la vista y al entrar a **Acerca de**. Sin red no muestra nada, y no pisa descargas ni instalaciones en curso. Deslizar hacia abajo en Acerca de lanza una búsqueda manual, con «Buscando…» y aviso si falla.
+- **Actualizar ahora:** con root descarga el APK, verifica su SHA-256, lo instala y se reabre sola; sin root abre el enlace de descarga en el navegador.
+- **Cambios:** junto al botón aparece la píldora **Cambios**, que despliega las últimas 10 entradas del changelog (el asunto de cada commit) con la versión resaltada.
+- **Módulo desfasado:** si el módulo KSU instalado trae un APK más viejo que la app, un aviso ámbar ofrece **Descargar y flashear módulo** (baja el zip, verifica `zipSha256` y lo flashea con root; no flashea si el publicado es más viejo que la app instalada). «Lo haré luego» lo pospone y deja una píldora ámbar **Módulo desfasado** para reabrirlo.
+- **Reinicio pendiente:** tras flashear, una tarjeta verde **Módulo instalado** ofrece **Reiniciar ahora**. Si se pospone, queda la píldora verde **Reinicio pendiente**, que persiste aunque salgas de la app. Nunca hay dos píldoras a la vez.
+- **Cabecera con color de estado:** la tarjeta de Acerca de pasa de los colores Monet a **verde** (actualización o reinicio pendiente) o **ámbar** (desfase), y la tarjeta del actualizador toma la misma paleta.
+- La versión del módulo instalado aparece bajo la de la app (con root y módulo presentes).
+- Los scripts de instalación (`self_update.sh`, `flash_module.sh`) reabren la app con el intent del launcher, para que no se apile una instancia nueva que arranque en Inicio.
 
 ## Cómo funciona
 
@@ -150,6 +157,44 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
   temporal de 32 MB en la carpeta montada y lo borra. Guarda la última velocidad por perfil y tipo de servidor:
   probando una vez en Equilibrado y otra en Máximo se pueden comparar.
 
+### Respaldo cifrado de servidores
+
+- En **Servidores**, el botón de respaldo (a la izquierda del «+») abre una hoja con modo **Exportar** / **Importar** (requiere root).
+- El `rclone.conf` completo (logins FTP, claves S3, tokens de Drive) se cifra con **AES-256-GCM**; la clave sale de una contraseña que eliges (mínimo 8 caracteres, se pide dos veces) con **PBKDF2-HMAC-SHA256** (600 000 vueltas). Formato `.nubind`.
+- Nunca se sube nada en claro: las contraseñas de rclone solo están ofuscadas, no cifradas.
+- El archivo se guarda o elige con el selector de Android (SAF, sin permisos nuevos), así que puedes mandarlo a la nube que quieras.
+- **Importar mezcla:** los servidores con el mismo nombre se reemplazan y el resto se conserva. Solo entran secciones FTP, Drive y S3.
+- Solo respalda servidores y logins: no incluye tamaños de caché, ajustes S3 globales ni el servidor activo.
+- La hoja no se cierra mientras trabaja; si falla, muestra el error dentro y se queda abierta.
+
+### Pantalla Servidores
+
+- Tarjeta de resumen arriba: insignia que gira mientras hay algo montado y «Guardados: N».
+- Estado vacío con botón **Agregar servidor** y atajo **Importar un respaldo**.
+- Acciones de la barra como botones tonales (respaldo y «+»).
+
+### Pantalla Logs
+
+- Cada línea se interpreta (formato del módulo y de rclone) y se dibuja con una **barra de color por severidad**: error rojo, aviso ámbar, listo verde, info neutra. Arriba, píldoras con el total de líneas, errores y avisos. Compartir envía el log completo.
+- **Desplazamiento rápido:** mantén el dedo quieto ~0,3 s sobre el log y vibra; después el log sigue tu deslizamiento, y deslizar por el alto del área táctil recorre el log entero. Una **lupa** del sistema (Android 9 o superior) se coloca 2 cm sobre el dedo y amplía lo que hay allí; flechas arriba/abajo indican la dirección.
+- **Oculta por defecto:** la pestaña Logs se activa en **Acerca de > Sistema > Mostrar Logs** (la primera vez se explica cómo volver a ocultarla). Se oculta con el mismo interruptor o **manteniendo 3 s** el botón Logs de la barra, sin confirmación y con animación. Ocultarla no detiene el registro.
+
+### Avisos expressive
+
+- No quedan `Toast` ni `Snackbar`: todo aviso es una tarjeta flotante Material Expressive que entra con resorte y se cierra sola, al tocarla o al deslizarla. Cuatro tipos: **éxito**, **info**, **advertencia** (debes hacer algo) y **error**.
+- Desde el tile de Ajustes rápidos se muestra como notificación emergente breve (cae a `Toast` si las notificaciones están desactivadas).
+- **Aviso de datos móviles:** antes de una precarga o prueba sobre datos móviles, un diálogo propio pide confirmar. Cancelar es el botón principal; «No volver a mostrar» disponible.
+
+### Precarga: ajustes, pausa y notificación
+
+- La tarjeta **Precarga** de Inicio se despliega para ajustar las **descargas en paralelo** (1 a 8) y el **límite de velocidad** (en MB/s; sin límite por defecto). Aplican en la siguiente corrida, sin remontar.
+- **Pausar y reanudar** desde la tarjeta o desde la notificación: el archivo en curso termina y los workers esperan.
+- **Notificación de progreso:** en Android 16 o superior es una *actualización en vivo* con barra de 4 tramos, la nube que viaja por ella y el porcentaje (azul, ámbar en pausa); en versiones anteriores, la notificación estándar con barra. Al terminar se retira sola.
+
+### Selector de carpetas animado
+
+- Entrar a una subcarpeta desliza la página nueva desde la derecha; subir, al revés. La altura del diálogo se acomoda sin saltos y la ruta cambia con un deslizamiento corto. La caché de listados y la apertura instantánea siguen igual.
+
 ### Instalación y actualizaciones sin fricción
 
 - El zip del módulo **trae la app dentro**: se instala sola al flashear.
@@ -166,7 +211,9 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 - Ancho del contenido adaptable: crece en pantallas anchas en vez de dejar franjas vacías a los costados.
 - Inicio también arma **doble panel** en pantalla ancha: montaje (servidor, carpeta, botón) a la izquierda, ajustes (autostart y rendimiento) a la derecha.
 - Icono adaptable con versión monocromática para el tema de íconos.
-- Pantallas de **Inicio**, **Servidores**, **Logs** y **Acerca de**, con la versión de la app y de rclone.
+- Pantallas de **Inicio**, **Servidores**, **Logs** (oculta por defecto) y **Acerca de**, con la versión de la app, del módulo y de rclone.
+- Hoja **Nuevo servidor** de alto fijo: cambiar entre FTP, Drive y S3 no la hace saltar ni rebotar.
+- En Acerca de, las tarjetas entran escalonadas, los pasos de «Qué hace» van con insignias numeradas y los valores de Sistema en píldoras, con punto de estado en root.
 - **Idiomas:** inglés (por defecto), español y portugués de Brasil. La app sigue el idioma del sistema (no hay selector). Los textos viven en `res/values/strings.xml` (inglés), `values-es/` y `values-pt-rBR/`, y se leen con `Strings.get(R.string.…)` (`Strings.kt`), que no necesita un `Context`; en enums y objects se guarda el `@StringRes` y el texto se resuelve al leerlo. Los mensajes que escriben los scripts del módulo en el log siguen en español.
 - En apaisado, el difuminado sobre la barra de gestos es más bajo y más suave que en vertical.
 
