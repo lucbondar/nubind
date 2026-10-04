@@ -70,7 +70,12 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.AccountBox
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
+import kotlinx.coroutines.withTimeoutOrNull
+import com.nubind.app.ui.components.NoticeKind
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -199,6 +204,9 @@ private val PillSpace = 88.dp
 /** Cuánto tiempo se ve la etiqueta de la pestaña activa antes de esconderse (retrato). */
 private const val LabelHideDelayMs = 2000L
 
+/** Cuánto hay que mantener presionado el botón Logs de la píldora para ofrecer ocultarlo. */
+private const val LogsHideHoldMs = 3000L
+
 /** Alto del degradado que funde el contenido con la barra del sistema (retrato). */
 private val FadeHeight = 104.dp
 
@@ -216,7 +224,11 @@ private const val FadeStrengthLandscape = 0.6f
 
 @Composable
 private fun AppScaffold(vm: BindViewModel) {
-    val items = listOf(Screen.Home, Screen.Servers, Screen.Logs, Screen.About)
+    // Logs se puede ocultar (mantener presionado su botón 3 s); se vuelve a mostrar en Acerca de.
+    val items = remember(vm.logsHidden) {
+        if (vm.logsHidden) listOf(Screen.Home, Screen.Servers, Screen.About)
+        else listOf(Screen.Home, Screen.Servers, Screen.Logs, Screen.About)
+    }
     val pagerState = rememberPagerState(pageCount = { items.size })
     val scope = rememberCoroutineScope()
     val hazeState = rememberHazeState()
@@ -234,8 +246,31 @@ private fun AppScaffold(vm: BindViewModel) {
         scope.launch { pagerState.animateScrollToPage(page) }
     }
 
+    // Al mostrar/ocultar Logs los índices del pager se corren: se vuelve a la misma pestaña
+    // (o a Inicio si era la propia Logs).
+    var pendingScreen by remember { mutableStateOf<Screen?>(null) }
+    LaunchedEffect(items) {
+        pendingScreen?.let { s ->
+            pagerState.scrollToPage(items.indexOf(s).coerceAtLeast(0))
+            pendingScreen = null
+        }
+    }
+    var askHideLogs by remember { mutableStateOf(false) }
+
     // Atrás desde otra pestaña vuelve a Inicio antes de cerrar la app.
     BackHandler(enabled = pagerState.currentPage != 0) { goTo(0) }
+
+    if (askHideLogs) {
+        HideLogsDialog(
+            onConfirm = {
+                askHideLogs = false
+                pendingScreen = items.getOrNull(pagerState.currentPage)
+                vm.setLogsHidden(true)
+                vm.showNotice(Strings.get(R.string.logs_ocultos_aviso), NoticeKind.Info)
+            },
+            onDismiss = { askHideLogs = false }
+        )
+    }
 
     Scaffold(
         // Avisos expressive (reemplazan al snackbar): el propio host se cierra solo.
@@ -321,12 +356,25 @@ private fun AppScaffold(vm: BindViewModel) {
                 hazeState = hazeState,
                 onSelect = ::goTo,
                 vertical = isLandscape,
+                onLogsLongPress = { askHideLogs = true },
                 modifier = Modifier
                     .align(BiasAlignment(hBias, vBias))
                     .padding(12.dp)
             )
         }
     }
+}
+
+@Composable
+private fun HideLogsDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.VisibilityOff, contentDescription = null) },
+        title = { Text(Strings.get(R.string.logs_ocultar_titulo)) },
+        text = { Text(Strings.get(R.string.logs_ocultar_texto)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(Strings.get(R.string.logs_ocultar)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.get(R.string.cancelar)) } }
+    )
 }
 
 /**
@@ -349,6 +397,7 @@ private fun FloatingPillNav(
     hazeState: HazeState,
     onSelect: (Int) -> Unit,
     vertical: Boolean,
+    onLogsLongPress: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
@@ -369,6 +418,9 @@ private fun FloatingPillNav(
     val currentSelected by rememberUpdatedState(selected)
     val currentOnSelect by rememberUpdatedState(onSelect)
     val currentVertical by rememberUpdatedState(vertical)
+    val currentLogsLongPress by rememberUpdatedState(onLogsLongPress)
+    val logsIndex = items.indexOf(Screen.Logs)
+    val currentLogsIndex by rememberUpdatedState(logsIndex)
 
     // La etiqueta de la pestaña activa se ve al cambiar de pestaña, al
     // tocar la píldora y mientras el dedo siga puesto; pasado un momento se
@@ -475,10 +527,27 @@ private fun FloatingPillNav(
                     val down = awaitFirstDown(requireUnconsumed = false)
                     pressed = true
                     var dragging = false
+                    // Mantener 3 s sobre el botón Logs (sin arrastrar) ofrece ocultar la pestaña.
+                    val t0 = System.nanoTime()
+                    var fired = false
+                    val onLogsItem = currentLogsIndex >= 0 &&
+                        bounds.getOrNull(currentLogsIndex)?.contains(Offset(down.position.x - padPx, down.position.y - padPx)) == true
                     try {
                         while (true) {
-                            val event = awaitPointerEvent()
+                            val armed = onLogsItem && !dragging && !fired
+                            val event = if (armed) {
+                                val left = LogsHideHoldMs - (System.nanoTime() - t0) / 1_000_000L
+                                withTimeoutOrNull(left.coerceAtLeast(1L)) { awaitPointerEvent() }
+                            } else awaitPointerEvent()
+                            if (event == null) {
+                                fired = true
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                currentLogsLongPress()
+                                continue
+                            }
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            // Tras el aviso se consume el resto del gesto: soltar no abre la pestaña Logs.
+                            if (fired) change.consume()
                             if (!change.pressed) break
                             if (!dragging && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
                                 dragging = true

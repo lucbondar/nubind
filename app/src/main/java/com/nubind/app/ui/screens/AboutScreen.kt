@@ -31,6 +31,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -253,6 +254,19 @@ private fun SystemCard(vm: BindViewModel, rcloneVersion: String?) {
         )
         InfoRow("rclone", rcloneVersion ?: "—")
         InfoRow(Strings.get(R.string.interfaz), "Jetpack Compose · Material 3 Expressive")
+        // Aquí se vuelve a mostrar la pestaña Logs si se ocultó (mantener 3 s su botón en la barra).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                Strings.get(R.string.logs_pestana),
+                style = MaterialTheme.typography.bodyMedium,
+                color = scheme.onSurfaceVariant
+            )
+            Switch(checked = !vm.logsHidden, onCheckedChange = { vm.setLogsHidden(!it) })
+        }
     }
 }
 

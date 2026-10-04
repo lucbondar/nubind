@@ -363,4 +363,9 @@
     <string name="respaldo_elegir_archivo">Elegir archivo de respaldo…</string>
     <string name="respaldo_guardar_como">Elegir ubicación y exportar</string>
     <string name="respaldo_importar_existente">Importar un respaldo</string>
+    <string name="logs_ocultar_titulo">¿Ocultar la pestaña Logs?</string>
+    <string name="logs_ocultar_texto">La pestaña desaparecerá de la barra. Los logs seguirán escribiéndose en segundo plano. Para volver a mostrarla: Acerca de › Sistema › Pestaña Logs.</string>
+    <string name="logs_ocultar">Ocultar</string>
+    <string name="logs_ocultos_aviso">Pestaña Logs oculta. Para mostrarla: Acerca de › Sistema › Pestaña Logs.</string>
+    <string name="logs_pestana">Pestaña Logs</string>
 </resources>

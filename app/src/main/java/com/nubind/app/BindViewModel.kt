@@ -76,6 +76,9 @@ class BindViewModel : ViewModel() {
     var autostart by mutableStateOf(false)
         private set
     var logs by mutableStateOf("")
+    /** Pestaña Logs oculta de la barra (se guarda en prefs). Los logs siguen escribiéndose igual. */
+    var logsHidden by mutableStateOf(prefs().getBoolean(KEY_LOGS_HIDDEN, false))
+        private set
         private set
     var rootGranted by mutableStateOf<Boolean?>(null)
         private set
@@ -1127,6 +1130,11 @@ class BindViewModel : ViewModel() {
         withContext(Dispatchers.IO) { RootShell.setAutostart(enabled) }
     }
 
+    fun setLogsHidden(hidden: Boolean) {
+        logsHidden = hidden
+        prefs().edit().putBoolean(KEY_LOGS_HIDDEN, hidden).apply()
+    }
+
     fun refreshLogs() = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) { RootShell.tailLog() }
         logs = result.output
@@ -1188,6 +1196,7 @@ class BindViewModel : ViewModel() {
         const val KEY_SKIP_METERED_WARNING = "skip_metered_warning"
         const val KEY_MODULE_NOTICE_DISMISSED = "module_notice_dismissed"
         const val KEY_REBOOT_POSTPONED = "reboot_postponed"
+        const val KEY_LOGS_HIDDEN = "logs_hidden"
         const val AUTH_POLL_MS = 600L
         const val MIN_REFRESH_MS = 500L
         const val REFRESH_UPDATES_MS = 30_000L
