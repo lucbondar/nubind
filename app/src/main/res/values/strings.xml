@@ -289,4 +289,24 @@
     <string name="preload_workers_hint">Applies on the next preload, no remount needed. More downloads speed up many small files, but too many can hit the server\'s request limits (especially Google Drive).</string>
     <string name="carpeta_ftp_opcional">Folder (optional)</string>
     <string name="carpeta_ftp_ayuda">Mounts only this folder of the server, e.g. /Games. Empty mounts the whole server, which can be slow to list and preload.</string>
+    <string name="upd_buscando">Looking for updates…</string>
+    <string name="upd_al_dia">You\'re up to date</string>
+    <string name="upd_buscar_otra_vez">Check again</string>
+    <string name="upd_disponible">Update available</string>
+    <string name="upd_disponible_detalle">Version %1$s is ready to install.</string>
+    <string name="upd_actualizar_ahora">Update now</string>
+    <string name="upd_descargando">Downloading update…</string>
+    <string name="upd_instalando">Installing update…</string>
+    <string name="upd_instalando_detalle">The app will reopen on its own when it\'s done.</string>
+    <string name="upd_fallo">Couldn\'t update</string>
+    <string name="upd_reintentar">Retry</string>
+    <string name="upd_sin_conexion">Couldn\'t reach the update server. Check your connection.</string>
+    <string name="upd_sin_respuesta">The installer didn\'t respond. Try again.</string>
+    <string name="upd_modulo_titulo">Module out of sync</string>
+    <string name="upd_modulo_cuerpo">Nubind may work, but for the update to be complete you need to download the module from the KSU app.</string>
+    <string name="upd_modulo_versiones">Module %1$s · App %2$s</string>
+    <string name="upd_abrir_ksu">Open KernelSU</string>
+    <string name="upd_ksu_no_encontrada">KernelSU app not found</string>
+    <string name="upd_entendido">Got it</string>
+    <string name="upd_modulo_aviso_snackbar">Module out of sync: update it from the KSU app</string>
 </resources>

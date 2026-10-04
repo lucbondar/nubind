@@ -23,6 +23,12 @@
 
 ---
 
+## Actualizaciones
+
+Al abrir la app (pestaña **Acerca de**) se consulta `update.json`; si hay una build más nueva aparece un aviso con **Actualizar ahora**: descarga el APK, verifica su SHA-256 y lo instala con root (la app se reabre sola).
+
+Si después de actualizar la app el módulo KSU instalado trae un APK más viejo, un aviso explica que Nubind puede funcionar, pero que para completar la actualización hay que descargar el módulo desde la app de KernelSU.
+
 ## Cómo funciona
 
 ```mermaid

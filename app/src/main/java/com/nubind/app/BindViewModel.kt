@@ -8,10 +8,13 @@ import androidx.lifecycle.viewModelScope
 import android.content.Context
 import android.net.ConnectivityManager
 import android.os.SystemClock
+import com.nubind.app.root.AppUpdateState
+import com.nubind.app.root.AppUpdater
 import com.nubind.app.root.DEFAULT_TARGET_PATH
 import com.nubind.app.root.DriveAuthParser
 import com.nubind.app.root.DriveAuthState
 import com.nubind.app.root.DriveOptions
+import com.nubind.app.root.ModuleInfo
 import com.nubind.app.root.ModulePaths
 import com.nubind.app.root.S3Options
 import com.nubind.app.root.S3PerfSettings
@@ -118,6 +121,99 @@ class BindViewModel : ViewModel() {
         message = null
     }
 
+    // ---- Actualizador de la app + aviso de desfase con el módulo KSU ----
+
+    /** Estado del actualizador (banner de Acerca de). */
+    var appUpdate by mutableStateOf<AppUpdateState>(AppUpdateState.Idle)
+        private set
+
+    /**
+     * Módulo KSU instalado cuando trae un APK más viejo que esta app (desfase) y
+     * el aviso no fue descartado; null = nada que avisar.
+     */
+    var moduleNotice by mutableStateOf<ModuleInfo?>(null)
+        private set
+
+    private var updateChecked = false
+
+    /**
+     * Busca una versión nueva de la app en update.json. Al abrir la app corre
+     * una sola vez y en silencio (sin red no muestra nada); con [manual] (botón
+     * de reintentar) vuelve a consultar y avisa si falla.
+     */
+    fun checkForUpdates(manual: Boolean = false) {
+        val busy = appUpdate is AppUpdateState.Checking || appUpdate is AppUpdateState.Downloading ||
+            appUpdate is AppUpdateState.Installing
+        if (busy || (updateChecked && !manual)) return
+        updateChecked = true
+        viewModelScope.launch {
+            appUpdate = AppUpdateState.Checking
+            val started = SystemClock.elapsedRealtime()
+            val info = withContext(Dispatchers.IO) { AppUpdater.fetchLatest() }
+            // Que el estado "Buscando…" no parpadee si la respuesta es instantánea.
+            val remaining = MIN_REFRESH_MS - (SystemClock.elapsedRealtime() - started)
+            if (remaining > 0) delay(remaining)
+            appUpdate = when {
+                info == null ->
+                    if (manual) AppUpdateState.Failed(Strings.get(R.string.upd_sin_conexion), null) else AppUpdateState.Idle
+                info.appVersionCode > BuildConfig.VERSION_CODE -> AppUpdateState.Available(info)
+                else -> AppUpdateState.UpToDate
+            }
+        }
+    }
+
+    /** Descarga la versión nueva y la instala con root; la app se reabre sola al terminar. */
+    fun installUpdate() {
+        val info = when (val s = appUpdate) {
+            is AppUpdateState.Available -> s.info
+            is AppUpdateState.Failed -> s.info
+            else -> null
+        } ?: return
+        viewModelScope.launch {
+            val ctx = Strings.context()
+            appUpdate = AppUpdateState.Downloading(-1f)
+            val apk = try {
+                withContext(Dispatchers.IO) {
+                    AppUpdater.download(ctx.cacheDir, info) { appUpdate = AppUpdateState.Downloading(it) }
+                }
+            } catch (e: Exception) {
+                appUpdate = AppUpdateState.Failed(e.message ?: e.javaClass.simpleName, info)
+                return@launch
+            }
+            appUpdate = AppUpdateState.Installing
+            val error = withContext(NonCancellable + Dispatchers.IO) { AppUpdater.installViaRoot(ctx, apk) }
+            // Si todo sale bien Android mata este proceso antes de llegar aquí.
+            appUpdate = AppUpdateState.Failed(error ?: Strings.get(R.string.upd_sin_respuesta), info)
+        }
+    }
+
+    /**
+     * Compara el APK que trae el módulo KSU instalado con esta app. Se llama
+     * al tener root, es decir en cada arranque: justo tras instalar una
+     * actualización y abrirla es cuando aparece el desfase. El aviso se puede
+     * descartar y no vuelve hasta que cambie la versión de la app o del módulo.
+     */
+    private fun checkModuleSync() {
+        viewModelScope.launch {
+            val module = withContext(Dispatchers.IO) { AppUpdater.readModuleInfo() }
+            val behind = module != null &&
+                AppUpdater.isModuleBehind(module, BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME)
+            if (!behind || module == null || prefs().getString(KEY_MODULE_NOTICE_DISMISSED, null) == noticeKey(module)) {
+                moduleNotice = null
+                return@launch
+            }
+            moduleNotice = module
+            message = Strings.get(R.string.upd_modulo_aviso_snackbar)
+        }
+    }
+
+    fun dismissModuleNotice() {
+        moduleNotice?.let { prefs().edit().putString(KEY_MODULE_NOTICE_DISMISSED, noticeKey(it)).apply() }
+        moduleNotice = null
+    }
+
+    private fun noticeKey(m: ModuleInfo) = "${BuildConfig.VERSION_CODE}:${m.versionCode}:${m.version}"
+
     /**
      * Acción en espera de confirmación cuando la red activa es de datos
      * móviles (o con límite) y la acción dispara la precarga completa del
@@ -152,6 +248,7 @@ class BindViewModel : ViewModel() {
 
     fun setRootGranted(granted: Boolean) {
         rootGranted = granted
+        if (granted) checkModuleSync()
     }
 
     fun refreshAll() = viewModelScope.launch { reload() }
@@ -721,6 +818,7 @@ class BindViewModel : ViewModel() {
     private companion object {
         const val PREFS_NAME = "nubind_prefs"
         const val KEY_SKIP_METERED_WARNING = "skip_metered_warning"
+        const val KEY_MODULE_NOTICE_DISMISSED = "module_notice_dismissed"
         const val AUTH_POLL_MS = 600L
         const val MIN_REFRESH_MS = 500L
         const val PERF_POLL_MS = 500L

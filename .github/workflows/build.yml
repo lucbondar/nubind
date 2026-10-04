@@ -58,6 +58,13 @@ jobs:
       # Cliente OAuth de Google Drive integrado en la app (Settings > Secrets
       # and variables > Actions). Sin ellos (p. ej. PR desde forks) el APK
       # compila igual y usa el cliente compartido de rclone.
+      # versionCode de la app = run_number + 100 (igual que el del módulo): cada
+      # build sube, y el actualizador in-app (update.json) la ve como nueva.
+      # package-module calcula el mismo valor para estamparlo en update.json y
+      # module.prop: si cambias esta fórmula, cámbiala allá también.
+      - name: Fijar versionCode de la app
+        run: echo "APP_VERSION_CODE=$((GITHUB_RUN_NUMBER + 100))" >> "$GITHUB_ENV"
+
       - name: Build debug APK
         env:
           GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
@@ -192,6 +199,17 @@ jobs:
           fi
           sed -i "s|^version=.*|version=$VERSION|; s|^versionCode=.*|versionCode=$CODE|" module/module.prop
 
+          # Datos del APK que va dentro del módulo (mismo valor que build-app).
+          # La app instalada los compara con los suyos para avisar de un
+          # desfase módulo/app; update.json los usa para el actualizador in-app.
+          APP_NAME=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          APP_CODE=$((RUN_NUMBER + 100))
+          APK_FILE=$(ls apk/*.apk | head -n1)
+          APK_SHA=$(sha256sum "$APK_FILE" | cut -d' ' -f1)
+          APK_NAME=$(basename "$APK_FILE")
+          sed -i '/^appVersion=/d; /^appVersionCode=/d' module/module.prop
+          printf 'appVersion=%s\nappVersionCode=%s\n' "$APP_NAME" "$APP_CODE" >> module/module.prop
+
           {
             if [ "$REF_TYPE" != "tag" ]; then
               echo "⚠️ PRE-RELEASE: build automático, puede ser inestable."
@@ -208,7 +226,11 @@ jobs:
             "version": "$VERSION",
             "versionCode": $CODE,
             "zipUrl": "https://github.com/$REPO/releases/download/$TAG/nubind-module.zip",
-            "changelog": "https://github.com/$REPO/releases/download/updates/changelog.md"
+            "changelog": "https://github.com/$REPO/releases/download/updates/changelog.md",
+            "appVersion": "$APP_NAME",
+            "appVersionCode": $APP_CODE,
+            "apkUrl": "https://github.com/$REPO/releases/download/$TAG/$APK_NAME",
+            "apkSha256": "$APK_SHA"
           }
           JSON
           sed -i 's/^          //' update.json

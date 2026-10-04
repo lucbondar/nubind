@@ -30,7 +30,9 @@ android {
         applicationId = "com.nubind.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 51
+        // El CI pasa APP_VERSION_CODE (run_number + 100) para que cada build suba el
+        // versionCode y el actualizador de la app la detecte como nueva. Local: 51.
+        versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: 51
         versionName = "2.5.2"
 
         // Cliente OAuth de Google Drive que trae la app: el usuario solo da su

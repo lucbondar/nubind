@@ -43,6 +43,7 @@ import com.nubind.app.ui.components.AppIcons
 import com.nubind.app.ui.components.DualPaneContentWidth
 import com.nubind.app.ui.components.ScreenContainer
 import com.nubind.app.ui.components.SectionCard
+import com.nubind.app.ui.components.UpdateNotices
 import com.nubind.app.ui.components.rememberIsDualPane
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -80,7 +81,7 @@ fun AboutScreen(vm: BindViewModel) {
                 modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                HeaderCard(modifier = Modifier.weight(1f).fillMaxHeight())
+                HeaderCard(vm, modifier = Modifier.weight(1f).fillMaxHeight())
                 Column(modifier = Modifier.weight(1f)) { WhatItDoesCard() }
             }
             Row(
@@ -91,7 +92,7 @@ fun AboutScreen(vm: BindViewModel) {
                 Column(modifier = Modifier.weight(1f)) { LinksCard(uriHandler) }
             }
         } else {
-            HeaderCard(modifier = Modifier.fillMaxWidth())
+            HeaderCard(vm, modifier = Modifier.fillMaxWidth())
             WhatItDoesCard()
             SystemCard(vm, rcloneVersion)
             LinksCard(uriHandler)
@@ -108,7 +109,7 @@ fun AboutScreen(vm: BindViewModel) {
 }
 
 @Composable
-private fun HeaderCard(modifier: Modifier = Modifier) {
+private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     Surface(
         color = scheme.primaryContainer,
@@ -127,6 +128,8 @@ private fun HeaderCard(modifier: Modifier = Modifier) {
                 Strings.get(R.string.version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
                 style = MaterialTheme.typography.bodyLarge
             )
+            // Actualizador de la app y aviso de desfase con el módulo KSU.
+            UpdateNotices(vm, Modifier.fillMaxWidth().padding(top = 6.dp))
         }
     }
 }

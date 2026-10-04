@@ -128,6 +128,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Busca una versión nueva de la app (solo red; el aviso de desfase con el
+        // módulo se calcula en cuanto se confirma root, ver setRootGranted).
+        vm.checkForUpdates()
+
         // Pedimos root en segundo plano. Si se niega o no hay root
         // disponible, la app sigue abierta y solo lo mostramos en la UI
         // en vez de lanzar una excepción no controlada que la cierra.

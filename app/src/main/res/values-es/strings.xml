@@ -288,4 +288,24 @@
     <string name="preload_workers_hint">Se aplica en la próxima precarga, sin volver a montar. Más descargas aceleran los archivos chicos, pero demasiadas pueden chocar con los límites de peticiones del servidor (sobre todo Google Drive).</string>
     <string name="carpeta_ftp_opcional">Carpeta (opcional)</string>
     <string name="carpeta_ftp_ayuda">Monta solo esta carpeta del servidor, p. ej. /Juegos. Vacío monta todo el servidor, que puede tardar en listarse y precargarse.</string>
+    <string name="upd_buscando">Buscando actualizaciones…</string>
+    <string name="upd_al_dia">Estás al día</string>
+    <string name="upd_buscar_otra_vez">Buscar de nuevo</string>
+    <string name="upd_disponible">Actualización disponible</string>
+    <string name="upd_disponible_detalle">La versión %1$s está lista para instalar.</string>
+    <string name="upd_actualizar_ahora">Actualizar ahora</string>
+    <string name="upd_descargando">Descargando actualización…</string>
+    <string name="upd_instalando">Instalando actualización…</string>
+    <string name="upd_instalando_detalle">La app se abrirá sola al terminar.</string>
+    <string name="upd_fallo">No se pudo actualizar</string>
+    <string name="upd_reintentar">Reintentar</string>
+    <string name="upd_sin_conexion">No se pudo contactar al servidor de actualizaciones. Revisa tu conexión.</string>
+    <string name="upd_sin_respuesta">El instalador no respondió. Inténtalo de nuevo.</string>
+    <string name="upd_modulo_titulo">Módulo desfasado</string>
+    <string name="upd_modulo_cuerpo">Nubind puede funcionar, pero para que la actualización esté completa hay que descargar el módulo desde la app KSU.</string>
+    <string name="upd_modulo_versiones">Módulo %1$s · App %2$s</string>
+    <string name="upd_abrir_ksu">Abrir KernelSU</string>
+    <string name="upd_ksu_no_encontrada">No se encontró la app de KernelSU</string>
+    <string name="upd_entendido">Entendido</string>
+    <string name="upd_modulo_aviso_snackbar">Módulo desfasado: actualízalo desde la app KSU</string>
 </resources>

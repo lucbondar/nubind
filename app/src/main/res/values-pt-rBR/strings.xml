@@ -288,4 +288,24 @@
     <string name="preload_workers_hint">Vale na próxima pré-carga, sem remontar. Mais downloads aceleram muitos arquivos pequenos, mas demais pode bater nos limites de requisições do servidor (principalmente o Google Drive).</string>
     <string name="carpeta_ftp_opcional">Pasta (opcional)</string>
     <string name="carpeta_ftp_ayuda">Monta apenas esta pasta do servidor, p. ex. /Jogos. Vazio monta o servidor inteiro, que pode demorar para listar e pré-carregar.</string>
+    <string name="upd_buscando">Procurando atualizações…</string>
+    <string name="upd_al_dia">Tudo atualizado</string>
+    <string name="upd_buscar_otra_vez">Procurar de novo</string>
+    <string name="upd_disponible">Atualização disponível</string>
+    <string name="upd_disponible_detalle">A versão %1$s está pronta para instalar.</string>
+    <string name="upd_actualizar_ahora">Atualizar agora</string>
+    <string name="upd_descargando">Baixando atualização…</string>
+    <string name="upd_instalando">Instalando atualização…</string>
+    <string name="upd_instalando_detalle">O app vai reabrir sozinho ao terminar.</string>
+    <string name="upd_fallo">Não foi possível atualizar</string>
+    <string name="upd_reintentar">Tentar de novo</string>
+    <string name="upd_sin_conexion">Não foi possível contatar o servidor de atualizações. Verifique sua conexão.</string>
+    <string name="upd_sin_respuesta">O instalador não respondeu. Tente de novo.</string>
+    <string name="upd_modulo_titulo">Módulo desatualizado</string>
+    <string name="upd_modulo_cuerpo">O Nubind pode funcionar, mas para a atualização ficar completa é preciso baixar o módulo pelo app KSU.</string>
+    <string name="upd_modulo_versiones">Módulo %1$s · App %2$s</string>
+    <string name="upd_abrir_ksu">Abrir KernelSU</string>
+    <string name="upd_ksu_no_encontrada">App do KernelSU não encontrado</string>
+    <string name="upd_entendido">Entendi</string>
+    <string name="upd_modulo_aviso_snackbar">Módulo desatualizado: atualize-o pelo app KSU</string>
 </resources>
