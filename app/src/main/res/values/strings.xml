@@ -266,6 +266,11 @@
     <string name="borrar_registro">Clear log</string>
     <string name="actualizar">Refresh</string>
     <string name="sin_logs_todavia">No logs yet.</string>
+    <string name="log_ir_al_inicio">Jump to top</string>
+    <string name="log_ir_al_final">Jump to bottom</string>
+    <string name="log_lineas">%1$d lines</string>
+    <string name="log_errores">%1$d errors</string>
+    <string name="log_avisos">%1$d warnings</string>
     <string name="agregar_servidor">Add server</string>
     <string name="agrega_un_servidor_ftp_para_montarlo">Add an FTP server to mount it as a folder.</string>
     <string name="conecta_tu_cuenta_de_google_drive">Connect your Google Drive account to mount it as a folder.</string>

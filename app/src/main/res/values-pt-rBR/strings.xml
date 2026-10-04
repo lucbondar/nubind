@@ -266,6 +266,11 @@
     <string name="borrar_registro">Limpar registro</string>
     <string name="actualizar">Atualizar</string>
     <string name="sin_logs_todavia">Ainda não há logs.</string>
+    <string name="log_ir_al_inicio">Ir para o início</string>
+    <string name="log_ir_al_final">Ir para o fim</string>
+    <string name="log_lineas">%1$d linhas</string>
+    <string name="log_errores">%1$d erros</string>
+    <string name="log_avisos">%1$d avisos</string>
     <string name="agregar_servidor">Adicionar servidor</string>
     <string name="agrega_un_servidor_ftp_para_montarlo">Adicione um servidor FTP para montá-lo como pasta.</string>
     <string name="conecta_tu_cuenta_de_google_drive">Conecte sua conta do Google Drive para montá-la como pasta.</string>
