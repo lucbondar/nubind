@@ -265,7 +265,7 @@ private fun SystemCard(vm: BindViewModel, rcloneVersion: String?) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant
             )
-            Switch(checked = !vm.logsHidden, onCheckedChange = { vm.setLogsHidden(!it) })
+            Switch(checked = !vm.logsHidden, onCheckedChange = { vm.updateLogsHidden(!it) })
         }
     }
 }

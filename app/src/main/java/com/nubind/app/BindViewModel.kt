@@ -1130,7 +1130,7 @@ class BindViewModel : ViewModel() {
         withContext(Dispatchers.IO) { RootShell.setAutostart(enabled) }
     }
 
-    fun setLogsHidden(hidden: Boolean) {
+    fun updateLogsHidden(hidden: Boolean) {
         logsHidden = hidden
         prefs().edit().putBoolean(KEY_LOGS_HIDDEN, hidden).apply()
     }

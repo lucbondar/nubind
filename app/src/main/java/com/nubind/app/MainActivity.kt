@@ -265,7 +265,7 @@ private fun AppScaffold(vm: BindViewModel) {
             onConfirm = {
                 askHideLogs = false
                 pendingScreen = items.getOrNull(pagerState.currentPage)
-                vm.setLogsHidden(true)
+                vm.updateLogsHidden(true)
                 vm.showNotice(Strings.get(R.string.logs_ocultos_aviso), NoticeKind.Info)
             },
             onDismiss = { askHideLogs = false }
