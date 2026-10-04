@@ -7,10 +7,10 @@ import android.os.Handler
 import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import android.widget.Toast
 import com.nubind.app.root.PerfMode
 import com.nubind.app.root.RootShell
 import com.nubind.app.root.readMountState
+import com.nubind.app.ui.components.NoticeKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -107,7 +107,7 @@ internal object MountTileOps {
             val before = RootShell.readMountState()
             if (!before.mounted && RootShell.readActive() == null) {
                 publish(TileUi(false, null, null))
-                toast(app, Strings.get(R.string.agrega_un_servidor_primero))
+                notify(app, Strings.get(R.string.agrega_un_servidor_primero), NoticeKind.Warning)
                 return@launch
             }
             publish(
@@ -119,7 +119,7 @@ internal object MountTileOps {
             val result = if (before.mounted) RootShell.unmount() else RootShell.mount()
             val after = RootShell.readMountState()
             publish(TileUi(after.mounted, after.remote, null))
-            if (!result.success) toast(app, Strings.get(R.string.error, result.output.takeLast(200)))
+            if (!result.success) notify(app, Strings.get(R.string.error, result.output.takeLast(200)), NoticeKind.Error)
             // mount.sh lanza la precarga sola al montar, pero solo en el perfil Máximo
             // (preload.sh sale sin hacer nada en Equilibrado): solo ahí hay progreso que mostrar.
             if (result.success && after.mounted && !before.mounted &&
@@ -128,6 +128,7 @@ internal object MountTileOps {
         }
     }
 
-    private fun toast(ctx: Context, text: String) =
-        main.post { Toast.makeText(ctx, text, Toast.LENGTH_LONG).show() }
+    /** Aviso expressive fuera de la app: notificación emergente breve (ver [SystemNotice]). */
+    private fun notify(ctx: Context, text: String, kind: NoticeKind) =
+        main.post { SystemNotice.show(ctx, text, kind) }
 }

@@ -1,6 +1,5 @@
 package com.nubind.app.ui.components
 
-import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -186,7 +185,7 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
                     onOpenKsu = {
                         val intent = KsuPackages.firstNotNullOfOrNull { pkg -> context.packageManager.getLaunchIntentForPackage(pkg) }
                         if (intent != null) context.startActivity(intent)
-                        else Toast.makeText(context, Strings.get(R.string.upd_ksu_no_encontrada), Toast.LENGTH_LONG).show()
+                        else vm.showNotice(Strings.get(R.string.upd_ksu_no_encontrada), NoticeKind.Warning)
                     },
                     onDismiss = vm::dismissModuleNotice
                 )

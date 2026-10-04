@@ -71,8 +71,6 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -94,6 +92,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.nubind.app.ui.components.ExpressiveNoticeHost
 import com.nubind.app.ui.components.LocalContentBottomInset
 import com.nubind.app.ui.components.LocalContentEndInset
 import com.nubind.app.ui.screens.AboutScreen
@@ -196,7 +195,6 @@ private fun AppScaffold(vm: BindViewModel) {
     val items = listOf(Screen.Home, Screen.Servers, Screen.Logs, Screen.About)
     val pagerState = rememberPagerState(pageCount = { items.size })
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
     val hazeState = rememberHazeState()
 
     // No es un ancho de pantalla (eso ya lo maneja cada screen con
@@ -215,18 +213,14 @@ private fun AppScaffold(vm: BindViewModel) {
     // Atrás desde otra pestaña vuelve a Inicio antes de cerrar la app.
     BackHandler(enabled = pagerState.currentPage != 0) { goTo(0) }
 
-    LaunchedEffect(vm.message) {
-        // Se consume DESPUÉS de mostrarlo: cambiar vm.message reinicia este
-        // efecto y cancelaría el snackbar antes de que se vea.
-        vm.message?.let {
-            snackbarHostState.showSnackbar(it)
-            vm.consumeMessage()
-        }
-    }
-
     Scaffold(
+        // Avisos expressive (reemplazan al snackbar): el propio host se cierra solo.
         snackbarHost = {
-            SnackbarHost(snackbarHostState, Modifier.padding(bottom = if (isLandscape) 0.dp else PillSpace))
+            ExpressiveNoticeHost(
+                notice = vm.notice,
+                onDismiss = { id -> vm.dismissNotice(id) },
+                modifier = Modifier.padding(bottom = if (isLandscape) 0.dp else PillSpace)
+            )
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {

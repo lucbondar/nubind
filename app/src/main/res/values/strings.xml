@@ -320,4 +320,6 @@
     <string name="upd_modulo_listo_titulo">Module installed</string>
     <string name="upd_modulo_listo_cuerpo">Reboot your phone to finish applying it.</string>
     <string name="upd_reiniciar">Reboot now</string>
+    <string name="notice_channel_name">Alerts</string>
+    <string name="notice_channel_desc">Short alerts such as errors when using the quick tile</string>
 </resources>

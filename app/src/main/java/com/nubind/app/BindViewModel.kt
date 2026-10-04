@@ -32,6 +32,8 @@ import com.nubind.app.root.cleanHost
 import com.nubind.app.root.cleanTargetPath
 import com.nubind.app.root.formatCacheKb
 import com.nubind.app.root.validateTargetPath
+import com.nubind.app.ui.components.AppNotice
+import com.nubind.app.ui.components.NoticeKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -115,12 +117,23 @@ class BindViewModel : ViewModel() {
     /** Progreso de la precarga de archivos a la caché (SectionCard de Inicio en perfil Máximo). Null = no aplica. */
     var preloadStatus by mutableStateOf<PreloadStatus?>(null)
         private set
-    /** Mensaje de una sola vez; la UI lo muestra en un snackbar y lo consume. */
-    var message by mutableStateOf<String?>(null)
+    /** Aviso de una sola vez; la UI lo muestra como notificación expressive y lo cierra sola. */
+    var notice by mutableStateOf<AppNotice?>(null)
         private set
+    private var noticeSeq = 0L
 
-    fun consumeMessage() {
-        message = null
+    /** Muestra un aviso; uno nuevo reemplaza al anterior. Usable también desde la UI. */
+    fun showNotice(text: String, kind: NoticeKind = NoticeKind.Info) {
+        notice = AppNotice(text, kind, ++noticeSeq)
+    }
+
+    /** Éxito o error según [ok]. */
+    private fun showResult(ok: Boolean, okText: String, errText: String) =
+        showNotice(if (ok) okText else errText, if (ok) NoticeKind.Success else NoticeKind.Error)
+
+    /** Cierra el aviso [id] (o el actual si es null). Un id viejo no cierra uno más nuevo. */
+    fun dismissNotice(id: Long? = null) {
+        if (id == null || notice?.id == id) notice = null
     }
 
     // ---- Actualizador de la app + aviso de desfase con el módulo KSU ----
@@ -425,7 +438,7 @@ class BindViewModel : ViewModel() {
             if (r.success && (original == null || wasActive)) RootShell.setActive(cleanName)
             r
         }
-        message = if (result.success) Strings.get(R.string.servidor_guardado) else Strings.get(R.string.error_al_guardar, result.output.take(200))
+        showResult(result.success, Strings.get(R.string.servidor_guardado), Strings.get(R.string.error_al_guardar, result.output.take(200)))
         reload()
     }
 
@@ -443,22 +456,22 @@ class BindViewModel : ViewModel() {
             r
         }
         if (!result.success) {
-            message = Strings.get(R.string.error_al_guardar, result.output.take(200))
+            showNotice(Strings.get(R.string.error_al_guardar, result.output.take(200)), NoticeKind.Error)
             reload()
             return@launch
         }
-        message = Strings.get(R.string.servidor_guardado)
+        showNotice(Strings.get(R.string.servidor_guardado), NoticeKind.Success)
         reload()
 
         // Comprobación real contra Google (sesión, red, DNS, certificados):
         // así un fallo se ve ahora y no recién al intentar montar.
         val check = withContext(Dispatchers.IO) { RootShell.checkRemote(cleanName) }
-        message = if (check.success) {
-            Strings.get(R.string.google_drive_conectado)
+        if (check.success) {
+            showNotice(Strings.get(R.string.google_drive_conectado), NoticeKind.Success)
         } else {
             val detail = check.output.lines().lastOrNull { it.isNotBlank() }?.take(200)
                 ?: Strings.get(R.string.sin_respuesta_sin_red_o_tiempo)
-            Strings.get(R.string.guardado_pero_no_se_pudo_conectar, detail)
+            showNotice(Strings.get(R.string.guardado_pero_no_se_pudo_conectar, detail), NoticeKind.Warning)
         }
     }
 
@@ -481,18 +494,18 @@ class BindViewModel : ViewModel() {
             r
         }
         if (!result.success) {
-            message = Strings.get(R.string.error_al_guardar, result.output.take(200))
+            showNotice(Strings.get(R.string.error_al_guardar, result.output.take(200)), NoticeKind.Error)
             reload()
             return@launch
         }
-        message = Strings.get(R.string.servidor_guardado)
+        showNotice(Strings.get(R.string.servidor_guardado), NoticeKind.Success)
         reload()
 
         val check = withContext(Dispatchers.IO) { RootShell.checkRemote(cleanName) }
-        message = if (check.success) {
-            Strings.get(R.string.s3_conectado)
+        if (check.success) {
+            showNotice(Strings.get(R.string.s3_conectado), NoticeKind.Success)
         } else {
-            Strings.get(R.string.guardado_pero_no_se_pudo_conectar, describeS3Error(check.output))
+            showNotice(Strings.get(R.string.guardado_pero_no_se_pudo_conectar, describeS3Error(check.output)), NoticeKind.Warning)
         }
     }
 
@@ -634,12 +647,12 @@ class BindViewModel : ViewModel() {
 
     private fun performPreloadNow() = viewModelScope.launch {
         if (!isMounted) {
-            message = Strings.get(R.string.monta_el_servidor_primero)
+            showNotice(Strings.get(R.string.monta_el_servidor_primero), NoticeKind.Warning)
             return@launch
         }
         val started = withContext(Dispatchers.IO) { RootShell.preloadStart() }
         if (!started.success) {
-            message = Strings.get(R.string.no_se_pudo_iniciar_la_precarga, started.output.takeLast(200))
+            showNotice(Strings.get(R.string.no_se_pudo_iniciar_la_precarga, started.output.takeLast(200)), NoticeKind.Error)
             return@launch
         }
         preloadJob?.cancel()
@@ -691,7 +704,7 @@ class BindViewModel : ViewModel() {
                 // completas (comportamiento normal), o el script falló antes
                 // de escribir nada.
                 if (announceIfNeverStarted) {
-                    message = Strings.get(R.string.la_precarga_no_llego_a_iniciar)
+                    showNotice(Strings.get(R.string.la_precarga_no_llego_a_iniciar), NoticeKind.Info)
                 }
                 return
             }
@@ -709,7 +722,7 @@ class BindViewModel : ViewModel() {
             if (paused) RootShell.preloadPause() else RootShell.preloadResume()
         }
         if (!result.success) {
-            message = Strings.get(R.string.preload_pausa_error, result.output.takeLast(200))
+            showNotice(Strings.get(R.string.preload_pausa_error, result.output.takeLast(200)), NoticeKind.Error)
             return@launch
         }
         // Se relee de inmediato (el estado de pausa sale del archivo-bandera).
@@ -728,7 +741,7 @@ class BindViewModel : ViewModel() {
 
     fun deleteProfile(name: String) = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) { RootShell.deleteProfile(name) }
-        message = if (result.success) Strings.get(R.string.servidor_eliminado) else Strings.get(R.string.error_al_eliminar, result.output.take(200))
+        showResult(result.success, Strings.get(R.string.servidor_eliminado), Strings.get(R.string.error_al_eliminar, result.output.take(200)))
         reload()
     }
 
@@ -743,7 +756,7 @@ class BindViewModel : ViewModel() {
         if (busy) return@launch
         val target = activeName
         if (target == null && !isMounted) {
-            message = Strings.get(R.string.agrega_un_servidor_primero)
+            showNotice(Strings.get(R.string.agrega_un_servidor_primero), NoticeKind.Warning)
             return@launch
         }
         val mounted = isMounted
@@ -761,7 +774,7 @@ class BindViewModel : ViewModel() {
                 else -> RootShell.mount()
             }
         }
-        message = if (result.success) null else Strings.get(R.string.error, result.output.takeLast(200))
+        if (result.success) dismissNotice() else showNotice(Strings.get(R.string.error, result.output.takeLast(200)), NoticeKind.Error)
         reload()
         busy = false
 
@@ -780,15 +793,18 @@ class BindViewModel : ViewModel() {
         val clean = cleanTargetPath(path)
         val error = validateTargetPath(clean)
         if (error != null) {
-            message = error
+            showNotice(error, NoticeKind.Warning)
             return@launch
         }
         val result = withContext(Dispatchers.IO) { RootShell.setTargetPath(clean) }
         if (result.success) {
             targetPath = clean
-            message = if (isMounted) Strings.get(R.string.ruta_guardada_vuelve_a_montar_para) else Strings.get(R.string.ruta_guardada)
+            showNotice(
+                if (isMounted) Strings.get(R.string.ruta_guardada_vuelve_a_montar_para) else Strings.get(R.string.ruta_guardada),
+                NoticeKind.Success
+            )
         } else {
-            message = Strings.get(R.string.error_al_guardar_la_ruta, result.output.take(200))
+            showNotice(Strings.get(R.string.error_al_guardar_la_ruta, result.output.take(200)), NoticeKind.Error)
         }
     }
 
@@ -819,7 +835,7 @@ class BindViewModel : ViewModel() {
     fun setPreloadWorkers(value: Int?) = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) { RootShell.setPreloadWorkers(value) }
         preloadWorkers = withContext(Dispatchers.IO) { RootShell.readPreloadWorkers() }
-        if (!result.success) message = Strings.get(R.string.error_al_guardar, result.output.take(200))
+        if (!result.success) showNotice(Strings.get(R.string.error_al_guardar, result.output.take(200)), NoticeKind.Error)
     }
 
     private fun saveS3Perf(file: String, value: Int?) =
@@ -837,7 +853,7 @@ class BindViewModel : ViewModel() {
             cacheGb = saved.cacheGb
             ramCache = saved.ramCache
             s3Perf = saved.s3
-            message = perfSaveMessage(result)
+            perfSaveNotice(result)
         }
     }
 
@@ -845,10 +861,11 @@ class BindViewModel : ViewModel() {
         val mode: PerfMode, val cacheGb: Int?, val ramCache: Boolean, val s3: S3PerfSettings
     )
 
-    private fun perfSaveMessage(result: RootShell.Result): String? = when {
-        !result.success -> Strings.get(R.string.error_al_guardar, result.output.take(200))
-        isMounted -> Strings.get(R.string.guardado_vuelve_a_montar_para_aplicarlo)
-        else -> null
+    /** Error si falló; si quedó montado, avisa que hay que remontar; si no, ningún aviso (cierra el anterior). */
+    private fun perfSaveNotice(result: RootShell.Result) = when {
+        !result.success -> showNotice(Strings.get(R.string.error_al_guardar, result.output.take(200)), NoticeKind.Error)
+        isMounted -> showNotice(Strings.get(R.string.guardado_vuelve_a_montar_para_aplicarlo), NoticeKind.Info)
+        else -> dismissNotice()
     }
 
     fun setAutostart(enabled: Boolean) = viewModelScope.launch {
@@ -870,36 +887,42 @@ class BindViewModel : ViewModel() {
     /** Borra la caché en disco de rclone. Requiere tener el bind desmontado (ver clear_cache.sh). */
     fun clearCache() = viewModelScope.launch {
         if (isMounted) {
-            message = Strings.get(R.string.desmonta_primero_para_borrar_la_cache)
+            showNotice(Strings.get(R.string.desmonta_primero_para_borrar_la_cache), NoticeKind.Warning)
             return@launch
         }
         if (busy) return@launch
         busy = true
         val result = withContext(Dispatchers.IO) { RootShell.clearCache() }
         busy = false
-        message = if (result.success) {
+        if (result.success) {
             val kb = result.output.trim().removePrefix("OK").trim().toLongOrNull() ?: 0L
             cacheKb = 0L
-            if (kb > 0) Strings.get(R.string.cache_borrada_liberados, formatCacheKb(kb)) else Strings.get(R.string.no_habia_nada_en_cache)
+            showNotice(
+                if (kb > 0) Strings.get(R.string.cache_borrada_liberados, formatCacheKb(kb)) else Strings.get(R.string.no_habia_nada_en_cache),
+                NoticeKind.Success
+            )
         } else {
-            Strings.get(R.string.no_se_pudo_borrar_la_cache, result.output.take(200))
+            showNotice(Strings.get(R.string.no_se_pudo_borrar_la_cache, result.output.take(200)), NoticeKind.Error)
         }
     }
 
     /** Borra la caché de un solo servidor. Solo se rechaza si ese servidor es el que está montado. */
     fun clearServerCache(name: String) = viewModelScope.launch {
         if (isMounted && (mountedRemote == null || mountedRemote == name)) {
-            message = Strings.get(R.string.desmonta_primero_para_borrar_la_cache)
+            showNotice(Strings.get(R.string.desmonta_primero_para_borrar_la_cache), NoticeKind.Warning)
             return@launch
         }
         if (busy) return@launch
         busy = true
         val result = withContext(Dispatchers.IO) { RootShell.clearServerCache(name) }
-        message = if (result.success) {
+        if (result.success) {
             val kb = result.output.trim().removePrefix("OK").trim().toLongOrNull() ?: 0L
-            if (kb > 0) Strings.get(R.string.cache_servidor_borrada, name, formatCacheKb(kb)) else Strings.get(R.string.no_habia_nada_en_cache)
+            showNotice(
+                if (kb > 0) Strings.get(R.string.cache_servidor_borrada, name, formatCacheKb(kb)) else Strings.get(R.string.no_habia_nada_en_cache),
+                NoticeKind.Success
+            )
         } else {
-            Strings.get(R.string.no_se_pudo_borrar_la_cache, result.output.take(200))
+            showNotice(Strings.get(R.string.no_se_pudo_borrar_la_cache, result.output.take(200)), NoticeKind.Error)
         }
         // Relee todo: totales por servidor y el estado de la precarga, que el script pudo borrar.
         reload()

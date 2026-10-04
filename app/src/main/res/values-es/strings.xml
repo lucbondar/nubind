@@ -319,4 +319,6 @@
     <string name="upd_modulo_listo_titulo">Módulo instalado</string>
     <string name="upd_modulo_listo_cuerpo">Reinicia el teléfono para terminar de aplicarlo.</string>
     <string name="upd_reiniciar">Reiniciar ahora</string>
+    <string name="notice_channel_name">Avisos</string>
+    <string name="notice_channel_desc">Avisos breves, como errores al usar el tile de ajustes rápidos</string>
 </resources>
