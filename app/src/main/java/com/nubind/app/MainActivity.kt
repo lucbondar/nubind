@@ -345,9 +345,6 @@ private fun AppScaffold(vm: BindViewModel) {
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize().hazeSource(hazeState),
-                    // Clave por pantalla: al mostrar/ocultar Logs los índices se corren y, sin
-                    // clave, cada página se recomponía con otra pantalla (perdía scroll y estado).
-                    key = { items[it].javaClass.name },
                     beyondViewportPageCount = items.size
                 ) { page ->
                     when (items[page]) {
@@ -703,7 +700,8 @@ private fun PillEntrance(
     content: @Composable () -> Unit
 ) {
     val state = remember { MutableTransitionState(!animateIn).apply { targetState = true } }
-    state.targetState = visible
+    // Se actualiza en un efecto (no durante la composición): así solo cambia al ocultar Logs.
+    LaunchedEffect(visible) { state.targetState = visible }
     AnimatedVisibility(
         visibleState = state,
         modifier = modifier,
