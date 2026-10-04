@@ -322,4 +322,5 @@
     <string name="notice_channel_name">Avisos</string>
     <string name="notice_channel_desc">Avisos breves, como errores al usar el tile de ajustes rápidos</string>
     <string name="upd_luego">Lo haré luego</string>
+    <string name="upd_reinicio_pendiente">Reinicio pendiente</string>
 </resources>

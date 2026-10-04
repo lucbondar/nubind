@@ -43,6 +43,7 @@ import com.nubind.app.ui.components.AppIcons
 import com.nubind.app.ui.components.DualPaneContentWidth
 import com.nubind.app.ui.components.ScreenContainer
 import com.nubind.app.ui.components.SectionCard
+import com.nubind.app.ui.components.RebootReminderChip
 import com.nubind.app.ui.components.UpdateNotices
 import com.nubind.app.ui.components.updateHeaderColors
 import com.nubind.app.ui.components.rememberIsDualPane
@@ -119,19 +120,23 @@ private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
         shape = MaterialTheme.shapes.extraLarge,
         modifier = modifier
     ) {
-        Column(
-            modifier = Modifier.padding(28.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
-        ) {
-            AnimatedLogo()
-            Text("Nubind", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-            Text(
-                Strings.get(R.string.version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
-                style = MaterialTheme.typography.bodyLarge
-            )
-            // Actualizador de la app y aviso de desfase con el módulo KSU.
-            UpdateNotices(vm, Modifier.fillMaxWidth().padding(top = 6.dp))
+        Box {
+            Column(
+                modifier = Modifier.padding(28.dp).fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
+            ) {
+                AnimatedLogo()
+                Text("Nubind", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
+                Text(
+                    Strings.get(R.string.version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                // Actualizador de la app y aviso de desfase con el módulo KSU.
+                UpdateNotices(vm, Modifier.fillMaxWidth().padding(top = 6.dp))
+            }
+            // Recordatorio del reinicio pospuesto, fijo arriba a la derecha de la tarjeta.
+            RebootReminderChip(vm, Modifier.align(Alignment.TopEnd).padding(12.dp))
         }
     }
 }

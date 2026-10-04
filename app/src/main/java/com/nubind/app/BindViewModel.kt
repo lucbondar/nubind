@@ -166,14 +166,26 @@ class BindViewModel : ViewModel() {
     /** La tarjeta verde de reinicio (y la cabecera verde) se muestran. */
     val showRebootCard: Boolean get() = modulePendingReboot && !rebootCardHidden
 
+    /** Reinicio pospuesto: la tarjeta está oculta pero sigue pendiente (se muestra el recordatorio fijo). */
+    val rebootReminder: Boolean get() = modulePendingReboot && rebootCardHidden
+
     fun postponeReboot() {
         rebootCardHidden = true
+        // Posponer no debe dejar congelado el estado del actualizador: se vuelve a consultar.
+        refreshUpdates(force = true)
+    }
+
+    /** Desde el recordatorio: vuelve a mostrar la tarjeta de reinicio. */
+    fun showRebootCardAgain() {
+        rebootCardHidden = false
     }
 
     /** Última versión publicada que vio el actualizador (de ahí sale el zip del módulo). */
     private var latestInfo: UpdateInfo? = null
 
     private var updateChecked = false
+
+    private var lastUpdateCheckAt = 0L
 
     /**
      * Busca una versión nueva de la app en update.json. Al abrir la app corre
@@ -185,6 +197,7 @@ class BindViewModel : ViewModel() {
             appUpdate is AppUpdateState.Installing
         if (busy || (updateChecked && !manual)) return
         updateChecked = true
+        lastUpdateCheckAt = SystemClock.elapsedRealtime()
         viewModelScope.launch {
             appUpdate = AppUpdateState.Checking
             val started = SystemClock.elapsedRealtime()
@@ -199,6 +212,30 @@ class BindViewModel : ViewModel() {
                 info.appVersionCode > BuildConfig.VERSION_CODE -> AppUpdateState.Available(info)
                 else -> AppUpdateState.UpToDate
             }
+        }
+    }
+
+    /**
+     * Re-consulta update.json en silencio (sin pasar por "Buscando…" ni mostrar errores).
+     * Sin esto, la búsqueda del arranque quedaba congelada: si se publicaba una versión
+     * con la app ya abierta (o tras pulsar "Lo haré luego" en un aviso) seguía mostrándose
+     * "Estás al día". Se llama al volver a la app y al posponer avisos; no depende de que
+     * haya avisos pendientes de desfase o de reinicio.
+     */
+    fun refreshUpdates(force: Boolean = false) {
+        fun idle(s: AppUpdateState) = s is AppUpdateState.Idle || s is AppUpdateState.UpToDate ||
+            s is AppUpdateState.Available
+        if (!idle(appUpdate)) return
+        val now = SystemClock.elapsedRealtime()
+        if (!force && now - lastUpdateCheckAt < REFRESH_UPDATES_MS) return
+        lastUpdateCheckAt = now
+        viewModelScope.launch {
+            val info = withContext(Dispatchers.IO) { AppUpdater.fetchLatest() } ?: return@launch
+            latestInfo = info
+            // Si mientras tanto empezó una descarga o instalación, no se pisa.
+            if (!idle(appUpdate)) return@launch
+            appUpdate = if (info.appVersionCode > BuildConfig.VERSION_CODE) AppUpdateState.Available(info)
+            else AppUpdateState.UpToDate
         }
     }
 
@@ -306,6 +343,8 @@ class BindViewModel : ViewModel() {
     fun dismissModuleNotice() {
         moduleNotice?.let { prefs().edit().putString(KEY_MODULE_NOTICE_DISMISSED, noticeKey(it)).apply() }
         moduleNotice = null
+        // Descartar el aviso de desfase no debe ocultar una actualización nueva.
+        refreshUpdates(force = true)
     }
 
     private fun noticeKey(m: ModuleInfo) = "${BuildConfig.VERSION_CODE}:${m.versionCode}:${m.version}"
@@ -949,6 +988,7 @@ class BindViewModel : ViewModel() {
         const val KEY_MODULE_NOTICE_DISMISSED = "module_notice_dismissed"
         const val AUTH_POLL_MS = 600L
         const val MIN_REFRESH_MS = 500L
+        const val REFRESH_UPDATES_MS = 30_000L
         const val PERF_POLL_MS = 500L
         // La prueba entera tarda menos de 3 minutos aun con un enlace lento.
         const val PERF_TIMEOUT_MS = 300_000L

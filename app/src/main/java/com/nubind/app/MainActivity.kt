@@ -148,6 +148,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // El montaje pudo cambiar desde el quick toggle mientras la app estaba en segundo plano.
         if (vm.rootGranted == true) vm.refreshAll()
+        // Si se publicó una actualización con la app en segundo plano, que aparezca al volver.
+        vm.refreshUpdates()
     }
 }
 

@@ -190,6 +190,38 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Recordatorio fijo (arriba a la derecha de la cabecera) cuando se pospuso el reinicio
+ * del módulo ya flasheado: al tocarlo vuelve la tarjeta de reinicio. Solo se muestra
+ * mientras el reinicio siga pendiente y la tarjeta esté oculta.
+ */
+@Composable
+fun RebootReminderChip(vm: BindViewModel, modifier: Modifier = Modifier) {
+    AnimatedVisibility(
+        visible = vm.rebootReminder,
+        modifier = modifier,
+        enter = fadeIn(animationSpec = AppMotion.effects()) + scaleIn(animationSpec = AppMotion.spatial(), initialScale = 0.8f),
+        exit = fadeOut(animationSpec = AppMotion.effects())
+    ) {
+        val p = updateGreenPalette()
+        Surface(
+            onClick = vm::showRebootCardAgain,
+            color = p.accent,
+            contentColor = p.onAccent,
+            shape = RoundedCornerShape(50)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(Strings.get(R.string.upd_reinicio_pendiente), style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tarjeta del actualizador
 // ---------------------------------------------------------------------------
