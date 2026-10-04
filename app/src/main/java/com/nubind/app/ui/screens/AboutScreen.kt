@@ -1,11 +1,16 @@
 package com.nubind.app.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,11 +19,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -33,7 +41,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.style.TextAlign
@@ -50,7 +60,9 @@ import com.nubind.app.ui.components.UpdateReminderChip
 import com.nubind.app.ui.components.UpdateNotices
 import com.nubind.app.ui.components.updateHeaderColors
 import com.nubind.app.ui.components.rememberIsDualPane
+import com.nubind.app.ui.theme.updateGreenPalette
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import com.nubind.app.R
 import com.nubind.app.Strings
@@ -87,30 +99,53 @@ fun AboutScreen(vm: BindViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 HeaderCard(vm, modifier = Modifier.weight(1f).fillMaxHeight())
-                Column(modifier = Modifier.weight(1f)) { WhatItDoesCard() }
+                Column(modifier = Modifier.weight(1f)) { Entrance(1) { WhatItDoesCard() } }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) { SystemCard(vm, rcloneVersion) }
-                Column(modifier = Modifier.weight(1f)) { LinksCard(uriHandler) }
+                Column(modifier = Modifier.weight(1f)) { Entrance(2) { SystemCard(vm, rcloneVersion) } }
+                Column(modifier = Modifier.weight(1f)) { Entrance(3) { LinksCard(uriHandler) } }
             }
         } else {
             HeaderCard(vm, modifier = Modifier.fillMaxWidth())
-            WhatItDoesCard()
-            SystemCard(vm, rcloneVersion)
-            LinksCard(uriHandler)
+            Entrance(1) { WhatItDoesCard() }
+            Entrance(2) { SystemCard(vm, rcloneVersion) }
+            Entrance(3) { LinksCard(uriHandler) }
         }
 
-        Text(
-            Strings.get(R.string.usa_rclone_licencia_mit_libsu_apache),
-            style = MaterialTheme.typography.bodySmall,
-            color = scheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
-        )
+        Entrance(4) {
+            Text(
+                Strings.get(R.string.usa_rclone_licencia_mit_libsu_apache),
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+            )
+        }
     }
+}
+
+/**
+ * Entrada escalonada de las tarjetas: aparecen una tras otra subiendo un poco con un
+ * resorte suave. Solo mueve y desvanece (no cambia el tamaño), así el contenido no salta
+ * mientras llegan. La cabecera con el logo no pasa por aquí: el icono queda intacto.
+ */
+@Composable
+private fun Entrance(index: Int, content: @Composable () -> Unit) {
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay(index * 80L)
+        progress.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow))
+    }
+    val rise = with(LocalDensity.current) { 28.dp.toPx() }
+    Box(
+        Modifier.graphicsLayer {
+            alpha = progress.value.coerceIn(0f, 1f)
+            translationY = (1f - progress.value) * rise
+        }
+    ) { content() }
 }
 
 @Composable
@@ -131,10 +166,18 @@ private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
             ) {
                 AnimatedLogo()
                 Text("Nubind", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-                Text(
-                    Strings.get(R.string.version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                // Versión en píldora translúcida del color del texto de la tarjeta.
+                Surface(
+                    color = LocalContentColor.current.copy(alpha = 0.14f),
+                    contentColor = LocalContentColor.current,
+                    shape = CircleShape
+                ) {
+                    Text(
+                        Strings.get(R.string.version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
+                    )
+                }
                 // Actualizador de la app y aviso de desfase con el módulo KSU.
                 UpdateNotices(vm, Modifier.fillMaxWidth().padding(top = 6.dp))
             }
@@ -151,10 +194,38 @@ private fun WhatItDoesCard() {
         icon = Icons.Default.Info,
         subtitle = Strings.get(R.string.monta_un_servidor_ftp_google_drive)
     ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // El texto trae los pasos como "1. ...\n2. ...": se quita la numeración y se
+            // dibuja cada paso con su insignia.
+            Strings.get(R.string.s_1_agrega_un_servidor_en_la)
+                .lines()
+                .filter { it.isNotBlank() }
+                .forEachIndexed { i, line ->
+                    StepRow(i + 1, line.replace(Regex("^\\s*\\d+[.)]\\s*"), ""))
+                }
+        }
+    }
+}
+
+@Composable
+private fun StepRow(number: Int, text: String) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            Modifier.size(32.dp).background(scheme.primaryContainer, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(number.toString(), style = MaterialTheme.typography.labelLarge, color = scheme.onPrimaryContainer)
+        }
         Text(
-            Strings.get(R.string.s_1_agrega_un_servidor_en_la),
+            text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = scheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
         )
     }
 }
@@ -162,11 +233,21 @@ private fun WhatItDoesCard() {
 @Composable
 private fun SystemCard(vm: BindViewModel, rcloneVersion: String?) {
     SectionCard(title = Strings.get(R.string.sistema), icon = Icons.Default.Build) {
-        InfoRow(Strings.get(R.string.acceso_root), when (vm.rootGranted) {
-            true -> Strings.get(R.string.concedido)
-            false -> Strings.get(R.string.no_disponible)
-            null -> Strings.get(R.string.comprobando)
-        })
+        val scheme = MaterialTheme.colorScheme
+        InfoRow(
+            Strings.get(R.string.acceso_root),
+            when (vm.rootGranted) {
+                true -> Strings.get(R.string.concedido)
+                false -> Strings.get(R.string.no_disponible)
+                null -> Strings.get(R.string.comprobando)
+            },
+            // Punto de estado: verde con root, rojo sin él, gris mientras se comprueba.
+            dot = when (vm.rootGranted) {
+                true -> updateGreenPalette().accent
+                false -> scheme.error
+                null -> scheme.outline
+            }
+        )
         InfoRow("rclone", rcloneVersion ?: "—")
         InfoRow(Strings.get(R.string.interfaz), "Jetpack Compose · Material 3 Expressive")
     }
@@ -176,9 +257,13 @@ private fun SystemCard(vm: BindViewModel, rcloneVersion: String?) {
 private fun LinksCard(uriHandler: UriHandler) {
     SectionCard(title = Strings.get(R.string.enlaces), icon = Icons.Default.Share) {
         FilledTonalButton(onClick = { uriHandler.openUri(REPO_URL) }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
             Text(Strings.get(R.string.codigo_fuente_en_github))
         }
         OutlinedButton(onClick = { uriHandler.openUri(RCLONE_URL) }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
             Text(Strings.get(R.string.sitio_de_rclone))
         }
         HorizontalDivider()
@@ -209,13 +294,28 @@ private fun SocialButton(icon: ImageVector, contentDescription: String, onClick:
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) {
+private fun InfoRow(label: String, value: String, dot: Color? = null) {
+    val scheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.End, modifier = Modifier.padding(start = 16.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+        // Valor en píldora; con [dot] lleva un punto de estado delante.
+        Surface(
+            color = scheme.surfaceContainerHighest,
+            shape = CircleShape,
+            modifier = Modifier.padding(start = 16.dp).weight(1f, fill = false)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (dot != null) Box(Modifier.size(8.dp).background(dot, CircleShape))
+                Text(value, style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.End, modifier = Modifier.weight(1f, fill = false))
+            }
+        }
     }
 }
