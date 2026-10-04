@@ -158,8 +158,11 @@ class BindViewModel : ViewModel() {
         private set
 
     /**
-     * El usuario pulsó "Lo haré luego" en la tarjeta de reinicio: se oculta solo en esta
-     * sesión (al abrir la app de nuevo vuelve, porque el reinicio sigue pendiente).
+     * El usuario pulsó "Lo haré luego" en la tarjeta de reinicio: la tarjeta verde queda
+     * oculta y solo queda el chip "Reinicio pendiente". Se guarda en las preferencias
+     * ([KEY_REBOOT_POSTPONED]), así que sobrevive a cerrar la app; la tarjeta no vuelve
+     * hasta tocar el chip o hasta que se flashee otro módulo. Se limpia sola cuando el
+     * reinicio ya no está pendiente (el teléfono se reinició).
      */
     private var rebootCardHidden by mutableStateOf(false)
 
@@ -171,6 +174,7 @@ class BindViewModel : ViewModel() {
 
     fun postponeReboot() {
         rebootCardHidden = true
+        prefs().edit().putBoolean(KEY_REBOOT_POSTPONED, true).apply()
         // Posponer no debe dejar congelado el estado del actualizador: se vuelve a consultar.
         refreshUpdates(force = true)
     }
@@ -178,6 +182,7 @@ class BindViewModel : ViewModel() {
     /** Desde el recordatorio: vuelve a mostrar la tarjeta de reinicio. */
     fun showRebootCardAgain() {
         rebootCardHidden = false
+        prefs().edit().putBoolean(KEY_REBOOT_POSTPONED, false).apply()
     }
 
     /** Última versión publicada que vio el actualizador (de ahí sale el zip del módulo). */
@@ -276,8 +281,17 @@ class BindViewModel : ViewModel() {
             // Un módulo ya flasheado espera al reinicio en modules_update: si trae esta
             // versión de la app, el desfase ya está resuelto y solo falta reiniciar.
             val pending = withContext(Dispatchers.IO) { AppUpdater.readPendingModuleInfo() }
-            modulePendingReboot = pending != null &&
+            val rebootPending = pending != null &&
                 !AppUpdater.isModuleBehind(pending, BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME)
+            // Primero se restaura lo pospuesto y luego el pendiente, para que la tarjeta no parpadee.
+            if (rebootPending) {
+                rebootCardHidden = prefs().getBoolean(KEY_REBOOT_POSTPONED, false)
+            } else {
+                // Ya no hay reinicio pendiente (se reinició): el chip no debe quedar guardado.
+                rebootCardHidden = false
+                prefs().edit().putBoolean(KEY_REBOOT_POSTPONED, false).apply()
+            }
+            modulePendingReboot = rebootPending
             if (modulePendingReboot) {
                 moduleNotice = null
                 return@launch
@@ -329,6 +343,7 @@ class BindViewModel : ViewModel() {
                 moduleFlash = ModuleFlashState.Idle
                 moduleNotice = null
                 rebootCardHidden = false
+                prefs().edit().putBoolean(KEY_REBOOT_POSTPONED, false).apply()
                 modulePendingReboot = true
             } else {
                 moduleFlash = ModuleFlashState.Failed(error)
@@ -986,6 +1001,7 @@ class BindViewModel : ViewModel() {
         const val PREFS_NAME = "nubind_prefs"
         const val KEY_SKIP_METERED_WARNING = "skip_metered_warning"
         const val KEY_MODULE_NOTICE_DISMISSED = "module_notice_dismissed"
+        const val KEY_REBOOT_POSTPONED = "reboot_postponed"
         const val AUTH_POLL_MS = 600L
         const val MIN_REFRESH_MS = 500L
         const val REFRESH_UPDATES_MS = 30_000L
