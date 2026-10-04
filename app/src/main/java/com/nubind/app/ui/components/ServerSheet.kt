@@ -95,7 +95,7 @@ fun ServerSheet(
     driveAuth: DriveAuthState,
     onDriveLogin: (clientId: String, clientSecret: String) -> Unit,
     onDriveCancel: () -> Unit,
-    onSaveFtp: (name: String, host: String, port: String, user: String, pass: String) -> Unit,
+    onSaveFtp: (name: String, host: String, port: String, user: String, pass: String, folder: String) -> Unit,
     onSaveDrive: (name: String, token: String?, options: DriveOptions) -> Unit,
     onSaveS3: (name: String, options: S3Options, secret: String) -> Unit,
     onDismiss: () -> Unit
@@ -106,6 +106,7 @@ fun ServerSheet(
     var port by remember { mutableStateOf(initial?.port ?: "21") }
     var user by remember { mutableStateOf(initial?.user ?: "") }
     var pass by remember { mutableStateOf("") }
+    var ftpFolder by remember { mutableStateOf(initial?.folder ?: "") }
     var nameError by remember { mutableStateOf<String?>(null) }
     var hostError by remember { mutableStateOf<String?>(null) }
     var portError by remember { mutableStateOf<String?>(null) }
@@ -377,6 +378,18 @@ fun ServerSheet(
                     } else null,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = ftpFolder,
+                    // Se guarda lo escrito y se limpia al guardar (igual que el bucket de S3).
+                    onValueChange = { ftpFolder = it },
+                    // Teclado de direcciones: trae la "/" en la fila principal.
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    label = { Text(Strings.get(R.string.carpeta_ftp_opcional)) },
+                    supportingText = { Text(Strings.get(R.string.carpeta_ftp_ayuda)) },
+                    singleLine = true,
                     shape = MaterialTheme.shapes.large,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -728,7 +741,7 @@ fun ServerSheet(
                         val portNumber = port.trim().toIntOrNull()
                         portError = if (portNumber == null || portNumber !in 1..65535) Strings.get(R.string.usa_un_puerto_entre_1_y) else null
                         if (nameError == null && hostError == null && portError == null) {
-                            onSaveFtp(cleanName, host, port, user, pass)
+                            onSaveFtp(cleanName, host, port, user, pass, ftpFolder)
                         }
                     } else if (type == RemoteType.S3) {
                         val endpoint: String

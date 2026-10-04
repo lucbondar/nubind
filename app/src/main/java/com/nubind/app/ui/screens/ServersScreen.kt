@@ -158,8 +158,8 @@ fun ServersScreen(vm: BindViewModel) {
             driveAuth = vm.driveAuth,
             onDriveLogin = { clientId, clientSecret -> vm.startDriveLogin(clientId, clientSecret) },
             onDriveCancel = { vm.cancelDriveLogin() },
-            onSaveFtp = { name, host, port, user, pass ->
-                vm.saveProfile(editTarget?.name, name, host, port, user, pass)
+            onSaveFtp = { name, host, port, user, pass, folder ->
+                vm.saveProfile(editTarget?.name, name, host, port, user, pass, folder)
                 vm.cancelDriveLogin()
                 showSheet = false
             },

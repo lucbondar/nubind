@@ -286,4 +286,6 @@
     <string name="preload_workers_title">Descargas en paralelo</string>
     <string name="preload_workers_unit">descargas</string>
     <string name="preload_workers_hint">Se aplica en la próxima precarga, sin volver a montar. Más descargas aceleran los archivos chicos, pero demasiadas pueden chocar con los límites de peticiones del servidor (sobre todo Google Drive).</string>
+    <string name="carpeta_ftp_opcional">Carpeta (opcional)</string>
+    <string name="carpeta_ftp_ayuda">Monta solo esta carpeta del servidor, p. ej. /Juegos. Vacío monta todo el servidor, que puede tardar en listarse y precargarse.</string>
 </resources>

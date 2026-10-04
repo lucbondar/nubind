@@ -143,7 +143,7 @@ object RootShell {
      * distinto es un renombrado). Con [pass] vacío al editar se conserva la
      * contraseña que ya estaba guardada.
      */
-    fun saveProfile(original: String?, name: String, host: String, port: String, user: String, pass: String): Result {
+    fun saveProfile(original: String?, name: String, host: String, port: String, user: String, pass: String, folder: String = ""): Result {
         val conf = readConf()
         if (name != original && conf.containsKey(name)) {
             return Result(false, Strings.get(R.string.ya_existe_un_servidor_llamado, name))
@@ -177,10 +177,13 @@ object RootShell {
         section["port"] = port
         section["user"] = user
         if (obscured != null) section["pass"] = obscured
+        // Carpeta a montar (clave propia que leen mount.sh, preload.sh y check_remote.sh).
+        if (folder.isNotEmpty()) section["bind_path"] = folder
         // Conserva claves extra que el usuario haya puesto a mano (tls, etc.)
         if (old != null) {
             for ((k, v) in old) {
-                if (!section.containsKey(k)) section[k] = v
+                // bind_path lo administra la app (campo "Carpeta"): vacío la borra.
+                if (k != "bind_path" && !section.containsKey(k)) section[k] = v
             }
         }
 

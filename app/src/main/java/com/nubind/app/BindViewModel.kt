@@ -15,6 +15,7 @@ import com.nubind.app.root.DriveOptions
 import com.nubind.app.root.ModulePaths
 import com.nubind.app.root.S3Options
 import com.nubind.app.root.S3PerfSettings
+import com.nubind.app.root.cleanFtpFolder
 import com.nubind.app.root.PerfMode
 import com.nubind.app.root.PerfTestParser
 import com.nubind.app.root.PerfTestState
@@ -247,12 +248,13 @@ class BindViewModel : ViewModel() {
         host: String,
         port: String,
         user: String,
-        pass: String
+        pass: String,
+        folder: String = ""
     ) = viewModelScope.launch {
         val cleanName = name.trim()
         val wasActive = original != null && original == activeName
         val result = withContext(Dispatchers.IO) {
-            val r = RootShell.saveProfile(original, cleanName, cleanHost(host), port.trim(), user.trim(), pass)
+            val r = RootShell.saveProfile(original, cleanName, cleanHost(host), port.trim(), user.trim(), pass, cleanFtpFolder(folder))
             // Un servidor nuevo queda seleccionado; uno renombrado conserva la selección.
             if (r.success && (original == null || wasActive)) RootShell.setActive(cleanName)
             r

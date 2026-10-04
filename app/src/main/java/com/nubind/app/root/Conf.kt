@@ -84,6 +84,8 @@ data class RemoteProfile(
     val port: String = "21",
     val user: String = "",
     val hasPassword: Boolean = false,
+    /** Carpeta del servidor FTP que se monta (clave propia "bind_path"); vacío = la raíz. Solo FTP. */
+    val folder: String = "",
     val drive: DriveOptions? = null,
     val s3: S3Options? = null
 )
@@ -262,7 +264,8 @@ fun Conf.toProfiles(): List<RemoteProfile> =
                 host = v["host"].orEmpty(),
                 port = v["port"] ?: "21",
                 user = v["user"].orEmpty(),
-                hasPassword = !v["pass"].isNullOrEmpty()
+                hasPassword = !v["pass"].isNullOrEmpty(),
+                folder = v["bind_path"].orEmpty()
             )
             RemoteType.DRIVE.rclone -> RemoteProfile(
                 name = entry.key,
@@ -417,6 +420,11 @@ fun validateS3Endpoint(endpoint: String): String? = when {
     endpoint.any { it.isWhitespace() } -> Strings.get(R.string.no_puede_llevar_espacios)
     else -> null
 }
+
+/** Carpeta FTP escrita o pegada: se quitan espacios y las "/" del final ("/Juegos/" -> "/Juegos"). */
+fun cleanFtpFolder(raw: String): String =
+    // "/" solo (o vacío) queda en "": es la raíz y no se guarda nada.
+    raw.trim().trimEnd('/')
 
 /** Bucket pegado como "s3://bucket/carpeta" o "/bucket/": se deja "bucket/carpeta". */
 fun cleanS3Bucket(raw: String): String =
