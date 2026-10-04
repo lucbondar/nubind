@@ -252,6 +252,11 @@ private fun AppScaffold(vm: BindViewModel) {
         scope.launch { pagerState.animateScrollToPage(page) }
     }
 
+    // Al mostrar Logs desde Acerca de: el botón entra animado en la píldora y, tras asentarse
+    // el pager, la app viaja a esa pestaña (el indicador de la píldora se desliza hasta ella).
+    var goToLogs by remember { mutableStateOf(false) }
+    var logsEntering by remember { mutableStateOf(false) }
+
     // Al mostrar/ocultar Logs los índices del pager se corren: se vuelve a la misma pestaña
     // (o a Inicio si era la propia Logs).
     var pendingScreen by remember { mutableStateOf<Screen?>(null) }
@@ -269,10 +274,6 @@ private fun AppScaffold(vm: BindViewModel) {
             }
         }
     }
-    // Al mostrar Logs desde Acerca de: el botón entra animado en la píldora y, tras asentarse
-    // el pager, la app viaja a esa pestaña (el indicador de la píldora se desliza hasta ella).
-    var goToLogs by remember { mutableStateOf(false) }
-    var logsEntering by remember { mutableStateOf(false) }
     LaunchedEffect(logsEntering) {
         if (logsEntering) {
             delay(1500L)
