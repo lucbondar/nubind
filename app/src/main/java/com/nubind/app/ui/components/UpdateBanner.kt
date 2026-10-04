@@ -89,6 +89,22 @@ private fun AppUpdateState.kind(): UpdateKind? = when (this) {
 private fun AppUpdateState.isGreen(): Boolean =
     this is AppUpdateState.Available || this is AppUpdateState.Downloading || this is AppUpdateState.Installing
 
+/**
+ * Paleta de estado con la que se tiñe la cabecera ahora mismo: verde (actualización por instalar o
+ * reinicio pendiente), ámbar (aviso de desfase a la vista; el verde manda si coinciden) o null
+ * (degradado Monet). La usan la cabecera y las tarjetas de dentro, para que todo comparta color.
+ */
+@Composable
+private fun headerStatusPalette(
+    state: AppUpdateState,
+    rebootPending: Boolean,
+    moduleBehind: Boolean
+): StatusPalette? = when {
+    state.isGreen() || rebootPending -> updateGreenPalette()
+    moduleBehind -> syncAmberPalette()
+    else -> null
+}
+
 /** Colores de la tarjeta de cabecera: degradado diagonal [start] -> [end] y color del contenido. */
 @Immutable
 class HeaderColors(val start: Color, val end: Color, val content: Color)
@@ -111,14 +127,7 @@ fun updateHeaderColors(
     moduleBehind: Boolean = false
 ): HeaderColors {
     val scheme = MaterialTheme.colorScheme
-    val g = updateGreenPalette()
-    val a = syncAmberPalette()
-    val green = state.isGreen() || rebootPending
-    val status = when {
-        green -> g
-        moduleBehind -> a
-        else -> null
-    }
+    val status = headerStatusPalette(state, rebootPending, moduleBehind)
     val start by animateColorAsState(
         status?.container ?: scheme.primaryContainer,
         animationSpec = tween(500), label = "headerStart"
@@ -155,6 +164,8 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
     val uriHandler = LocalUriHandler.current
     val state = vm.appUpdate
     val notice = vm.moduleNotice
+    // Misma paleta que la cabecera: la tarjeta del actualizador se adapta a su color.
+    val headerStatus = headerStatusPalette(state, vm.showRebootCard, notice != null)
 
     Column(
         modifier = modifier.animateContentSize(animationSpec = AppMotion.spatial()),
@@ -174,6 +185,7 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
                 UpdateCard(
                     kind = kind,
                     state = vm.appUpdate,
+                    headerStatus = headerStatus,
                     onUpdate = { info ->
                         // Con root se instala sola; sin root se baja el APK con el navegador.
                         if (vm.rootGranted == true) vm.installUpdate() else uriHandler.openUri(info.apkUrl)
@@ -269,16 +281,16 @@ fun UpdateReminderChip(vm: BindViewModel, modifier: Modifier = Modifier) {
 private fun UpdateCard(
     kind: UpdateKind,
     state: AppUpdateState,
+    headerStatus: StatusPalette?,
     onUpdate: (UpdateInfo) -> Unit,
     onCheck: () -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
-    // Con la cabecera en verde (hay actualización) todo el bloque usa la paleta verde.
-    val g = updateGreenPalette()
-    val green = kind == UpdateKind.AVAILABLE || kind == UpdateKind.DOWNLOADING || kind == UpdateKind.INSTALLING
-    val accent = if (green) g.accent else scheme.primary
-    val onAccent = if (green) g.onAccent else scheme.onPrimary
-    val base = if (green) g.onContainer else scheme.onPrimaryContainer
+    // Con la cabecera teñida (verde: actualización o reinicio pendiente; ámbar: desfase) todo el
+    // bloque usa esa paleta, también "Buscando…"; sin tinte, el color dinámico del tema.
+    val accent = headerStatus?.accent ?: scheme.primary
+    val onAccent = headerStatus?.onAccent ?: scheme.onPrimary
+    val base = headerStatus?.onContainer ?: scheme.onPrimaryContainer
     val (container, content) = when (kind) {
         // Disponible es lo importante: color pleno sobre la cabecera.
         UpdateKind.AVAILABLE -> accent to onAccent
