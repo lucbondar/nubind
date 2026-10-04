@@ -34,4 +34,8 @@ if [ "$RC" = 0 ]; then
 else
     echo "$OUT" | tail -n 3 > "$RES"
 fi
-am start --user 0 -n "$PKG/$ACT" >/dev/null 2>&1
+# Se reabre con el MISMO intent que usa el launcher (MAIN + LAUNCHER). Con "am start -n"
+# a secas el intent raíz de la tarea no coincide con el del launcher, y al volver a la app
+# desde el launcher Android apila una instancia nueva encima (arranca en Inicio y pierde
+# la pestaña). Con el mismo intent solo trae la tarea al frente.
+am start --user 0 -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -f 0x10200000 -n "$PKG/$ACT" >/dev/null 2>&1

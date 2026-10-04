@@ -32,7 +32,9 @@ esac
 case "$OUT" in
     *Success*)
         rm -f "$APK" "$0"
-        am start --user 0 -n "$PKG/$ACT" >/dev/null 2>&1
+        # Mismo intent que el launcher (MAIN + LAUNCHER): con "am start -n" a secas, al volver a la app
+        # desde el launcher Android apila una instancia nueva encima y arranca en Inicio.
+        am start --user 0 -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -f 0x10200000 -n "$PKG/$ACT" >/dev/null 2>&1
         ;;
     *)
         echo "$OUT" | tail -n 3 > "$RES"
