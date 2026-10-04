@@ -46,5 +46,9 @@ También lo lee KSU mediante `updateJson` en `module/module.prop`.
 ## Precarga: pausa
 `preload.sh` mira el archivo `preload.paused` (en el directorio del módulo) antes de cada archivo: el que se está leyendo termina y los workers esperan. La app lo crea/borra con `RootShell.preloadPause()/preloadResume()`; `preloadStatus()` añade `"paused":true` al JSON si el archivo existe (`PreloadStatus.paused`). Botón en la tarjeta de Inicio (`BindViewModel.setPreloadPaused`) y acción en la notificación (`PreloadService`, acciones `PRELOAD_PAUSE/RESUME`). El script y `unmount.sh` limpian la bandera; los topes de seguridad (app y servicio) no corren mientras está en pausa.
 
+## Reglas de trabajo
+- **Cada cambio sube la sub versión** (2.5.4 -> 2.5.5), sin esperar a que lo pidan. Va en tres sitios que deben coincidir: `versionName` en `app/build.gradle.kts`, y `version=v...` y `appVersion=...` en `module/module.prop`. El `versionCode` no se toca: lo fija el CI.
+- **Lo último de cada respuesta es el comando completo para Termux**: `unzip` del zip entregado, `git add -A`, `git commit -m "<versión>: <resumen>"` y `git push origin preview`, en un solo bloque. La rama de trabajo es `preview`.
+
 ## Estado
 El código del actualizador se escribió sin poder compilarlo localmente. Si el CI da errores de compilación en estos archivos, corrígelos primero.

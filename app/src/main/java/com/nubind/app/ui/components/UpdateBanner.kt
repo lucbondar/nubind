@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -98,14 +99,15 @@ private fun AppUpdateState.isGreen(): Boolean =
 
 /**
  * Colores (fondo, contenido) de la tarjeta de cabecera de Acerca de: los de
- * siempre (primaryContainer) y, cuando se encuentra una actualización, verde,
- * con transición animada. Solo cambia el aspecto: no toca el flujo del actualizador.
+ * siempre (primaryContainer) y, cuando se encuentra una actualización o el módulo
+ * quedó flasheado a la espera de reiniciar ([rebootPending]), verde, con
+ * transición animada. Solo cambia el aspecto: no toca el flujo del actualizador.
  */
 @Composable
-fun updateHeaderColors(state: AppUpdateState): Pair<Color, Color> {
+fun updateHeaderColors(state: AppUpdateState, rebootPending: Boolean = false): Pair<Color, Color> {
     val scheme = MaterialTheme.colorScheme
     val g = updateGreenPalette()
-    val green = state.isGreen()
+    val green = state.isGreen() || rebootPending
     val container by animateColorAsState(
         if (green) g.container else scheme.primaryContainer,
         animationSpec = tween(500), label = "headerContainer"
@@ -145,8 +147,9 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // El contenido se anima por "tipo" de estado, no por cada tick de progreso.
+        // Con el reinicio pendiente, "Estás al día" sobra: la tarjeta de reinicio ya dice que todo está listo.
         AnimatedContent(
-            targetState = state.kind(),
+            targetState = state.kind().takeUnless { vm.modulePendingReboot && it == UpdateKind.UP_TO_DATE },
             transitionSpec = {
                 (fadeIn(animationSpec = AppMotion.effects()) +
                     scaleIn(animationSpec = AppMotion.spatial(), initialScale = 0.92f)) togetherWith
@@ -432,13 +435,17 @@ private fun ModuleNoticeCard(
     }
 }
 
-/** Módulo flasheado con éxito: se activa al reiniciar. */
+/**
+ * Módulo flasheado con éxito: se activa al reiniciar. Va sobre la cabecera, que en
+ * ese caso se pone verde (ver [updateHeaderColors]), así que la tarjeta es solo un
+ * velo translúcido del mismo verde y el único color pleno es el botón.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ModuleRebootCard(onReboot: () -> Unit) {
     val p = updateGreenPalette()
     Surface(
-        color = p.container,
+        color = p.onContainer.copy(alpha = 0.10f),
         contentColor = p.onContainer,
         shape = RoundedCornerShape(28.dp),
         modifier = Modifier.fillMaxWidth()
@@ -451,8 +458,9 @@ private fun ModuleRebootCard(onReboot: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Icono de reinicio (no otro check: "Estás al día" ya usa uno).
                 CookieBadge(
-                    icon = Icons.Default.Check,
+                    icon = Icons.Default.RestartAlt,
                     shape = MaterialShapes.Cookie9Sided.toShape(),
                     background = p.accent,
                     glyph = p.onAccent,

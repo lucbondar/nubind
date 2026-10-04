@@ -112,7 +112,7 @@ fun AboutScreen(vm: BindViewModel) {
 @Composable
 private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
     // Se vuelve verde al encontrar una actualización (ver updateHeaderColors).
-    val (container, content) = updateHeaderColors(vm.appUpdate)
+    val (container, content) = updateHeaderColors(vm.appUpdate, vm.modulePendingReboot)
     Surface(
         color = container,
         contentColor = content,
