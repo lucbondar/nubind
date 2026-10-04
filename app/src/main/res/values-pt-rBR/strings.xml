@@ -312,7 +312,7 @@
     <string name="upd_sin_conexion">Não foi possível contatar o servidor de atualizações. Verifique sua conexão.</string>
     <string name="upd_sin_respuesta">O instalador não respondeu. Tente de novo.</string>
     <string name="upd_modulo_titulo">Módulo desatualizado</string>
-    <string name="upd_modulo_cuerpo">O Nubind pode funcionar, mas o módulo ainda traz um app mais antigo. Baixe e flashe o módulo por aqui para concluir a atualização.</string>
+    <string name="upd_modulo_cuerpo">O módulo instalado inclui uma versão anterior do app. O Nubind pode continuar funcionando, mas recomenda-se atualizar o módulo por aqui para concluir a atualização.</string>
     <string name="upd_modulo_versiones">Módulo %1$s · App %2$s</string>
     <string name="upd_abrir_ksu">Abrir KernelSU</string>
     <string name="upd_ksu_no_encontrada">App do KernelSU não encontrado</string>

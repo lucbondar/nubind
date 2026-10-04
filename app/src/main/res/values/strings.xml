@@ -313,7 +313,7 @@
     <string name="upd_sin_conexion">Couldn\'t reach the update server. Check your connection.</string>
     <string name="upd_sin_respuesta">The installer didn\'t respond. Try again.</string>
     <string name="upd_modulo_titulo">Module out of sync</string>
-    <string name="upd_modulo_cuerpo">Nubind may work, but the module still carries an older app. Download and flash the module from here to finish the update.</string>
+    <string name="upd_modulo_cuerpo">The installed module bundles an earlier version of the app. Nubind may continue to work, but updating the module from here is recommended to complete the update.</string>
     <string name="upd_modulo_versiones">Module %1$s · App %2$s</string>
     <string name="upd_abrir_ksu">Open KernelSU</string>
     <string name="upd_ksu_no_encontrada">KernelSU app not found</string>
