@@ -200,6 +200,7 @@
     <string name="expandir">Expandir</string>
     <string name="usa_rclone_licencia_mit_libsu_apache">Usa rclone (licença MIT), libsu (Apache 2.0) e Haze (Apache 2.0).</string>
     <string name="version">Versão %1$s (%2$s)</string>
+    <string name="version_modulo">Módulo %1$s</string>
     <string name="que_hace">O que faz</string>
     <string name="monta_un_servidor_ftp_google_drive">Monta um servidor FTP, o Google Drive ou um bucket S3 (Oracle Cloud, Amazon S3, Cloudflare R2 e compatíveis) com o rclone e o mostra como mais uma pasta do seu armazenamento interno, para que qualquer app possa usá-lo.</string>
     <string name="s_1_agrega_un_servidor_en_la">1. Adicione um servidor na aba Servidores.\n2. Escolha a pasta de destino em Início.\n3. Toque em Montar: os arquivos remotos aparecem ali.</string>

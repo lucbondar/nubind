@@ -200,6 +200,7 @@
     <string name="expandir">Expand</string>
     <string name="usa_rclone_licencia_mit_libsu_apache">Uses rclone (MIT license), libsu (Apache 2.0) and Haze (Apache 2.0).</string>
     <string name="version">Version %1$s (%2$s)</string>
+    <string name="version_modulo">Module %1$s</string>
     <string name="que_hace">What it does</string>
     <string name="monta_un_servidor_ftp_google_drive">Mounts an FTP server, Google Drive or an S3 bucket (Oracle Cloud, Amazon S3, Cloudflare R2 and compatibles) with rclone and shows it as just another folder in your internal storage, so any app can use it.</string>
     <string name="s_1_agrega_un_servidor_en_la">1. Add a server in the Servers tab.\n2. Choose the destination folder in Home.\n3. Tap Mount: the remote files appear there.</string>

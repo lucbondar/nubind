@@ -164,6 +164,13 @@ class BindViewModel : ViewModel() {
         moduleNotice = moduleBehind
     }
 
+    /**
+     * Versión del módulo KSU instalado (sin la "v", p. ej. "2.5.28") para la info de versión de
+     * Acerca de; null = sin root o módulo no instalado, y entonces no se muestra.
+     */
+    var moduleVersion by mutableStateOf<String?>(null)
+        private set
+
     /** Descarga y flasheo del módulo desde el aviso de desfase. */
     var moduleFlash by mutableStateOf<ModuleFlashState>(ModuleFlashState.Idle)
         private set
@@ -296,6 +303,7 @@ class BindViewModel : ViewModel() {
     private fun checkModuleSync() {
         viewModelScope.launch {
             val module = withContext(Dispatchers.IO) { AppUpdater.readModuleInfo() }
+            moduleVersion = module?.let { AppUpdater.numericVersion(it.version) ?: it.version }
             // Un módulo ya flasheado espera al reinicio en modules_update: si trae esta
             // versión de la app, el desfase ya está resuelto y solo falta reiniciar.
             val pending = withContext(Dispatchers.IO) { AppUpdater.readPendingModuleInfo() }

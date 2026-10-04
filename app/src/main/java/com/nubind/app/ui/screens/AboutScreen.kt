@@ -1,5 +1,6 @@
 package com.nubind.app.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -53,6 +54,7 @@ import com.nubind.app.BuildConfig
 import com.nubind.app.root.AppUpdateState
 import com.nubind.app.root.RootShell
 import com.nubind.app.ui.components.AnimatedLogo
+import com.nubind.app.ui.theme.AppMotion
 import com.nubind.app.ui.components.AppIcons
 import com.nubind.app.ui.components.DualPaneContentWidth
 import com.nubind.app.ui.components.ScreenContainer
@@ -174,17 +176,30 @@ private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
             ) {
                 AnimatedLogo()
                 Text("Nubind", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-                // Versión en píldora translúcida del color del texto de la tarjeta.
+                // Versión en píldora translúcida del color del texto de la tarjeta: la de la app y,
+                // con root y módulo instalado, debajo la del módulo (llega después, al confirmar root).
                 Surface(
                     color = LocalContentColor.current.copy(alpha = 0.14f),
                     contentColor = LocalContentColor.current,
-                    shape = CircleShape
+                    shape = CircleShape,
+                    modifier = Modifier.animateContentSize(animationSpec = AppMotion.spatial())
                 ) {
-                    Text(
-                        Strings.get(R.string.version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
-                    )
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            Strings.get(R.string.version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        vm.moduleVersion?.let {
+                            Text(
+                                Strings.get(R.string.version_modulo, it),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = LocalContentColor.current.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
                 }
                 // Actualizador de la app y aviso de desfase con el módulo KSU.
                 UpdateNotices(vm, Modifier.fillMaxWidth().padding(top = 6.dp))
