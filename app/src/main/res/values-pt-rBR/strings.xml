@@ -79,7 +79,7 @@
     <string name="nombre_no_valido">Nome inválido</string>
     <string name="crear">Criar</string>
     <string name="nueva_carpeta_aqui">Nova pasta aqui</string>
-    <string name="subir">‹ Subir</string>
+    <string name="subir">Subir</string>
     <string name="sin_subcarpetas">Sem subpastas</string>
     <string name="entra_en_una_carpeta_para_poder">Entre em uma pasta para poder escolhê-la. O conteúdo que ela já tiver ficará oculto enquanto o servidor estiver montado.</string>
     <string name="el_contenido_que_ya_tenga_esta">O conteúdo que esta pasta já tiver ficará oculto enquanto o servidor estiver montado.</string>

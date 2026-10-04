@@ -79,7 +79,7 @@
     <string name="nombre_no_valido">Invalid name</string>
     <string name="crear">Create</string>
     <string name="nueva_carpeta_aqui">New folder here</string>
-    <string name="subir">‹ Up</string>
+    <string name="subir">Up</string>
     <string name="sin_subcarpetas">No subfolders</string>
     <string name="entra_en_una_carpeta_para_poder">Open a folder to be able to choose it. Any content it already has will be hidden while the server is mounted.</string>
     <string name="el_contenido_que_ya_tenga_esta">Any content this folder already has will be hidden while the server is mounted.</string>

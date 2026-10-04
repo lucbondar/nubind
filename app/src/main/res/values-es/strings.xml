@@ -79,7 +79,7 @@
     <string name="nombre_no_valido">Nombre no válido</string>
     <string name="crear">Crear</string>
     <string name="nueva_carpeta_aqui">Nueva carpeta aquí</string>
-    <string name="subir">‹ Subir</string>
+    <string name="subir">Subir</string>
     <string name="sin_subcarpetas">Sin subcarpetas</string>
     <string name="entra_en_una_carpeta_para_poder">Entra en una carpeta para poder elegirla. El contenido que ya tenga quedará oculto mientras el servidor esté montado.</string>
     <string name="el_contenido_que_ya_tenga_esta">El contenido que ya tenga esta carpeta quedará oculto mientras el servidor esté montado.</string>

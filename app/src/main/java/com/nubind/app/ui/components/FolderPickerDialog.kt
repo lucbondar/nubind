@@ -1,23 +1,43 @@
 package com.nubind.app.ui.components
 
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,19 +47,26 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.nubind.app.R
+import com.nubind.app.Strings
 import com.nubind.app.root.RootShell
 import com.nubind.app.root.STORAGE_ROOT
+import com.nubind.app.ui.theme.AppMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.nubind.app.R
-import com.nubind.app.Strings
 
 /**
  * Explorador de carpetas del almacenamiento interno para elegir el destino
  * del bind (reemplaza la entrada de texto). Permite navegar y crear carpetas.
+ *
+ * Estilo Material 3 Expressive: diálogo muy redondeado, insignia de forma en la
+ * cabecera, ruta en una píldora, carpetas como filas-tarjeta que se aplastan al
+ * tocarlas, botones en píldora y el contenido cambia de tamaño con resorte.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -66,18 +93,52 @@ fun FolderPickerDialog(
     }
 
     val atRoot = current == STORAGE_ROOT
+    val scheme = MaterialTheme.colorScheme
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(Strings.get(R.string.elegir_carpeta)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        shape = RoundedCornerShape(36.dp),
+        containerColor = scheme.surfaceContainerHigh,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(scheme.primaryContainer, MaterialShapes.Cookie9Sided.toShape()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Folder, contentDescription = null, tint = scheme.onPrimaryContainer, modifier = Modifier.size(24.dp))
+                }
                 Text(
-                    current,
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    Strings.get(R.string.elegir_carpeta),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
                 )
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.animateContentSize(AppMotion.spatial())
+            ) {
+                // Ruta actual en una píldora.
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = scheme.secondaryContainer,
+                    contentColor = scheme.onSecondaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        current,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
+                }
 
                 if (creating) {
                     OutlinedTextField(
@@ -90,9 +151,12 @@ fun FolderPickerDialog(
                         shape = MaterialTheme.shapes.large,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         TextButton(onClick = { creating = false; newName = ""; error = null }) { Text(Strings.get(R.string.cancelar)) }
-                        TextButton(onClick = {
+                        FilledTonalButton(onClick = {
                             val n = newName.trim()
                             if (n.isEmpty() || n.contains('/') || n == "." || n.contains("..")) {
                                 error = Strings.get(R.string.nombre_no_valido)
@@ -109,56 +173,134 @@ fun FolderPickerDialog(
                         }) { Text(Strings.get(R.string.crear)) }
                     }
                 } else {
-                    TextButton(onClick = { creating = true }) { Text(Strings.get(R.string.nueva_carpeta_aqui)) }
+                    FilledTonalButton(
+                        onClick = { creating = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Text(Strings.get(R.string.nueva_carpeta_aqui), modifier = Modifier.padding(start = 8.dp))
+                    }
                 }
 
-                HorizontalDivider()
-
-                LazyColumn(Modifier.heightIn(max = 280.dp)) {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.heightIn(max = 300.dp)
+                ) {
                     if (!atRoot) {
                         item {
-                            Text(
-                                Strings.get(R.string.subir),
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { current = current.substringBeforeLast('/').ifEmpty { STORAGE_ROOT } }
-                                    .padding(vertical = 12.dp)
-                            )
+                            PickerRow(onClick = { current = current.substringBeforeLast('/').ifEmpty { STORAGE_ROOT } }) {
+                                IconTile(Icons.Default.ArrowUpward, scheme.secondaryContainer, scheme.onSecondaryContainer)
+                                Text(
+                                    Strings.get(R.string.subir),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                     val list = dirs
                     if (list == null) {
-                        item { LoadingIndicator(Modifier.padding(vertical = 12.dp).size(48.dp)) }
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                                LoadingIndicator(Modifier.size(48.dp))
+                            }
+                        }
                     } else if (list.isEmpty()) {
-                        item { Text(Strings.get(R.string.sin_subcarpetas), modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        item {
+                            Text(
+                                Strings.get(R.string.sin_subcarpetas),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = scheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 4.dp)
+                            )
+                        }
                     } else {
-                        items(list) { name ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { current = "$current/$name" }
-                                    .padding(vertical = 12.dp)
-                            ) {
-                                Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        items(list, key = { it }) { name ->
+                            PickerRow(onClick = { current = "$current/$name" }) {
+                                IconTile(Icons.Default.Folder, scheme.primaryContainer, scheme.onPrimaryContainer)
+                                Text(
+                                    name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = scheme.onSurfaceVariant)
                             }
                         }
                     }
                 }
 
-                Text(
-                    if (atRoot) Strings.get(R.string.entra_en_una_carpeta_para_poder)
-                    else Strings.get(R.string.el_contenido_que_ya_tenga_esta),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // Nota informativa.
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = scheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp).size(18.dp)
+                    )
+                    Text(
+                        if (atRoot) Strings.get(R.string.entra_en_una_carpeta_para_poder)
+                        else Strings.get(R.string.el_contenido_que_ya_tenga_esta),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSurfaceVariant
+                    )
+                }
             }
         },
         confirmButton = {
-            TextButton(enabled = !atRoot, onClick = { onPick(current) }) { Text(Strings.get(R.string.usar_esta_carpeta)) }
+            Button(enabled = !atRoot, onClick = { onPick(current) }) { Text(Strings.get(R.string.usar_esta_carpeta)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.get(R.string.cancelar)) } }
+        dismissButton = {
+            FilledTonalButton(onClick = onDismiss) { Text(Strings.get(R.string.cancelar)) }
+        }
     )
+}
+
+/** Fila-tarjeta de la lista: se aplasta con resorte al tocarla. */
+@Composable
+private fun PickerRow(onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium),
+        label = "pickerRowPress"
+    )
+    Surface(
+        onClick = onClick,
+        interactionSource = source,
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
+    }
+}
+
+/** Icono sobre un cuadrado redondeado de color. */
+@Composable
+private fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, container: androidx.compose.ui.graphics.Color, glyph: androidx.compose.ui.graphics.Color) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .background(container, RoundedCornerShape(14.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(22.dp))
+    }
 }
