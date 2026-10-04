@@ -8,7 +8,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -32,11 +37,11 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -259,7 +264,7 @@ fun FolderPickerDialog(
             if (list == null) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
-                        LoadingIndicator(Modifier.size(48.dp))
+                        SpinningRefreshIcon()
                     }
                 }
             } else if (list.isEmpty()) {
@@ -395,4 +400,21 @@ private fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, cont
     ) {
         Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(22.dp))
     }
+}
+
+/** Indicador de carga con el icono real de refrescar girando (en vez de una forma animada sin icono). */
+@Composable
+private fun SpinningRefreshIcon(modifier: Modifier = Modifier) {
+    val spin by rememberInfiniteTransition(label = "folderLoading").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
+        label = "spin"
+    )
+    Icon(
+        Icons.Default.Refresh,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = modifier.size(32.dp).graphicsLayer { rotationZ = spin }
+    )
 }

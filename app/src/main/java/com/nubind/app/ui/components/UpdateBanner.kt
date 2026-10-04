@@ -32,14 +32,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -300,8 +301,23 @@ private fun UpdateCard(
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 when (kind) {
-                    UpdateKind.CHECKING, UpdateKind.INSTALLING ->
-                        LoadingIndicator(Modifier.size(48.dp), color = accent)
+                    // Buscando: insignia con el icono real de refrescar girando.
+                    UpdateKind.CHECKING -> CookieBadge(
+                        icon = Icons.Default.Refresh,
+                        shape = MaterialShapes.Cookie9Sided.toShape(),
+                        background = accent,
+                        glyph = onAccent,
+                        spinning = true,
+                        glyphSpinning = true
+                    )
+                    // Instalando: insignia con el icono real de actualización del sistema.
+                    UpdateKind.INSTALLING -> CookieBadge(
+                        icon = Icons.Default.SystemUpdate,
+                        shape = MaterialShapes.Cookie9Sided.toShape(),
+                        background = accent,
+                        glyph = onAccent,
+                        spinning = true
+                    )
                     UpdateKind.AVAILABLE -> CookieBadge(
                         icon = AppIcons.Download,
                         shape = MaterialShapes.Cookie9Sided.toShape(),
@@ -547,7 +563,8 @@ private fun laterButtonColors(p: StatusPalette) = ButtonDefaults.buttonColors(
 
 /**
  * Insignia expressive: una forma de Material (cookie, sunny…) que gira despacio
- * y "respira" cuando [spinning], con el icono quieto encima.
+ * y "respira" cuando [spinning], con el icono quieto encima (o girando con
+ * [glyphSpinning], para acciones en curso como buscar).
  */
 @Composable
 private fun CookieBadge(
@@ -556,9 +573,16 @@ private fun CookieBadge(
     background: Color,
     glyph: Color,
     spinning: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    glyphSpinning: Boolean = false
 ) {
     val transition = rememberInfiniteTransition(label = "updateBadge")
+    val glyphSpin by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
+        label = "glyphSpin"
+    )
     val spin by transition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
@@ -587,7 +611,14 @@ private fun CookieBadge(
                 }
                 .background(background, shape)
         )
-        Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(24.dp))
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = glyph,
+            modifier = Modifier
+                .size(24.dp)
+                .graphicsLayer { if (glyphSpinning) rotationZ = glyphSpin }
+        )
     }
 }
 
