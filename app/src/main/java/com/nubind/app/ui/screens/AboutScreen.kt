@@ -46,7 +46,7 @@ import com.nubind.app.ui.components.AppIcons
 import com.nubind.app.ui.components.DualPaneContentWidth
 import com.nubind.app.ui.components.ScreenContainer
 import com.nubind.app.ui.components.SectionCard
-import com.nubind.app.ui.components.RebootReminderChip
+import com.nubind.app.ui.components.UpdateReminderChip
 import com.nubind.app.ui.components.UpdateNotices
 import com.nubind.app.ui.components.updateHeaderColors
 import com.nubind.app.ui.components.rememberIsDualPane
@@ -138,8 +138,8 @@ private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
                 // Actualizador de la app y aviso de desfase con el módulo KSU.
                 UpdateNotices(vm, Modifier.fillMaxWidth().padding(top = 6.dp))
             }
-            // Recordatorio del reinicio pospuesto, fijo arriba a la derecha de la tarjeta.
-            RebootReminderChip(vm, Modifier.align(Alignment.TopEnd).padding(12.dp))
+            // Recordatorio del aviso pospuesto (reinicio o desfase), fijo arriba a la derecha de la tarjeta.
+            UpdateReminderChip(vm, Modifier.align(Alignment.TopEnd).padding(12.dp))
         }
     }
 }

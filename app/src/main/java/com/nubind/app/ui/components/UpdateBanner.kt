@@ -200,21 +200,23 @@ fun UpdateNotices(vm: BindViewModel, modifier: Modifier = Modifier) {
 }
 
 /**
- * Recordatorio fijo (arriba a la derecha de la cabecera) cuando se pospuso el reinicio
- * del módulo ya flasheado: al tocarlo vuelve la tarjeta de reinicio. Solo se muestra
- * mientras el reinicio siga pendiente y la tarjeta esté oculta.
+ * Recordatorio fijo (arriba a la derecha de la cabecera) cuando se pospuso con "Lo haré luego"
+ * un aviso que sigue pendiente: el reinicio del módulo ya flasheado (píldora verde) o el
+ * desfase del módulo (píldora ámbar). Al tocarla vuelve la tarjeta correspondiente. Nunca
+ * hay dos a la vez: con reinicio pendiente el desfase ya se resolvió.
  */
 @Composable
-fun RebootReminderChip(vm: BindViewModel, modifier: Modifier = Modifier) {
+fun UpdateReminderChip(vm: BindViewModel, modifier: Modifier = Modifier) {
+    val reboot = vm.rebootReminder
     AnimatedVisibility(
-        visible = vm.rebootReminder,
+        visible = reboot || vm.moduleReminder,
         modifier = modifier,
         enter = fadeIn(animationSpec = AppMotion.effects()) + scaleIn(animationSpec = AppMotion.spatial(), initialScale = 0.8f),
         exit = fadeOut(animationSpec = AppMotion.effects())
     ) {
-        val p = updateGreenPalette()
+        val p = if (reboot) updateGreenPalette() else syncAmberPalette()
         Surface(
-            onClick = vm::showRebootCardAgain,
+            onClick = if (reboot) vm::showRebootCardAgain else vm::showModuleNoticeAgain,
             color = p.accent,
             contentColor = p.onAccent,
             shape = RoundedCornerShape(50)
@@ -224,8 +226,15 @@ fun RebootReminderChip(vm: BindViewModel, modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(Strings.get(R.string.upd_reinicio_pendiente), style = MaterialTheme.typography.labelMedium)
+                Icon(
+                    if (reboot) Icons.Default.RestartAlt else Icons.Default.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    Strings.get(if (reboot) R.string.upd_reinicio_pendiente else R.string.upd_desfase_pendiente),
+                    style = MaterialTheme.typography.labelMedium
+                )
             }
         }
     }

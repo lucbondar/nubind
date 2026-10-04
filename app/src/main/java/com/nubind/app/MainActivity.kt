@@ -6,6 +6,8 @@ import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.StringRes
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -144,12 +146,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Búsqueda periódica de actualizaciones con la app a la vista (independiente del estado del módulo).
+    private val updatePoll = Handler(Looper.getMainLooper())
+    private val pollRunnable = object : Runnable {
+        override fun run() {
+            vm.refreshUpdates(force = true)
+            updatePoll.postDelayed(this, UPDATE_POLL_MS)
+        }
+    }
+
+    override fun onPause() {
+        updatePoll.removeCallbacks(pollRunnable)
+        super.onPause()
+    }
+
     override fun onResume() {
         super.onResume()
+        updatePoll.removeCallbacks(pollRunnable)
+        updatePoll.postDelayed(pollRunnable, UPDATE_POLL_MS)
         // El montaje pudo cambiar desde el quick toggle mientras la app estaba en segundo plano.
         if (vm.rootGranted == true) vm.refreshAll()
         // Si se publicó una actualización con la app en segundo plano, que aparezca al volver.
         vm.refreshUpdates()
+    }
+
+    private companion object {
+        const val UPDATE_POLL_MS = 5 * 60_000L
     }
 }
 

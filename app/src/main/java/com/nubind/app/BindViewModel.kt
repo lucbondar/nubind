@@ -149,6 +149,21 @@ class BindViewModel : ViewModel() {
     var moduleNotice by mutableStateOf<ModuleInfo?>(null)
         private set
 
+    /**
+     * Módulo KSU desfasado respecto de la app, se haya descartado o no el aviso. Con el aviso
+     * pospuesto ([moduleNotice] null) alimenta la píldora de recordatorio; null = sin desfase.
+     */
+    private var moduleBehind by mutableStateOf<ModuleInfo?>(null)
+
+    /** Desfase pospuesto con "Lo haré luego": la tarjeta está oculta y queda la píldora fija. */
+    val moduleReminder: Boolean get() = moduleBehind != null && moduleNotice == null
+
+    /** Desde la píldora: vuelve a mostrar el aviso de desfase. */
+    fun showModuleNoticeAgain() {
+        prefs().edit().remove(KEY_MODULE_NOTICE_DISMISSED).apply()
+        moduleNotice = moduleBehind
+    }
+
     /** Descarga y flasheo del módulo desde el aviso de desfase. */
     var moduleFlash by mutableStateOf<ModuleFlashState>(ModuleFlashState.Idle)
         private set
@@ -228,8 +243,11 @@ class BindViewModel : ViewModel() {
      * haya avisos pendientes de desfase o de reinicio.
      */
     fun refreshUpdates(force: Boolean = false) {
+        // Independiente del módulo: que esté desfasado, con aviso pospuesto o con reinicio
+        // pendiente no frena la búsqueda. Solo se respeta una descarga/instalación en curso
+        // y un fallo con reintento pendiente (Failed con info); un fallo de red sí se recupera.
         fun idle(s: AppUpdateState) = s is AppUpdateState.Idle || s is AppUpdateState.UpToDate ||
-            s is AppUpdateState.Available
+            s is AppUpdateState.Available || (s is AppUpdateState.Failed && s.info == null)
         if (!idle(appUpdate)) return
         val now = SystemClock.elapsedRealtime()
         if (!force && now - lastUpdateCheckAt < REFRESH_UPDATES_MS) return
@@ -294,15 +312,19 @@ class BindViewModel : ViewModel() {
             modulePendingReboot = rebootPending
             if (modulePendingReboot) {
                 moduleNotice = null
+                moduleBehind = null
                 return@launch
             }
             val behind = module != null &&
                 AppUpdater.isModuleBehind(module, BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME)
-            if (!behind || module == null || prefs().getString(KEY_MODULE_NOTICE_DISMISSED, null) == noticeKey(module)) {
+            if (!behind || module == null) {
                 moduleNotice = null
+                moduleBehind = null
                 return@launch
             }
-            moduleNotice = module
+            moduleBehind = module
+            // Pospuesto: la tarjeta queda oculta (y la píldora de recordatorio visible) hasta que cambie la versión.
+            moduleNotice = if (prefs().getString(KEY_MODULE_NOTICE_DISMISSED, null) == noticeKey(module)) null else module
         }
     }
 
@@ -342,6 +364,7 @@ class BindViewModel : ViewModel() {
             if (error == null) {
                 moduleFlash = ModuleFlashState.Idle
                 moduleNotice = null
+                moduleBehind = null
                 rebootCardHidden = false
                 prefs().edit().putBoolean(KEY_REBOOT_POSTPONED, false).apply()
                 modulePendingReboot = true
