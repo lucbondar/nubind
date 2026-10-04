@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,7 +56,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -71,6 +71,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.toShape
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -165,6 +166,7 @@ fun LogsScreen(vm: BindViewModel) {
     // Alto del área táctil (px): recorrer todo ese alto con el dedo equivale a recorrer todo el log.
     val areaHeight = remember { floatArrayOf(0f) }
     val hasEntries = entries.isNotEmpty()
+    val logColors = rememberLogColors()
     LaunchedEffect(moveTick) {
         delay(160)
         dir = 0
@@ -328,7 +330,7 @@ fun LogsScreen(vm: BindViewModel) {
                                 contentPadding = PaddingValues(start = 12.dp, end = 20.dp, top = 6.dp, bottom = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                itemsIndexed(entries) { _, e -> LogRow(e) }
+                                itemsIndexed(entries) { _, e -> LogRow(e, logColors) }
                             }
                             LogScrollbar(
                                 state = listState,
@@ -436,6 +438,10 @@ private fun LogScrollbar(
     )
     val thumbColor = scheme.primary
     val trackColor = scheme.onSurface
+    // La burbuja solo lee la geometría de la lista mientras está visible (si no, cada fotograma de
+    // desplazamiento volvería a colocarla); al ocultarse conserva su última posición.
+    val bubbleActive by rememberUpdatedState(emphasized)
+    val bubbleY = remember { floatArrayOf(0f) }
 
     Box(modifier.fillMaxSize()) {
         // Burbuja con la posición, a la altura del pulgar y a su izquierda.
@@ -448,10 +454,12 @@ private fun LogScrollbar(
                     val p = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
                     val maxH = constraints.maxHeight
                     layout(p.width, maxH) {
-                        val g = state.thumbGeom(maxH.toFloat(), minThumbPx, gapPx)
-                        val cy = if (g == null) 0f else g.top + g.height / 2f
-                        val y = (cy - p.height / 2f).roundToInt().coerceIn(0, (maxH - p.height).coerceAtLeast(0))
-                        p.place(0, y)
+                        if (bubbleActive) {
+                            val g = state.thumbGeom(maxH.toFloat(), minThumbPx, gapPx)
+                            val cy = if (g == null) 0f else g.top + g.height / 2f
+                            bubbleY[0] = (cy - p.height / 2f).coerceIn(0f, (maxH - p.height).toFloat().coerceAtLeast(0f))
+                        }
+                        p.place(0, bubbleY[0].roundToInt())
                     }
                 }
         ) {
@@ -546,6 +554,7 @@ private const val FAST_REACH = 1.15f
 
 private enum class LogLevel { INFO, OK, WARN, ERROR }
 
+@Immutable
 private class LogEntry(val time: String?, val tag: String?, val message: String, val level: LogLevel)
 
 private val ModuleLine = Regex("""^\w{3} \w{3}\s+\d+ (\d{2}:\d{2}:\d{2}) [-+]?\w+ \d{4}: (.*)$""")
@@ -574,52 +583,68 @@ private fun parseLogEntries(text: String): List<LogEntry> =
         } ?: LogEntry(null, null, line, classify(line, null))
     }.toList()
 
-@Composable
-private fun levelColor(level: LogLevel): Color = when (level) {
-    LogLevel.ERROR -> MaterialTheme.colorScheme.error
-    LogLevel.WARN -> syncAmberPalette().accent
-    LogLevel.OK -> updateGreenPalette().accent
-    LogLevel.INFO -> MaterialTheme.colorScheme.outline
+/** Colores por severidad, calculados una sola vez para toda la lista (no por fila). */
+@Immutable
+private class LogColors(val error: Color, val warn: Color, val ok: Color, val info: Color) {
+    fun of(level: LogLevel): Color = when (level) {
+        LogLevel.ERROR -> error
+        LogLevel.WARN -> warn
+        LogLevel.OK -> ok
+        LogLevel.INFO -> info
+    }
 }
 
-/** Una línea: barra de color por severidad, hora tenue y mensaje en monoespaciada. */
 @Composable
-private fun LogRow(e: LogEntry) {
-    val color = levelColor(e.level)
+private fun rememberLogColors(): LogColors {
+    val scheme = MaterialTheme.colorScheme
+    val amber = syncAmberPalette().accent
+    val green = updateGreenPalette().accent
+    return remember(scheme.error, scheme.outline, amber, green) {
+        LogColors(error = scheme.error, warn = amber, ok = green, info = scheme.outline)
+    }
+}
+
+private val LogRowShape = RoundedCornerShape(14.dp)
+
+/**
+ * Una línea: barra de color por severidad, hora tenue y mensaje en monoespaciada.
+ * Pensada para desplazarse fluido: sin medición intrínseca (la barra se dibuja con `drawBehind` y
+ * ocupa el alto de la fila), sin `clip` (no crea una capa por fila) y con los colores ya resueltos.
+ */
+@Composable
+private fun LogRow(e: LogEntry, colors: LogColors) {
+    val color = colors.of(e.level)
     val tinted = e.level == LogLevel.ERROR || e.level == LogLevel.WARN
-    Row(
+    val barColor = color.copy(alpha = if (e.level == LogLevel.INFO) 0.35f else 0.9f)
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (tinted) color.copy(alpha = 0.10f) else Color.Transparent)
-            .height(IntrinsicSize.Min)
-            .padding(end = 10.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Box(
-            Modifier
-                .padding(vertical = 4.dp, horizontal = 6.dp)
-                .width(4.dp)
-                .fillMaxHeight()
-                .clip(CircleShape)
-                .background(color.copy(alpha = if (e.level == LogLevel.INFO) 0.35f else 0.9f))
-        )
-        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-            if (e.time != null) {
-                Text(
-                    text = if (e.tag != null) "${e.time} · ${e.tag}" else e.time,
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            .then(if (tinted) Modifier.background(color.copy(alpha = 0.10f), LogRowShape) else Modifier)
+            .drawBehind {
+                val barW = 4.dp.toPx()
+                drawRoundRect(
+                    color = barColor,
+                    topLeft = Offset(6.dp.toPx(), 4.dp.toPx()),
+                    size = Size(barW, (size.height - 8.dp.toPx()).coerceAtLeast(0f)),
+                    cornerRadius = CornerRadius(barW / 2f)
                 )
             }
+            .padding(start = 16.dp, end = 10.dp, top = 6.dp, bottom = 6.dp)
+    ) {
+        if (e.time != null) {
             Text(
-                text = e.message,
+                text = if (e.tag != null) "${e.time} · ${e.tag}" else e.time,
                 fontFamily = FontFamily.Monospace,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        Text(
+            text = e.message,
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
