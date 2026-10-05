@@ -312,7 +312,7 @@
     <string name="upd_sin_conexion">No se pudo contactar al servidor de actualizaciones. Revisa tu conexión.</string>
     <string name="upd_sin_respuesta">El instalador no respondió. Inténtalo de nuevo.</string>
     <string name="upd_modulo_titulo">Módulo desfasado</string>
-    <string name="upd_modulo_cuerpo">Nubind puede funcionar, pero el módulo aún trae una app más vieja. Descarga y flashea el módulo desde aquí para completar la actualización.</string>
+    <string name="upd_modulo_cuerpo">El módulo instalado incluye una versión anterior de la app. Nubind puede seguir funcionando, pero se recomienda actualizar el módulo desde aquí para completar la actualización.</string>
     <string name="upd_modulo_versiones">Módulo %1$s · App %2$s</string>
     <string name="upd_abrir_ksu">Abrir KernelSU</string>
     <string name="upd_ksu_no_encontrada">No se encontró la app de KernelSU</string>

@@ -37,6 +37,7 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.unit.toSize
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -107,6 +108,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.nubind.app.ui.components.ExpressiveNoticeHost
 import com.nubind.app.ui.components.LocalContentBottomInset
@@ -219,6 +223,39 @@ private const val LogsHideHoldMs = 3000L
 /** Lo que tarda en salir el botón Logs de la píldora (encoger + desvanecer) antes de quitarlo. */
 private const val LogsExitMs = 480L
 
+/**
+ * Como `Arrangement.spacedBy`, pero el hueco que precede a cada botón se encoge junto con él.
+ * Con `spacedBy` un botón plegado a tamaño 0 (Logs al ocultarse o mostrarse) seguía dejando 4 dp
+ * de hueco fijo que desaparecía de golpe al quitarlo de la lista: la píldora daba un tironcito
+ * (y el indicador un rebote) justo al final de la animación. [fullSize] es el tamaño a partir del
+ * cual el botón cuenta como completo (52 dp, el mínimo de un botón).
+ */
+private class PillArrangement(private val space: Dp, private val fullSize: Dp) : Arrangement.HorizontalOrVertical {
+    override val spacing: Dp = space
+
+    override fun Density.arrange(totalSize: Int, sizes: IntArray, layoutDirection: LayoutDirection, outPositions: IntArray) {
+        place(sizes, outPositions)
+        if (layoutDirection == LayoutDirection.Rtl) {
+            for (i in sizes.indices) outPositions[i] = totalSize - outPositions[i] - sizes[i]
+        }
+    }
+
+    override fun Density.arrange(totalSize: Int, sizes: IntArray, outPositions: IntArray) {
+        place(sizes, outPositions)
+    }
+
+    private fun Density.place(sizes: IntArray, outPositions: IntArray) {
+        val gap = space.toPx()
+        val ref = fullSize.toPx()
+        var pos = 0f
+        for (i in sizes.indices) {
+            if (i > 0) pos += gap * (sizes[i] / ref).coerceIn(0f, 1f)
+            outPositions[i] = pos.roundToInt()
+            pos += sizes[i]
+        }
+    }
+}
+
 /** Alto del degradado que funde el contenido con la barra del sistema (retrato). */
 private val FadeHeight = 104.dp
 
@@ -255,7 +292,15 @@ private fun AppScaffold(vm: BindViewModel) {
     // vez de aparecer ya en su sitio final sin transición.
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+    // Al ocultar Logs: el botón sale animado de la píldora antes de quitarlo de la lista.
+    var logsLeaving by remember { mutableStateOf(false) }
+
+    // Mientras el botón Logs sale de la píldora no se acepta ninguna selección. Al soltar tras los
+    // 3 s, el clic del propio botón Logs (el hijo recibe el "arriba" antes que el gesto de la
+    // píldora, así que consumir después no lo cancela) llamaba a goTo(2): cortaba el viaje a Inicio
+    // y, al quitar Logs de la lista, el índice 2 pasaba a ser Acerca de (se veía esa pantalla).
     fun goTo(page: Int) {
+        if (logsLeaving) return
         scope.launch { pagerState.animateScrollToPage(page) }
     }
 
@@ -263,8 +308,6 @@ private fun AppScaffold(vm: BindViewModel) {
     // el pager, la app viaja a esa pestaña (el indicador de la píldora se desliza hasta ella).
     var goToLogs by remember { mutableStateOf(false) }
     var logsEntering by remember { mutableStateOf(false) }
-    // Al ocultar Logs: el botón sale animado de la píldora antes de quitarlo de la lista.
-    var logsLeaving by remember { mutableStateOf(false) }
 
     // Al mostrar/ocultar Logs los índices del pager se corren: se vuelve a la misma pestaña
     // (o a Inicio si era la propia Logs).
@@ -305,12 +348,14 @@ private fun AppScaffold(vm: BindViewModel) {
             if (logsLeaving || !items.contains(Screen.Logs)) return
             scope.launch {
                 logsLeaving = true
-                val travel = if (items.getOrNull(pagerState.targetPage) == Screen.Logs) {
-                    launch { pagerState.animateScrollToPage(0) }
-                } else null
+                val fromLogs = items.getOrNull(pagerState.targetPage) == Screen.Logs
+                val travel = if (fromLogs) launch { pagerState.animateScrollToPage(0) } else null
                 delay(LogsExitMs)
                 travel?.join()
-                pendingScreen = items.getOrNull(pagerState.currentPage)
+                // Si algo interrumpió el viaje (otra animación del pager), se completa antes de quitar
+                // la pestaña: si no, al correrse los índices se vería Acerca de ocupando el sitio de Logs.
+                if (fromLogs && pagerState.currentPage != 0) pagerState.animateScrollToPage(0)
+                pendingScreen = if (fromLogs) Screen.Home else items.getOrNull(pagerState.currentPage)
                 vm.updateLogsHidden(true)
                 logsLeaving = false
             }
@@ -451,6 +496,7 @@ private fun FloatingPillNav(
     // Por pantalla (no por índice): al quitar o añadir Logs los índices se corren, pero cada
     // botón conserva su medida y el indicador no parpadea a tamaño cero.
     val bounds = remember { mutableStateMapOf<Screen, Rect>() }
+    val pillArrangement = remember { PillArrangement(4.dp, 52.dp) }
     val currentItems by rememberUpdatedState(items)
     val currentLogsLeaving by rememberUpdatedState(logsLeaving)
     val lastTarget = remember { arrayOf(Rect.Zero) }
@@ -594,7 +640,15 @@ private fun FloatingPillNav(
                             }
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             // Tras el aviso se consume el resto del gesto: soltar no abre la pestaña Logs.
-                            if (fired) change.consume()
+                            // Y no se interpreta nada más: al plegarse el botón Logs la píldora se
+                            // reacomoda bajo el dedo quieto, la posición local cambia más que el umbral
+                            // y se tomaba por un arrastre que elegía la pestaña vecina (Acerca de),
+                            // cancelando el viaje a Inicio.
+                            if (fired) {
+                                change.consume()
+                                if (!change.pressed) break
+                                continue
+                            }
                             if (!change.pressed) break
                             if (!dragging && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
                                 dragging = true
@@ -632,7 +686,7 @@ private fun FloatingPillNav(
             if (vertical) {
                 Column(
                     modifier = Modifier.padding(8.dp).then(drawIndicator),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = pillArrangement,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     items.forEachIndexed { index, screen ->
@@ -656,7 +710,7 @@ private fun FloatingPillNav(
             } else {
                 Row(
                     modifier = Modifier.padding(8.dp).then(drawIndicator),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = pillArrangement,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     items.forEachIndexed { index, screen ->
@@ -709,10 +763,17 @@ private fun PillEntrance(
             scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow), initialScale = 0.3f) +
             (if (vertical) expandVertically(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow))
             else expandHorizontally(spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow))),
-        exit = fadeOut(tween(200)) +
+        // Se pliega hacia su centro (por defecto sería hacia el borde, y el icono se veía barrido de
+        // lado mientras se encogía) y el fundido dura casi lo mismo que el pliegue.
+        exit = fadeOut(tween(280)) +
             scaleOut(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow), targetScale = 0.3f) +
-            (if (vertical) shrinkVertically(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow))
-            else shrinkHorizontally(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)))
+            (if (vertical) shrinkVertically(
+                spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+                shrinkTowards = Alignment.CenterVertically
+            ) else shrinkHorizontally(
+                spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+                shrinkTowards = Alignment.CenterHorizontally
+            ))
     ) { content() }
 }
 

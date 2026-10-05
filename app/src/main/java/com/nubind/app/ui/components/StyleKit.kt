@@ -91,6 +91,9 @@ fun SectionCard(
                 modifier = if (expandable) {
                     Modifier
                         .fillMaxWidth()
+                        // El clip va antes del clickable: sin él el resalte del toque se dibuja
+                        // como un rectángulo de esquinas rectas sobre la tarjeta redondeada.
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable(role = Role.Button) { expanded = !expanded }
                 } else {
                     Modifier.fillMaxWidth()
