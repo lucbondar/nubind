@@ -110,6 +110,22 @@ Ya no hay `Toast` ni `Snackbar` en la app. Todo aviso de una sola vez pasa por `
 ## Reglas de trabajo
 - **Cada cambio sube la sub versión** (2.5.4 -> 2.5.5), sin esperar a que lo pidan. Va en tres sitios que deben coincidir: `versionName` en `app/build.gradle.kts`, y `version=v...` y `appVersion=...` en `module/module.prop`. El `versionCode` no se toca: lo fija el CI.
 - **Se devuelve siempre el repo completo en un zip** (`nubind-<versión>.zip`, con la raíz del repo adentro: `app`, `module`, `docs`, `.github`, `debug.keystore`, etc.; sin `.git`, `build`, `.gradle` ni `*.apk`), no solo los archivos modificados. El usuario pasa el repo completo con `zip -r ... . -x ".git/*" "*/build/*" ".gradle/*" "*.apk"`.
+- **README:** al añadir o cambiar una función visible para el usuario, se actualiza `README.md` en la sección que corresponda (2.5.69 añadió «Tile de Ajustes rápidos» y el regreso directo a Inicio al ocultar Logs). Los arreglos internos (como el clip del resalte) solo van en este documento.
+- **Release ("lanzar nuevo tag"):** el trabajo va en `preview`; para publicar se fusiona en `main` y se crea el tag `v<versión>`, que el CI publica como versión con nombre (`tags: ['v*']`). Cuando el usuario pide **"lanzar nuevo tag"**, la respuesta son **dos bloques de comandos**, uno por conjunto y en este orden, con la versión actual (`versionName`) en el tag. Ese pedido no cambia archivos: no se sube la versión ni se entrega zip.
+  **Merge** (ejecutar cuando el CI de `preview` ya terminó bien):
+  ```bash
+  git checkout main
+  git pull origin main
+  git merge --no-ff preview -m "Merge preview: <versión>"
+  git push origin main
+  ```
+  **Tag**:
+  ```bash
+  git tag -a v<versión> -m "Nubind <versión>"
+  git push origin v<versión>
+  git checkout preview
+  ```
+  El tag debe coincidir con `versionName` (por ejemplo `v2.5.69`).
 - **Lo último de cada respuesta son los comandos para Termux**, apilados en un bloque, uno por línea, sin `cd`. Siempre estos cinco y en este orden: primero el `unzip` del zip entregado (se descarga del chat a `/storage/emulated/0/Download/`) hacia `/storage/emulated/0/Download/nubind/`, luego git, y `cinotif` al final:
   ```bash
   unzip -o /storage/emulated/0/Download/<zip entregado>.zip -d /storage/emulated/0/Download/nubind/
