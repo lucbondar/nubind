@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -182,6 +184,8 @@ private fun StackCard(
     onOpenHeight: (Dp) -> Unit
 ) {
     val density = LocalDensity.current
+    // En varias columnas (apaisado) la tarjeta es angosta: Editar/Eliminar van solo con icono.
+    val iconOnly = rememberIsDualPane()
     // Posición y alto: State sin delegar, leídos solo en layout (ver ServerCardStack).
     val animatedTop = animateDpAsState(top, cardSpring(distance), label = "cardTop")
     val animatedHeight = animateDpAsState(height, cardSpring(distance, 0.64f), label = "cardHeight")
@@ -438,13 +442,23 @@ private fun StackCard(
                     }
                     Reveal(shown = isSelected, order = 2) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onEdit, colors = colors) {
-                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                            Text(Strings.get(R.string.editar))
-                        }
-                        TextButton(onClick = onDelete, colors = colors) {
-                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                            Text(Strings.get(R.string.eliminar))
+                        if (iconOnly) {
+                            val iconColors = IconButtonDefaults.iconButtonColors(contentColor = LocalContentColor.current)
+                            IconButton(onClick = onEdit, colors = iconColors) {
+                                Icon(Icons.Default.Edit, contentDescription = Strings.get(R.string.editar))
+                            }
+                            IconButton(onClick = onDelete, colors = iconColors) {
+                                Icon(Icons.Default.Delete, contentDescription = Strings.get(R.string.eliminar))
+                            }
+                        } else {
+                            TextButton(onClick = onEdit, colors = colors) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                Text(Strings.get(R.string.editar))
+                            }
+                            TextButton(onClick = onDelete, colors = colors) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                Text(Strings.get(R.string.eliminar))
+                            }
                         }
                     }
                     }
