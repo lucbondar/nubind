@@ -24,7 +24,7 @@ enum class PerfMode(val id: String, @StringRes private val labelRes: Int) {
 /**
  * Rango del tamaño de caché en GB que ofrece la app. El tope real de lo que
  * cabe en el teléfono no es este número: es el espacio libre real, que
- * rclone intenta conservar con 2 GB de margen (--vfs-cache-min-free-space);
+ * rclone intenta conservar con 2 GB de margen en Máximo y 1 GB en Equilibrado (--vfs-cache-min-free-space);
  * no es un límite duro para archivos abiertos o subidas pendientes
  * y que "Probar rendimiento" avisa si no alcanza. 100 GB es el tope que
  * ofrece el slider.
@@ -33,7 +33,7 @@ const val CACHE_GB_MIN = 1
 const val CACHE_GB_MAX = 100
 
 /** Tamaño de caché que usa mount.sh cuando el usuario no eligió uno (debe coincidir con el script). */
-fun defaultCacheGb(mode: PerfMode): Int = if (mode == PerfMode.MAX) 10 else 1
+fun defaultCacheGb(mode: PerfMode): Int = if (mode == PerfMode.MAX) 10 else 2
 
 /** KB a un texto legible ("340 MB", "2.3 GB"), para mostrar el tamaño de la caché en disco. */
 fun formatCacheKb(kb: Long): String = when {

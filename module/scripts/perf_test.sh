@@ -261,8 +261,10 @@ case "$FREE_KB" in
                 step space OK "$FREE_GB GB libres en el almacenamiento."
                 ;;
             *)
-                RESERVE=0
-                case "$MOUNT_OPTS" in *min-free-space*) RESERVE=2 ;; esac
+                # Reserva real del perfil (--vfs-cache-min-free-space: 1G en Equilibrado, 2G en Máximo).
+                RESERVE="$(optval --vfs-cache-min-free-space)"
+                RESERVE="${RESERVE%G}"
+                case "$RESERVE" in ''|*[!0-9]*) RESERVE=0 ;; esac
                 WHERE="en el almacenamiento"
                 [ "$CACHE_IS_RAM" = 1 ] && WHERE="en RAM"
                 if [ "$CAPACITY_KB" -lt $(( (NEED + RESERVE) * 1048576 )) ]; then
