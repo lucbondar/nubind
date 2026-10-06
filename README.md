@@ -32,7 +32,8 @@ Nubind se actualiza solo desde la propia app, a partir de `update.json` (publica
 - **Cambios:** junto al botón aparece la píldora **Cambios**, que despliega las últimas 10 entradas del changelog (el asunto de cada commit) con la versión resaltada.
 - **Módulo desfasado:** si el módulo KSU instalado trae un APK más viejo que la app, un aviso ámbar ofrece **Descargar y flashear módulo** (baja el zip, verifica `zipSha256` y lo flashea con root; no flashea si el publicado es más viejo que la app instalada). «Lo haré luego» lo pospone y deja una píldora ámbar **Módulo desfasado** para reabrirlo.
 - **Reinicio pendiente:** tras flashear, una tarjeta verde **Módulo instalado** ofrece **Reiniciar ahora**. Si se pospone, queda la píldora verde **Reinicio pendiente**, que persiste aunque salgas de la app. Nunca hay dos píldoras a la vez.
-- **Cabecera con color de estado:** la tarjeta de Acerca de pasa de los colores Monet a **verde** (actualización o reinicio pendiente) o **ámbar** (desfase), y la tarjeta del actualizador toma la misma paleta.
+- **Cabecera con cielo dinámico:** la tarjeta de Acerca de es un cielo flat que cambia con la hora (noche, madrugada, mañana, mediodía y tarde), con nubes a la deriva que a veces se despejan, estrellas que titilan de noche y alguna estrella fugaz esporádica. Sin sol ni luna. Es liviano: se pausa fuera de la app y se queda quieto si las animaciones del sistema están apagadas.
+- **Color de estado:** con una actualización o reinicio pendiente el cielo se cubre de **verde**, o de **ámbar** con el aviso de desfase, y la tarjeta del actualizador toma la misma paleta.
 - La versión del módulo instalado aparece bajo la de la app (con root y módulo presentes).
 - Los scripts de instalación (`self_update.sh`, `flash_module.sh`) reabren la app con el intent del launcher, para que no se apile una instancia nueva que arranque en Inicio.
 

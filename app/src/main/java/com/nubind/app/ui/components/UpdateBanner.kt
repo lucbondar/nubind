@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -121,49 +122,59 @@ private fun headerStatusPalette(
     else -> null
 }
 
-/** Colores de la tarjeta de cabecera: degradado diagonal [start] -> [end] y color del contenido. */
+/**
+ * Colores de la tarjeta de cabecera: [start] -> [end] es el degradado de estado (verde/ámbar), que
+ * se pinta como velo con opacidad [tint] (0 = se ve el cielo, [HEADER_TINT] = estado a la vista);
+ * [content] es el color del texto.
+ */
 @Immutable
-class HeaderColors(val start: Color, val end: Color, val content: Color)
+class HeaderColors(val start: Color, val end: Color, val content: Color, val tint: Float)
+
+/** Opacidad del velo de estado sobre el cielo: casi pleno, deja asomar las nubes. */
+private const val HEADER_TINT = 0.9f
 
 /**
- * Colores de la tarjeta de cabecera de Acerca de. Normalmente un degradado diagonal
- * tomado del color dinámico (Monet): de primaryContainer a tertiaryContainer, con
- * onPrimaryContainer encima (pares de contenedor, contraste garantizado en claro y
- * oscuro). Cuando se encuentra una actualización o el módulo quedó flasheado a la
- * espera de reiniciar ([rebootPending]), pasa a un degradado verde de estado (paleta
- * fija, para que el verde siga siendo verde con cualquier fondo de pantalla), con
- * transición animada. Si el aviso de desfase del módulo está a la vista ([moduleBehind]),
- * pasa igual a un degradado ámbar; el verde manda si coinciden. Solo cambia el aspecto:
- * no toca el flujo del actualizador.
+ * Colores de la tarjeta de cabecera de Acerca de. Normalmente se ve el cielo dinámico
+ * ([SkyBackground]) con el texto en [skyContent] (claro u oscuro según la hora). Cuando se
+ * encuentra una actualización o el módulo quedó flasheado a la espera de reiniciar
+ * ([rebootPending]), un velo de degradado verde de estado (paleta fija, para que el verde siga
+ * siendo verde a cualquier hora) cubre el cielo con transición animada. Si el aviso de desfase del
+ * módulo está a la vista ([moduleBehind]), el velo es ámbar; el verde manda si coinciden. Al
+ * terminar el estado el velo se desvanece con sus últimos colores. Solo cambia el aspecto: no toca
+ * el flujo del actualizador.
  */
 @Composable
 fun updateHeaderColors(
     state: AppUpdateState,
     rebootPending: Boolean = false,
-    moduleBehind: Boolean = false
+    moduleBehind: Boolean = false,
+    skyContent: Color
 ): HeaderColors {
-    val scheme = MaterialTheme.colorScheme
     val status = headerStatusPalette(state, rebootPending, moduleBehind)
+    val held = remember { arrayOfNulls<StatusPalette>(1) }
+    if (status != null) held[0] = status
+    val shown = status ?: held[0] ?: updateGreenPalette()
+    val tint by animateFloatAsState(
+        if (status != null) HEADER_TINT else 0f,
+        animationSpec = tween(500), label = "headerTint"
+    )
     val start by animateColorAsState(
-        status?.container ?: scheme.primaryContainer,
-        animationSpec = tween(500), label = "headerStart"
+        shown.container, animationSpec = tween(500), label = "headerStart"
     )
     // Verde y desfase a la vez: el degradado termina virando a ámbar, así el aviso ámbar de
     // dentro no se siente un color ajeno pegado sobre un fondo verde.
     val amber = syncAmberPalette()
     val both = moduleBehind && (state.isGreen() || rebootPending)
+    val base = lerp(shown.container, shown.accent, 0.25f)
     val end by animateColorAsState(
-        status?.let {
-            val base = lerp(it.container, it.accent, 0.25f)
-            if (both) lerp(base, amber.container, 0.75f) else base
-        } ?: scheme.tertiaryContainer,
+        if (both) lerp(base, amber.container, 0.75f) else base,
         animationSpec = tween(500), label = "headerEnd"
     )
     val content by animateColorAsState(
-        status?.onContainer ?: scheme.onPrimaryContainer,
+        status?.onContainer ?: skyContent,
         animationSpec = tween(500), label = "headerContent"
     )
-    return HeaderColors(start, end, content)
+    return HeaderColors(start, end, content, tint)
 }
 
 /**
@@ -178,7 +189,7 @@ fun updateHeaderColors(
  *    funcionar, pero la actualización solo queda completa al descargar el
  *    módulo desde la app de KernelSU.
  *
- * Va dentro de la tarjeta de cabecera (primaryContainer), por eso los fondos
+ * Va dentro de la tarjeta de cabecera (cielo dinámico), por eso los fondos
  * son translúcidos o de color pleno sobre ella.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -317,7 +328,7 @@ private fun UpdateCard(
     // bloque usa esa paleta, también "Buscando…"; sin tinte, el color dinámico del tema.
     val accent = headerStatus?.accent ?: scheme.primary
     val onAccent = headerStatus?.onAccent ?: scheme.onPrimary
-    val base = headerStatus?.onContainer ?: scheme.onPrimaryContainer
+    val base = headerStatus?.onContainer ?: LocalContentColor.current
     val (container, content) = when (kind) {
         // Disponible es lo importante: color pleno sobre la cabecera.
         UpdateKind.AVAILABLE -> accent to onAccent

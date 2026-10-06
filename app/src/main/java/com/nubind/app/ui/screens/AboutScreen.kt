@@ -50,6 +50,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -73,6 +75,9 @@ import com.nubind.app.BuildConfig
 import com.nubind.app.root.AppUpdateState
 import com.nubind.app.root.RootShell
 import com.nubind.app.ui.components.AnimatedLogo
+import com.nubind.app.ui.components.SkyBackground
+import com.nubind.app.ui.components.rememberSkyHour
+import com.nubind.app.ui.components.skyAt
 import com.nubind.app.ui.components.Entrance
 import com.nubind.app.ui.theme.AppMotion
 import com.nubind.app.ui.components.AppIcons
@@ -192,15 +197,26 @@ private fun HeaderRow(
 
 @Composable
 private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
-    // Degradado Monet; verde con actualización/reinicio pendiente, ámbar con el aviso de desfase (ver updateHeaderColors).
-    val colors = updateHeaderColors(vm.appUpdate, vm.showRebootCard, vm.moduleNotice != null)
+    // Cielo flat según la hora; velo verde con actualización/reinicio pendiente, ámbar con el aviso de desfase (ver updateHeaderColors).
+    val hour = rememberSkyHour()
+    val skyContent by remember { derivedStateOf { skyAt(hour.floatValue).content } }
+    val colors = updateHeaderColors(vm.appUpdate, vm.showRebootCard, vm.moduleNotice != null, skyContent)
     Surface(
         color = Color.Transparent,
         contentColor = colors.content,
         shape = MaterialTheme.shapes.extraLarge,
         modifier = modifier
     ) {
-        Box(Modifier.background(Brush.linearGradient(listOf(colors.start, colors.end)))) {
+        Box {
+            SkyBackground(hour)
+            // Velo de estado (verde/ámbar) sobre el cielo; invisible (tint 0) en reposo.
+            Spacer(
+                Modifier.matchParentSize().drawBehind {
+                    if (colors.tint > 0.001f) {
+                        drawRect(Brush.linearGradient(listOf(colors.start, colors.end)), alpha = colors.tint)
+                    }
+                }
+            )
             Column(
                 modifier = Modifier.padding(28.dp).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
