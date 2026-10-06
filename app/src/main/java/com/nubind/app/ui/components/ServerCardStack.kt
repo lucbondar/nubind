@@ -2,6 +2,8 @@ package com.nubind.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.animateDpAsState
@@ -13,6 +15,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -41,6 +46,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -52,6 +58,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -105,12 +113,17 @@ fun ServerCardStack(
     onClearCache: (RemoteProfile) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Alto real de cada tarjeta abierta, medido de su contenido (en apaisado las
+    // columnas son angostas y los textos se parten en más líneas que en vertical).
+    // Los 280/216 dp son el mínimo; si el contenido pide más, la tarjeta crece.
+    val measuredOpen = remember { mutableStateMapOf<String, Dp>() }
     val tops = ArrayList<Dp>()
     val heights = ArrayList<Dp>()
     var y = 0.dp
     profiles.forEach { p ->
         val open = p.name == selected
-        val openHeight = if (cacheKbOf(p) > 0) OpenHeight else OpenHeightNoCache
+        val minOpen = if (cacheKbOf(p) > 0) OpenHeight else OpenHeightNoCache
+        val openHeight = maxOf(minOpen, measuredOpen[p.name] ?: 0.dp)
         tops.add(y)
         heights.add(if (open) openHeight else PeekHeight + UnderlapHeight)
         y += if (open) openHeight else PeekHeight
@@ -143,13 +156,15 @@ fun ServerCardStack(
                     onDelete = { onDelete(profile) },
                     cacheKb = cacheKbOf(profile),
                     canClearCache = canClearCache(profile),
-                    onClearCache = { onClearCache(profile) }
+                    onClearCache = { onClearCache(profile) },
+                    onOpenHeight = { h -> if (measuredOpen[profile.name] != h) measuredOpen[profile.name] = h }
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StackCard(
     profile: RemoteProfile,
@@ -163,8 +178,10 @@ private fun StackCard(
     onDelete: () -> Unit,
     cacheKb: Long,
     canClearCache: Boolean,
-    onClearCache: () -> Unit
+    onClearCache: () -> Unit,
+    onOpenHeight: (Dp) -> Unit
 ) {
+    val density = LocalDensity.current
     // Posición y alto: State sin delegar, leídos solo en layout (ver ServerCardStack).
     val animatedTop = animateDpAsState(top, cardSpring(distance), label = "cardTop")
     val animatedHeight = animateDpAsState(height, cardSpring(distance, 0.64f), label = "cardHeight")
@@ -263,7 +280,12 @@ private fun StackCard(
         val fg = fgState.value
         CompositionLocalProvider(LocalContentColor provides fg) {
         Box(Modifier.fillMaxSize().drawBehind { drawRect(bg.value) }) {
-        Column(Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+        Column(
+            Modifier
+                .wrapContentHeight(Alignment.Top, unbounded = true)
+                .onSizeChanged { if (isSelected) onOpenHeight(with(density) { it.height.toDp() }) }
+                .padding(horizontal = 24.dp, vertical = 20.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 val icon = serverIconFor(profile)
                 val iconModifier = Modifier.size(26.dp).graphicsLayer {
@@ -310,7 +332,7 @@ private fun StackCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            AnimatedVisibility(visible = isSelected) {
+            AnimatedVisibility(visible = isSelected, enter = fadeIn(), exit = fadeOut()) {
                 Column {
                     Spacer(Modifier.height(12.dp))
                     Reveal(shown = isSelected, order = 0) { Column {
@@ -359,11 +381,14 @@ private fun StackCard(
                             contentColor = fg,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
+                            // En columnas angostas (apaisado) el botón pasa a una segunda fila
+                            // en vez de aplastar el texto.
+                            FlowRow(
                                 modifier = Modifier.padding(start = 20.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column(Modifier.weight(1f)) {
+                                Column(Modifier.align(Alignment.CenterVertically)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             Icons.Default.Storage,
@@ -385,6 +410,7 @@ private fun StackCard(
                                     )
                                 }
                                 Button(
+                                    modifier = Modifier.align(Alignment.CenterVertically),
                                     onClick = onClearCache,
                                     enabled = canClearCache,
                                     colors = ButtonDefaults.buttonColors(
