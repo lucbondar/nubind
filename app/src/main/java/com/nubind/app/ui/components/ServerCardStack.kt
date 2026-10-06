@@ -30,14 +30,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -91,9 +94,17 @@ fun ServerCardStack(
         y += if (open) openHeight else PeekHeight
     }
     val totalHeight = if (profiles.isEmpty()) 0.dp else tops.last() + heights.last()
-    val animatedTotal by animateDpAsState(totalHeight, AppMotion.spatial(), label = "stackHeight")
+    // Se lee solo en la fase de layout (nunca con `by` aquí): si se leyera en la
+    // composición, cada fotograma del resorte recompondría la pila entera.
+    val animatedTotal = animateDpAsState(totalHeight, AppMotion.spatial(), label = "stackHeight")
 
-    Box(modifier.fillMaxWidth().height(animatedTotal)) {
+    Box(
+        modifier.fillMaxWidth().layout { measurable, constraints ->
+            val h = animatedTotal.value.roundToPx().coerceIn(constraints.minHeight, constraints.maxHeight)
+            val placeable = measurable.measure(constraints.copy(minHeight = 0))
+            layout(placeable.width, h) { placeable.place(0, 0) }
+        }
+    ) {
         profiles.forEachIndexed { index, profile ->
             key(profile.name) {
                 StackCard(
@@ -128,8 +139,9 @@ private fun StackCard(
     canClearCache: Boolean,
     onClearCache: () -> Unit
 ) {
-    val animatedTop by animateDpAsState(top, AppMotion.spatial(), label = "cardTop")
-    val animatedHeight by animateDpAsState(height, AppMotion.spatial(), label = "cardHeight")
+    // Posición y alto: State sin delegar, leídos solo en layout (ver ServerCardStack).
+    val animatedTop = animateDpAsState(top, AppMotion.spatial(), label = "cardTop")
+    val animatedHeight = animateDpAsState(height, AppMotion.spatial(), label = "cardHeight")
 
     val scheme = MaterialTheme.colorScheme
     val isDrive = profile.type == RemoteType.DRIVE
@@ -176,22 +188,30 @@ private fun StackCard(
             else -> scheme.onSurface
         }
     }
-    val bg by animateColorAsState(container, AppMotion.effects(), label = "cardBg")
-    val fg by animateColorAsState(content, AppMotion.effects(), label = "cardFg")
+    // El fondo se pinta en la fase de dibujo (drawBehind) y el color del contenido
+    // se lee dentro del contenido: ninguno recompone la tarjeta entera.
+    val bg = animateColorAsState(container, AppMotion.effects(), label = "cardBg")
+    val fgState = animateColorAsState(content, AppMotion.effects(), label = "cardFg")
 
     Surface(
         onClick = onSelect,
         enabled = !isSelected,
         shape = MaterialTheme.shapes.extraLarge,
-        color = bg,
-        contentColor = fg,
+        color = Color.Transparent,
         shadowElevation = if (isSelected) 8.dp else 4.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .offset { IntOffset(0, animatedTop.roundToPx()) }
-            .height(animatedHeight)
+            .offset { IntOffset(0, animatedTop.value.roundToPx()) }
+            .layout { measurable, constraints ->
+                val h = animatedHeight.value.roundToPx().coerceIn(constraints.minHeight, constraints.maxHeight)
+                val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+            }
             .semantics { this.selected = isSelected }
     ) {
+        val fg = fgState.value
+        CompositionLocalProvider(LocalContentColor provides fg) {
+        Box(Modifier.fillMaxSize().drawBehind { drawRect(bg.value) }) {
         Column(Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 val icon = serverIconFor(profile)
@@ -312,7 +332,7 @@ private fun StackCard(
                                     enabled = canClearCache,
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = fg,
-                                        contentColor = bg,
+                                        contentColor = bg.value,
                                         disabledContainerColor = fg.copy(alpha = 0.18f),
                                         disabledContentColor = fg.copy(alpha = 0.45f)
                                     ),
@@ -344,6 +364,8 @@ private fun StackCard(
                     }
                 }
             }
+        }
+        }
         }
     }
 }
