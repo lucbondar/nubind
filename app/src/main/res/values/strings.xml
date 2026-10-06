@@ -24,6 +24,7 @@
     <string name="error_al_eliminar">Error deleting: %1$s</string>
     <string name="agrega_un_servidor_primero">Add a server first</string>
     <string name="error">Error: %1$s</string>
+    <string name="sin_conexion_para_montar">No network connection. Connect to mount the server.</string>
     <string name="ruta_guardada_vuelve_a_montar_para">Path saved. Remount to apply it.</string>
     <string name="ruta_guardada">Path saved</string>
     <string name="error_al_guardar_la_ruta">Error saving the path: %1$s</string>

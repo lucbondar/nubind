@@ -24,6 +24,7 @@
     <string name="error_al_eliminar">Error al eliminar: %1$s</string>
     <string name="agrega_un_servidor_primero">Agrega un servidor primero</string>
     <string name="error">Error: %1$s</string>
+    <string name="sin_conexion_para_montar">No hay conexión de red. Conéctate para montar el servidor.</string>
     <string name="ruta_guardada_vuelve_a_montar_para">Ruta guardada. Vuelve a montar para aplicarla.</string>
     <string name="ruta_guardada">Ruta guardada</string>
     <string name="error_al_guardar_la_ruta">Error al guardar la ruta: %1$s</string>

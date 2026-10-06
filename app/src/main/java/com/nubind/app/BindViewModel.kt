@@ -442,6 +442,10 @@ class BindViewModel : ViewModel() {
         Strings.context().getSystemService(ConnectivityManager::class.java)
             ?.isActiveNetworkMetered ?: false
 
+    /** Hay alguna red activa (wifi, datos, ethernet), con o sin internet. */
+    private fun hasNetwork(): Boolean =
+        Strings.context().getSystemService(ConnectivityManager::class.java)?.activeNetwork != null
+
     /** Ejecuta [action] ya, o pide confirmación antes si se está en datos móviles. */
     private fun guardMetered(action: () -> Unit) {
         val skip = prefs().getBoolean(KEY_SKIP_METERED_WARNING, false)
@@ -1016,6 +1020,13 @@ class BindViewModel : ViewModel() {
         val mounted = isMounted
         val current = mountedRemote
         val onlyUnmounting = mounted && (current == null || current == target)
+        // Sin ninguna red no hay nada que intentar: se avisa al instante en vez de dejar
+        // la app en "Trabajando…" hasta que se agoten los plazos de conexión de rclone.
+        // (Basta con que haya red, aunque sin internet: el FTP puede estar en la LAN.)
+        if (!onlyUnmounting && !hasNetwork()) {
+            showNotice(Strings.get(R.string.sin_conexion_para_montar), NoticeKind.Warning)
+            return@launch
+        }
         busy = true
         val result = withContext(Dispatchers.IO) {
             when {
@@ -1028,7 +1039,15 @@ class BindViewModel : ViewModel() {
                 else -> RootShell.mount()
             }
         }
-        if (result.success) dismissNotice() else showNotice(Strings.get(R.string.error, result.output.takeLast(200)), NoticeKind.Error)
+        // Si el script no dejó ningún texto, el aviso salía como "Error:" vacío.
+        if (result.success) dismissNotice() else showNotice(
+            Strings.get(
+                R.string.error,
+                result.output.lines().lastOrNull { it.isNotBlank() }?.trim()?.take(200)
+                    ?: Strings.get(R.string.sin_respuesta_sin_red_o_tiempo)
+            ),
+            NoticeKind.Error
+        )
         reload()
         busy = false
 

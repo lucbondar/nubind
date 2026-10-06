@@ -79,6 +79,7 @@ sequenceDiagram
 
 - Cada servidor es una tarjeta; la seleccionada se abre y las demás asoman su franja.
 - Tocar una tarjeta elige cuál se monta. Agregar, editar y eliminar desde la misma pantalla.
+- Animación expressive: al tocar, la tarjeta se hunde y, al quedar elegida, salta con rebote; las demás se acomodan en ola (cuanto más lejos, más tarde), el icono crece con un pop y los detalles (estado, caché, Editar/Eliminar) suben uno tras otro.
 - Compatible con **FTP**, **Google Drive** y **S3** (Oracle Cloud Object Storage, Amazon S3, Cloudflare R2 y cualquier servicio compatible).
 - En pantalla ancha (apaisado, tablets) se ven **tres paneles uno al lado del otro**, uno por tipo de remoto (FTP, Google Drive y S3); en vertical siguen mezclados en una sola pila, como siempre.
 - Las contraseñas se guardan ofuscadas con `rclone obscure`.
@@ -142,6 +143,7 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 
 - Se monta con `rclone mount` y se expone con `mount --bind` en la **carpeta de destino que elijas** (por defecto `/sdcard/Nubind`), con selector de carpetas integrado.
 - **Montar al iniciar**: espera a que el almacenamiento esté desbloqueado y reintenta hasta que haya red.
+- **Sin red al montar:** si no hay ninguna red, la app avisa al instante («No hay conexión de red»); si hay red pero el servidor no responde, `mount.sh` lo comprueba antes (≈25 s como máximo) y el aviso de error dice el motivo en vez de quedarse en «Trabajando…» o salir vacío.
 - Un **vigilante** restaura el bind si Android o alguna app lo quita.
 - rclone, el vigilante y la precarga corren **fuera del grupo de procesos de la app** (`scripts/proc_detach.sh`): Android no los congela ni los mata al cerrar o minimizar la app, y rclone queda protegido ante el low memory killer.
 - Cambiar de servidor con uno ya montado se hace con un solo botón.
@@ -199,6 +201,7 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 ### Tile de Ajustes rápidos
 
 - Un tile **Nubind** en el panel de Ajustes rápidos monta o desmonta el servidor seleccionado con un toque, sin abrir la app (hay que añadirlo desde el editor de tiles de Android).
+  - La nube del tile queda **rellena** cuando hay algo montado y, al montar o desmontar desde el propio tile, se **llena como agua** (con una pequeña ola) o se vacía con una mini animación.
 - Encendido cuando hay algo montado; en Android 10 o superior muestra debajo el servidor conectado o «Desmontado», y queda no disponible mientras trabaja.
 - Los resultados se avisan con una notificación emergente breve (ver *Avisos expressive*).
 
