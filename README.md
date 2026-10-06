@@ -143,6 +143,7 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 
 - Se monta con `rclone mount` y se expone con `mount --bind` en la **carpeta de destino que elijas** (por defecto `/sdcard/Nubind`), con selector de carpetas integrado.
 - **Montar al iniciar**: espera a que el almacenamiento esté desbloqueado y reintenta hasta que haya red.
+- **Sin red al montar:** si no hay ninguna red, la app avisa al instante («No hay conexión de red»); si hay red pero el servidor no responde, `mount.sh` lo comprueba antes (≈25 s como máximo) y el aviso de error dice el motivo en vez de quedarse en «Trabajando…» o salir vacío.
 - Un **vigilante** restaura el bind si Android o alguna app lo quita.
 - rclone, el vigilante y la precarga corren **fuera del grupo de procesos de la app** (`scripts/proc_detach.sh`): Android no los congela ni los mata al cerrar o minimizar la app, y rclone queda protegido ante el low memory killer.
 - Cambiar de servidor con uno ya montado se hace con un solo botón.

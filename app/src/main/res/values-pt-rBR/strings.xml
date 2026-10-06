@@ -24,6 +24,7 @@
     <string name="error_al_eliminar">Erro ao excluir: %1$s</string>
     <string name="agrega_un_servidor_primero">Adicione um servidor primeiro</string>
     <string name="error">Erro: %1$s</string>
+    <string name="sin_conexion_para_montar">Sem conexão de rede. Conecte-se para montar o servidor.</string>
     <string name="ruta_guardada_vuelve_a_montar_para">Caminho salvo. Monte novamente para aplicá-lo.</string>
     <string name="ruta_guardada">Caminho salvo</string>
     <string name="error_al_guardar_la_ruta">Erro ao salvar o caminho: %1$s</string>

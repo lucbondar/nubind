@@ -49,6 +49,7 @@ unset LOG_KB
 
 if [ ! -f "$RCLONE_CONF" ]; then
     echo "$(date): No hay rclone.conf, configura el FTP desde la app" >> "$LOG_FILE"
+    echo "No hay rclone.conf: configura un servidor desde la app"
     exit 1
 fi
 
@@ -59,6 +60,7 @@ ACTIVE="$(cat "$MODDIR/config/active" 2>/dev/null)"
 . "$MODDIR/scripts/perf_opts.sh"
 if [ -z "$(remote_type "$ACTIVE")" ]; then
     echo "$(date): No existe el servidor '$ACTIVE' en rclone.conf" >> "$LOG_FILE"
+    echo "No existe el servidor '$ACTIVE' en rclone.conf"
     exit 1
 fi
 
@@ -150,6 +152,7 @@ do_bind() {
         else
             echo '{"mounted":false}' > "$STATUS_FILE"
             echo "$(date): Falló el bind hacia $TARGET_PATH" >> "$LOG_FILE"
+            echo "Falló el bind hacia $TARGET_PATH"
             exit 1
         fi
     fi
@@ -213,6 +216,25 @@ fi
 REMOTE_ROOT="$(remote_root "$ACTIVE")"
 echo "$(date): montando '$ACTIVE:$REMOTE_ROOT' (tipo $(remote_type "$ACTIVE"))" >> "$LOG_FILE"
 
+# Comprobación rápida de que el remoto responde ANTES de lanzar el montaje.
+# Sin red (o con el servidor caído) `rclone mount --daemon` esperaba sus plazos
+# largos de conexión (más de un minuto) y la app se quedaba en "Trabajando…"
+# sin decir nada; así falla en unos segundos y con el motivo en la salida.
+PRE_LIMIT=""
+command -v timeout >/dev/null 2>&1 && PRE_LIMIT="timeout 25"
+PRE_ERR="$($PRE_LIMIT "$RCLONE_BIN" lsd "$ACTIVE:$REMOTE_ROOT" --max-depth 1 \
+    --config "$RCLONE_CONF" \
+    --contimeout 8s --timeout 15s --retries 1 --low-level-retries 1 \
+    --log-level ERROR 2>&1 >/dev/null)"
+if [ $? -ne 0 ]; then
+    PRE_MSG="$(printf '%s\n' "$PRE_ERR" | grep -v '^[[:space:]]*$' | tail -n 1 | cut -c1-200)"
+    [ -z "$PRE_MSG" ] && PRE_MSG="sin respuesta (sin red o tiempo agotado)"
+    echo '{"mounted":false}' > "$STATUS_FILE"
+    echo "$(date): '$ACTIVE' no responde, no se monta: $PRE_MSG" >> "$LOG_FILE"
+    echo "No se pudo conectar con '$ACTIVE': $PRE_MSG"
+    exit 1
+fi
+
 "$RCLONE_BIN" mount "$ACTIVE:$REMOTE_ROOT" "$RCLONE_MOUNTPOINT" \
     --config "$RCLONE_CONF" \
     --cache-dir "$CACHE_DIR" \
@@ -236,5 +258,7 @@ if is_fuse_mounted; then
 else
     echo '{"mounted":false}' > "$STATUS_FILE"
     echo "$(date): Fallo al montar rclone" >> "$LOG_FILE"
+    MNT_ERR="$(grep -iE 'error|failed|fatal' "$LOG_FILE" 2>/dev/null | tail -n 1 | cut -c1-200)"
+    echo "Fallo al montar rclone${MNT_ERR:+: $MNT_ERR}"
     exit 1
 fi
