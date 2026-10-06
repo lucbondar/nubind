@@ -24,7 +24,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -65,6 +64,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nubind.app.BindViewModel
 import com.nubind.app.BuildConfig
@@ -126,13 +128,11 @@ fun AboutScreen(
         // Cabecera: logo + nombre + versión. En vertical ocupa todo el ancho;
         // en apaisado ocupa la mitad y "Qué hace" va a su derecha.
         if (dualPane) {
-            Row(
-                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                HeaderCard(vm, modifier = Modifier.weight(1f).fillMaxHeight())
-                Column(modifier = Modifier.weight(1f)) { Entrance(1) { WhatItDoesCard() } }
-            }
+            HeaderRow(
+                spacing = 24.dp,
+                header = { HeaderCard(vm, modifier = Modifier.fillMaxWidth()) },
+                side = { Column { Entrance(1) { WhatItDoesCard() } } }
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
@@ -155,6 +155,37 @@ fun AboutScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
             )
+        }
+    }
+}
+
+/**
+ * Cabecera (izquierda) y "Qué hace" (derecha) a partes iguales, con la cabecera al menos tan
+ * alta como la otra columna. Antes era un `Row` con `height(IntrinsicSize.Min)`, pero las
+ * medidas intrínsecas no ven las animaciones en curso: al plegarse o aparecer el aviso de
+ * desfase / reinicio ("Lo haré luego") la cabecera saltaba de golpe al alto final y el
+ * contenido se recortaba, distinto de retrato. Aquí se mide el alto real en cada fotograma
+ * (sin intrínsecos), así la tarjeta crece y se encoge con la animación. No lo vuelvas a
+ * `IntrinsicSize`.
+ */
+@Composable
+private fun HeaderRow(
+    spacing: Dp,
+    header: @Composable () -> Unit,
+    side: @Composable () -> Unit
+) {
+    Layout(
+        content = { header(); side() },
+        modifier = Modifier.fillMaxWidth()
+    ) { measurables, constraints ->
+        val gap = spacing.roundToPx()
+        val leftW = ((constraints.maxWidth - gap) / 2).coerceAtLeast(0)
+        val rightW = (constraints.maxWidth - gap - leftW).coerceAtLeast(0)
+        val right = measurables[1].measure(Constraints(rightW, rightW, 0, Constraints.Infinity))
+        val left = measurables[0].measure(Constraints(leftW, leftW, right.height, Constraints.Infinity))
+        layout(constraints.maxWidth, maxOf(left.height, right.height)) {
+            left.place(0, 0)
+            right.place(leftW + gap, 0)
         }
     }
 }
