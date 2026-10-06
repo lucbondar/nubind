@@ -201,6 +201,7 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 ### Tile de Ajustes rápidos
 
 - Un tile **Nubind** en el panel de Ajustes rápidos monta o desmonta el servidor seleccionado con un toque, sin abrir la app (hay que añadirlo desde el editor de tiles de Android).
+  - La nube del tile queda **rellena** cuando hay algo montado y, al montar o desmontar desde el propio tile, se **llena como agua** (con una pequeña ola) o se vacía con una mini animación.
 - Encendido cuando hay algo montado; en Android 10 o superior muestra debajo el servidor conectado o «Desmontado», y queda no disponible mientras trabaja.
 - Los resultados se avisan con una notificación emergente breve (ver *Avisos expressive*).
 
