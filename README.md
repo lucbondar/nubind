@@ -79,6 +79,7 @@ sequenceDiagram
 
 - Cada servidor es una tarjeta; la seleccionada se abre y las demás asoman su franja.
 - Tocar una tarjeta elige cuál se monta. Agregar, editar y eliminar desde la misma pantalla.
+- Animación expressive: al tocar, la tarjeta se hunde y, al quedar elegida, salta con rebote; las demás se acomodan en ola (cuanto más lejos, más tarde), el icono crece con un pop y los detalles (estado, caché, Editar/Eliminar) suben uno tras otro.
 - Compatible con **FTP**, **Google Drive** y **S3** (Oracle Cloud Object Storage, Amazon S3, Cloudflare R2 y cualquier servicio compatible).
 - En pantalla ancha (apaisado, tablets) se ven **tres paneles uno al lado del otro**, uno por tipo de remoto (FTP, Google Drive y S3); en vertical siguen mezclados en una sola pila, como siempre.
 - Las contraseñas se guardan ofuscadas con `rclone obscure`.
