@@ -78,7 +78,7 @@ import androidx.compose.material3.TextButton
 import kotlinx.coroutines.withTimeoutOrNull
 import com.nubind.app.ui.components.NavFillIcon
 import com.nubind.app.ui.components.NavIconArt
-import com.nubind.app.ui.components.NavIcons
+import com.nubind.app.ui.components.NavIconArts
 import com.nubind.app.ui.components.NoticeKind
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -187,7 +187,7 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * Cada pestaña lleva su ícono propio ([NavIcons], trazado de las imágenes del usuario). En la
+ * Cada pestaña lleva su ícono propio ([NavIconArts], diseñados a mano). En la
  * píldora el icono se dibuja con [NavFillIcon]: vacío (solo contorno) y se rellena al posarse el
  * indicador en esa pestaña; al cambiar de pestaña se vacía.
  */
@@ -195,10 +195,10 @@ private sealed class Screen(@StringRes val labelRes: Int, val art: NavIconArt) {
     /** Etiqueta en el idioma actual (se resuelve al leerla, no al cargar la clase). */
     val label: String get() = Strings.get(labelRes)
 
-    object Home : Screen(R.string.inicio, NavIcons.HomeArt)
-    object Servers : Screen(R.string.servidores, NavIcons.ServersArt)
-    object Logs : Screen(R.string.logs, NavIcons.LogsArt)
-    object About : Screen(R.string.acerca_de, NavIcons.AboutArt)
+    object Home : Screen(R.string.inicio, NavIconArts.Home)
+    object Servers : Screen(R.string.servidores, NavIconArts.Servers)
+    object Logs : Screen(R.string.logs, NavIconArts.Logs)
+    object About : Screen(R.string.acerca_de, NavIconArts.About)
 }
 
 /** Alto de la píldora (56 + 2×8 de relleno = 72) + separación por arriba y abajo. */

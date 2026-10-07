@@ -7,43 +7,157 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.graphics.vector.PathBuilder
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 
 /**
- * Iconos propios de las cuatro secciones (Inicio, Servidores, Logs y Acerca de), usados en la
- * píldora de navegación y donde la app nombra esas secciones. Se trazaron de las imágenes que
- * aportó el usuario (contornos suavizados y simplificados) en un viewport de 24x24, con el dibujo
- * a ~20 unidades de su lado mayor y centrado. Un solo color: el que les ponga `Icon(tint = ...)`.
- * Cada trazo se rellena con EvenOdd para que los huecos (marco del portapapeles, aro de la "i")
- * queden vacíos. Si hay que cambiarlos, se vuelven a trazar de la imagen: no se editan a mano.
+ * Iconos propios de las cuatro secciones (Inicio, Servidores, Logs y Acerca de), diseñados a mano
+ * en estilo expressive: formas geométricas gruesas y redondeadas en un viewport de 24, con un
+ * trazo de [STROKE_WIDTH]. Hay UN solo diseño por icono ([IconGeo]) y de él salen las dos formas
+ * de usarlo, para que se vean igual en toda la app:
+ * - [NavIcons]: `ImageVector` sólido (estado lleno) para `Icon(tint = ...)`, donde la app nombra
+ *   la sección (Qué hace, avisos, selector de carpetas, Mostrar Logs, estado vacío de Logs);
+ * - [NavIconArts] + [NavFillIcon]: la píldora de navegación, donde además hay estado vacío
+ *   (solo contorno) y el icono se rellena y se vacía con una animación.
  */
-private object NavIconPaths {
-    const val LOGS =
-        "M3.90,6.17 L3.55,6.18 L3.26,6.14 L2.93,6.02 L2.65,5.84 L2.42,5.64 L2.25,5.41 L2.11,5.12 L2.02,4.80 L2.00,4.45 L2.05,4.10 L2.14,3.84 L2.31,3.54 L2.53,3.28 L2.79,3.09 L3.08,2.95 L3.43,2.86 L3.72,2.85 L4.07,2.90 L4.36,3.01 L4.65,3.18 L4.88,3.40 L5.09,3.69 L5.21,3.95 L5.29,4.27 L5.30,4.59 L5.27,4.88 L5.15,5.23 L5.00,5.49 L4.77,5.75 L4.53,5.93 L4.22,6.08 Z M20.92,5.82 L7.85,5.82 L7.65,5.79 L7.42,5.70 L7.18,5.55 L7.00,5.38 L6.83,5.12 L6.74,4.88 L6.69,4.59 L6.69,4.39 L6.74,4.16 L6.80,3.98 L6.89,3.81 L7.04,3.61 L7.21,3.46 L7.42,3.33 L7.62,3.25 L7.79,3.21 L20.86,3.21 L21.06,3.25 L21.29,3.34 L21.50,3.48 L21.66,3.63 L21.79,3.81 L21.91,4.04 L21.97,4.27 L22.00,4.50 L21.94,4.91 L21.83,5.17 L21.71,5.35 L21.54,5.52 L21.33,5.67 L21.12,5.76 Z M3.95,13.64 L3.60,13.67 L3.26,13.62 L2.99,13.53 L2.70,13.36 L2.47,13.17 L2.29,12.94 L2.14,12.68 L2.02,12.30 L2.00,11.98 L2.03,11.66 L2.14,11.31 L2.31,11.02 L2.48,10.82 L2.73,10.61 L3.06,10.44 L3.37,10.35 L3.69,10.33 L4.04,10.37 L4.30,10.46 L4.62,10.64 L4.86,10.85 L5.04,11.08 L5.18,11.37 L5.28,11.69 L5.31,12.01 L5.27,12.33 L5.16,12.68 L5.02,12.94 L4.80,13.21 L4.56,13.39 L4.22,13.57 Z M20.92,13.30 L20.54,13.31 L7.82,13.30 L7.56,13.25 L7.36,13.15 L7.14,13.00 L6.98,12.83 L6.86,12.65 L6.74,12.39 L6.69,12.10 L6.69,11.87 L6.73,11.63 L6.80,11.46 L6.89,11.28 L7.05,11.08 L7.22,10.94 L7.42,10.81 L7.65,10.72 L7.82,10.69 L20.86,10.69 L21.06,10.73 L21.27,10.81 L21.50,10.96 L21.65,11.09 L21.79,11.28 L21.91,11.52 L21.97,11.75 L22.00,11.95 L21.98,12.22 L21.94,12.39 L21.83,12.65 L21.71,12.83 L21.54,13.00 L21.35,13.14 L21.12,13.24 Z M3.81,21.15 L3.49,21.15 L3.14,21.07 L2.86,20.95 L2.59,20.76 L2.39,20.57 L2.20,20.28 L2.09,20.01 L2.01,19.69 L2.01,19.32 L2.06,19.02 L2.17,18.73 L2.38,18.41 L2.61,18.18 L2.88,18.01 L3.17,17.88 L3.46,17.82 L3.75,17.81 L4.07,17.86 L4.36,17.97 L4.68,18.17 L4.90,18.38 L5.09,18.65 L5.23,19.00 L5.30,19.32 L5.30,19.67 L5.24,19.96 L5.13,20.25 L4.92,20.57 L4.68,20.80 L4.39,20.98 L4.10,21.10 Z M20.95,20.77 L20.71,20.79 L7.82,20.79 L7.62,20.75 L7.36,20.63 L7.13,20.47 L6.97,20.31 L6.82,20.07 L6.74,19.87 L6.69,19.58 L6.69,19.35 L6.74,19.11 L6.82,18.88 L7.05,18.56 L7.24,18.40 L7.48,18.27 L7.68,18.20 L7.88,18.17 L20.86,18.17 L21.12,18.23 L21.33,18.32 L21.50,18.44 L21.66,18.59 L21.79,18.76 L21.91,19.00 L21.97,19.23 L22.00,19.43 L21.99,19.67 L21.94,19.87 L21.83,20.13 L21.71,20.31 L21.56,20.47 L21.38,20.60 L21.15,20.72 Z"
-    const val SERVERS =
-        "M12.43,11.04 L12.07,11.07 L11.64,11.05 L11.27,11.00 L10.89,10.91 L10.54,10.78 L10.19,10.62 L9.90,10.45 L9.59,10.22 L9.32,9.99 L9.06,9.71 L8.82,9.40 L8.60,9.05 L8.45,8.74 L8.32,8.39 L8.22,8.03 L8.16,7.68 L8.13,7.26 L8.14,6.90 L8.19,6.54 L8.28,6.12 L8.40,5.78 L8.55,5.45 L8.75,5.10 L8.98,4.78 L9.19,4.54 L9.49,4.26 L9.81,4.01 L10.11,3.82 L10.46,3.65 L10.83,3.51 L11.17,3.42 L11.54,3.36 L11.93,3.33 L12.33,3.35 L12.68,3.39 L13.04,3.47 L13.40,3.59 L13.77,3.76 L14.08,3.94 L14.38,4.16 L14.68,4.41 L14.93,4.67 L15.19,5.01 L15.38,5.33 L15.56,5.68 L15.69,6.03 L15.79,6.42 L15.85,6.79 L15.87,7.17 L15.85,7.55 L15.80,7.91 L15.72,8.28 L15.58,8.66 L15.42,9.01 L15.26,9.28 L15.02,9.61 L14.78,9.89 L14.52,10.13 L14.17,10.40 L13.87,10.59 L13.50,10.77 L13.15,10.90 L12.83,10.98 ZM3.83,17.83 L3.67,17.85 L3.49,17.83 L3.15,17.77 L2.87,17.70 L2.55,17.56 L2.30,17.36 L2.14,17.12 L2.04,16.82 L2.00,16.51 L2.00,15.86 L2.02,15.51 L2.06,15.21 L2.14,14.88 L2.24,14.56 L2.35,14.29 L2.50,14.01 L2.66,13.77 L2.84,13.52 L3.03,13.31 L3.25,13.12 L3.74,12.79 L4.17,12.59 L4.90,12.37 L5.11,12.27 L5.24,12.16 L5.34,12.04 L5.42,11.91 L5.47,11.76 L5.49,11.58 L5.49,11.42 L5.45,11.26 L5.38,11.10 L5.23,10.90 L4.82,10.54 L4.54,10.22 L4.32,9.87 L4.10,9.39 L4.00,8.98 L3.96,8.54 L3.98,8.10 L4.07,7.70 L4.14,7.46 L4.26,7.20 L4.54,6.74 L4.89,6.37 L5.33,6.03 L5.80,5.79 L6.31,5.64 L6.82,5.58 L7.10,5.59 L7.30,5.63 L7.36,5.67 L7.39,5.76 L7.23,6.59 L7.19,7.26 L7.24,7.89 L7.34,8.39 L7.56,9.03 L7.80,9.53 L8.16,10.07 L8.62,10.61 L8.72,10.76 L8.80,11.02 L8.80,11.18 L8.78,11.32 L8.66,11.55 L8.57,11.65 L8.46,11.74 L7.49,12.15 L6.94,12.46 L6.61,12.68 L6.32,12.91 L6.00,13.21 L5.74,13.47 L5.49,13.77 L5.21,14.17 L5.00,14.53 L4.79,14.96 L4.62,15.39 L4.47,15.89 L4.36,16.33 L4.30,16.75 L4.24,17.36 L4.20,17.52 L4.14,17.63 L4.04,17.73 L3.93,17.80 ZM20.49,17.84 L20.25,17.84 L20.08,17.81 L19.93,17.70 L19.82,17.55 L19.76,17.35 L19.71,16.75 L19.62,16.26 L19.50,15.75 L19.36,15.32 L19.16,14.86 L18.91,14.36 L18.72,14.06 L18.41,13.66 L18.19,13.39 L17.95,13.15 L17.66,12.89 L17.34,12.64 L16.99,12.41 L16.55,12.17 L16.18,12.00 L15.54,11.74 L15.35,11.56 L15.23,11.34 L15.20,11.20 L15.20,11.05 L15.27,10.78 L15.37,10.62 L15.82,10.10 L16.19,9.56 L16.44,9.04 L16.66,8.40 L16.77,7.81 L16.81,7.23 L16.81,6.92 L16.77,6.56 L16.61,5.76 L16.63,5.68 L16.71,5.63 L16.90,5.60 L17.17,5.58 L17.44,5.60 L17.69,5.64 L18.20,5.79 L18.67,6.03 L19.07,6.32 L19.43,6.71 L19.72,7.16 L19.92,7.65 L20.02,8.10 L20.04,8.60 L19.99,9.03 L19.87,9.48 L19.68,9.89 L19.43,10.27 L19.17,10.56 L18.79,10.89 L18.65,11.07 L18.53,11.33 L18.51,11.61 L18.54,11.81 L18.61,11.97 L18.74,12.13 L18.89,12.26 L19.08,12.36 L19.64,12.52 L20.07,12.69 L20.49,12.93 L20.88,13.23 L21.18,13.55 L21.45,13.92 L21.66,14.31 L21.81,14.71 L21.94,15.23 L22.00,15.77 L21.99,16.62 L21.95,16.87 L21.89,17.06 L21.80,17.23 L21.70,17.36 L21.57,17.48 L21.39,17.60 L21.02,17.74 ZM13.58,20.65 L12.27,20.67 L10.72,20.65 L9.38,20.60 L8.24,20.51 L7.20,20.37 L6.56,20.24 L6.30,20.15 L6.08,20.06 L5.88,19.94 L5.72,19.81 L5.54,19.60 L5.39,19.35 L5.29,19.10 L5.22,18.80 L5.18,18.38 L5.16,17.78 L5.18,17.24 L5.23,16.80 L5.30,16.41 L5.40,16.00 L5.53,15.61 L5.67,15.26 L5.85,14.90 L6.02,14.63 L6.27,14.28 L6.53,13.98 L7.00,13.55 L7.54,13.18 L8.01,12.93 L8.63,12.69 L9.20,12.54 L9.96,12.41 L10.70,12.35 L11.58,12.32 L12.64,12.32 L13.54,12.36 L14.31,12.45 L15.03,12.59 L15.71,12.81 L16.22,13.04 L16.79,13.39 L17.28,13.79 L17.77,14.33 L18.11,14.85 L18.29,15.18 L18.45,15.54 L18.56,15.86 L18.67,16.27 L18.76,16.72 L18.81,17.13 L18.84,17.62 L18.83,18.13 L18.81,18.54 L18.76,18.90 L18.69,19.17 L18.58,19.40 L18.37,19.71 L18.08,19.97 L17.77,20.13 L17.35,20.26 L16.70,20.39 L15.68,20.52 L14.70,20.59 Z"
-    const val HOME =
-        "M18.88,21.98 L14.06,21.98 L13.90,21.97 L13.83,21.93 L13.79,21.85 L13.78,21.69 L13.78,15.68 L13.77,15.39 L13.74,15.15 L13.65,14.86 L13.52,14.59 L13.37,14.37 L13.16,14.17 L12.93,13.99 L12.66,13.86 L12.37,13.77 L12.09,13.74 L11.78,13.75 L11.49,13.81 L11.20,13.93 L10.94,14.08 L10.70,14.30 L10.52,14.52 L10.37,14.80 L10.27,15.11 L10.23,15.31 L10.22,15.56 L10.22,21.72 L10.21,21.87 L10.17,21.94 L10.09,21.97 L9.93,21.98 L5.09,21.97 L4.84,21.91 L4.61,21.77 L4.41,21.56 L4.29,21.33 L4.25,21.15 L4.23,20.91 L4.22,12.13 L4.19,12.05 L4.09,12.00 L2.80,11.99 L2.58,11.95 L2.40,11.87 L2.28,11.79 L2.17,11.67 L2.04,11.43 L2.01,11.28 L2.00,11.12 L2.06,10.83 L2.13,10.69 L2.23,10.57 L2.70,10.13 L10.94,2.72 L11.54,2.19 L11.78,2.06 L11.99,2.02 L12.17,2.04 L12.34,2.11 L12.52,2.24 L21.66,10.46 L21.84,10.66 L21.95,10.87 L21.99,11.01 L22.00,11.17 L21.95,11.45 L21.82,11.69 L21.72,11.79 L21.60,11.87 L21.41,11.95 L21.22,11.99 L19.93,12.00 L19.83,12.04 L19.78,12.11 L19.77,12.33 L19.76,21.10 L19.73,21.27 L19.68,21.42 L19.59,21.57 L19.48,21.69 L19.34,21.81 L19.20,21.90 L19.05,21.95 Z"
-    const val ABOUT =
-        "M12.63,21.98 L12.13,22.00 L11.67,21.99 L11.15,21.96 L10.63,21.90 L10.05,21.80 L9.51,21.69 L8.58,21.41 L8.22,21.28 L7.68,21.05 L7.19,20.82 L6.78,20.59 L6.02,20.10 L5.66,19.83 L5.37,19.58 L5.05,19.28 L4.71,18.92 L4.41,18.56 L4.16,18.23 L3.66,17.45 L3.22,16.59 L2.85,15.69 L2.68,15.16 L2.54,14.63 L2.43,14.14 L2.32,13.54 L2.23,12.64 L2.21,12.13 L2.21,11.66 L2.24,11.14 L2.30,10.63 L2.39,10.07 L2.49,9.59 L2.62,9.04 L2.76,8.60 L2.93,8.10 L3.16,7.55 L3.37,7.10 L3.61,6.64 L4.10,5.85 L4.63,5.17 L4.92,4.86 L5.26,4.52 L5.59,4.23 L5.94,3.95 L6.33,3.68 L6.69,3.46 L7.57,3.01 L8.39,2.67 L8.96,2.47 L9.39,2.34 L9.92,2.22 L10.41,2.13 L10.93,2.06 L11.46,2.02 L11.94,2.00 L12.37,2.01 L12.90,2.04 L13.40,2.10 L13.90,2.18 L14.35,2.28 L15.27,2.54 L15.68,2.69 L16.27,2.93 L16.76,3.16 L17.19,3.39 L17.54,3.60 L17.96,3.88 L18.35,4.18 L18.68,4.46 L19.01,4.78 L19.32,5.11 L19.83,5.75 L20.10,6.16 L20.33,6.54 L20.57,6.98 L20.84,7.55 L21.03,7.99 L21.21,8.49 L21.34,8.89 L21.46,9.37 L21.59,9.95 L21.67,10.42 L21.73,10.89 L21.77,11.38 L21.79,11.87 L21.79,12.37 L21.75,12.91 L21.70,13.37 L21.54,14.30 L21.40,14.88 L21.28,15.29 L20.93,16.26 L20.50,17.18 L20.25,17.62 L19.97,18.05 L19.73,18.39 L19.40,18.79 L19.05,19.18 L18.74,19.48 L18.35,19.82 L18.01,20.08 L17.58,20.37 L17.17,20.62 L16.34,21.05 L15.94,21.22 L15.44,21.41 L14.51,21.69 L13.53,21.88 ZM12.60,20.09 L13.39,20.00 L14.13,19.85 L14.91,19.61 L15.36,19.44 L15.71,19.28 L16.37,18.92 L17.04,18.45 L17.61,17.96 L18.13,17.39 L18.35,17.11 L18.59,16.77 L18.98,16.11 L19.33,15.33 L19.56,14.64 L19.77,13.79 L19.89,13.01 L19.94,12.16 L19.94,11.72 L19.91,11.26 L19.81,10.44 L19.65,9.70 L19.41,8.90 L19.12,8.21 L18.77,7.54 L18.32,6.87 L17.84,6.29 L17.31,5.78 L16.80,5.38 L16.13,4.96 L15.38,4.59 L14.58,4.28 L13.79,4.08 L13.00,3.95 L12.14,3.89 L11.35,3.91 L10.55,4.01 L9.76,4.19 L9.01,4.43 L8.22,4.77 L7.52,5.17 L6.92,5.60 L6.41,6.04 L6.13,6.33 L5.86,6.64 L5.62,6.96 L5.36,7.33 L4.96,8.04 L4.70,8.61 L4.43,9.38 L4.23,10.24 L4.10,11.06 L4.06,11.89 L4.08,12.67 L4.17,13.43 L4.33,14.26 L4.57,15.04 L4.85,15.75 L5.21,16.45 L5.67,17.13 L6.17,17.72 L6.46,18.02 L6.72,18.26 L7.32,18.72 L7.62,18.91 L7.92,19.09 L8.49,19.37 L9.27,19.67 L10.11,19.90 L10.87,20.04 L11.35,20.09 L11.79,20.11 ZM12.10,8.77 L11.81,8.76 L11.56,8.70 L11.27,8.58 L11.04,8.42 L10.84,8.21 L10.68,7.96 L10.58,7.70 L10.54,7.43 L10.54,7.12 L10.61,6.85 L10.73,6.58 L10.90,6.34 L11.11,6.14 L11.35,5.99 L11.62,5.90 L11.90,5.85 L12.20,5.86 L12.46,5.92 L12.73,6.04 L12.96,6.19 L13.16,6.40 L13.30,6.63 L13.41,6.92 L13.46,7.21 L13.46,7.50 L13.39,7.77 L13.28,8.04 L13.10,8.28 L12.91,8.47 L12.65,8.62 L12.37,8.73 ZM12.05,18.32 L11.76,18.30 L11.45,18.22 L11.18,18.08 L10.96,17.89 L10.75,17.64 L10.62,17.36 L10.55,17.09 L10.53,16.75 L10.53,11.26 L10.54,11.01 L10.56,10.82 L10.64,10.58 L10.75,10.35 L10.88,10.17 L11.05,10.00 L11.27,9.85 L11.50,9.75 L11.73,9.69 L11.99,9.67 L12.31,9.70 L12.57,9.77 L12.84,9.92 L13.08,10.11 L13.24,10.33 L13.38,10.63 L13.45,10.90 L13.47,11.24 L13.47,16.73 L13.44,17.15 L13.37,17.40 L13.26,17.62 L13.12,17.82 L12.95,17.99 L12.76,18.12 L12.53,18.23 L12.29,18.30 Z"
+private const val STROKE_WIDTH = 1.9f
 
-    /** Acerca de relleno: el mismo trazo sin el contorno interior del aro (disco con la \"i\" vaciada). */
-    const val ABOUT_FILLED =
-        "M12.63,21.98 L12.13,22.00 L11.67,21.99 L11.15,21.96 L10.63,21.90 L10.05,21.80 L9.51,21.69 L8.58,21.41 L8.22,21.28 L7.68,21.05 L7.19,20.82 L6.78,20.59 L6.02,20.10 L5.66,19.83 L5.37,19.58 L5.05,19.28 L4.71,18.92 L4.41,18.56 L4.16,18.23 L3.66,17.45 L3.22,16.59 L2.85,15.69 L2.68,15.16 L2.54,14.63 L2.43,14.14 L2.32,13.54 L2.23,12.64 L2.21,12.13 L2.21,11.66 L2.24,11.14 L2.30,10.63 L2.39,10.07 L2.49,9.59 L2.62,9.04 L2.76,8.60 L2.93,8.10 L3.16,7.55 L3.37,7.10 L3.61,6.64 L4.10,5.85 L4.63,5.17 L4.92,4.86 L5.26,4.52 L5.59,4.23 L5.94,3.95 L6.33,3.68 L6.69,3.46 L7.57,3.01 L8.39,2.67 L8.96,2.47 L9.39,2.34 L9.92,2.22 L10.41,2.13 L10.93,2.06 L11.46,2.02 L11.94,2.00 L12.37,2.01 L12.90,2.04 L13.40,2.10 L13.90,2.18 L14.35,2.28 L15.27,2.54 L15.68,2.69 L16.27,2.93 L16.76,3.16 L17.19,3.39 L17.54,3.60 L17.96,3.88 L18.35,4.18 L18.68,4.46 L19.01,4.78 L19.32,5.11 L19.83,5.75 L20.10,6.16 L20.33,6.54 L20.57,6.98 L20.84,7.55 L21.03,7.99 L21.21,8.49 L21.34,8.89 L21.46,9.37 L21.59,9.95 L21.67,10.42 L21.73,10.89 L21.77,11.38 L21.79,11.87 L21.79,12.37 L21.75,12.91 L21.70,13.37 L21.54,14.30 L21.40,14.88 L21.28,15.29 L20.93,16.26 L20.50,17.18 L20.25,17.62 L19.97,18.05 L19.73,18.39 L19.40,18.79 L19.05,19.18 L18.74,19.48 L18.35,19.82 L18.01,20.08 L17.58,20.37 L17.17,20.62 L16.34,21.05 L15.94,21.22 L15.44,21.41 L14.51,21.69 L13.53,21.88 Z M12.10,8.77 L11.81,8.76 L11.56,8.70 L11.27,8.58 L11.04,8.42 L10.84,8.21 L10.68,7.96 L10.58,7.70 L10.54,7.43 L10.54,7.12 L10.61,6.85 L10.73,6.58 L10.90,6.34 L11.11,6.14 L11.35,5.99 L11.62,5.90 L11.90,5.85 L12.20,5.86 L12.46,5.92 L12.73,6.04 L12.96,6.19 L13.16,6.40 L13.30,6.63 L13.41,6.92 L13.46,7.21 L13.46,7.50 L13.39,7.77 L13.28,8.04 L13.10,8.28 L12.91,8.47 L12.65,8.62 L12.37,8.73 Z M12.05,18.32 L11.76,18.30 L11.45,18.22 L11.18,18.08 L10.96,17.89 L10.75,17.64 L10.62,17.36 L10.55,17.09 L10.53,16.75 L10.53,11.26 L10.54,11.01 L10.56,10.82 L10.64,10.58 L10.75,10.35 L10.88,10.17 L11.05,10.00 L11.27,9.85 L11.50,9.75 L11.73,9.69 L11.99,9.67 L12.31,9.70 L12.57,9.77 L12.84,9.92 L13.08,10.11 L13.24,10.33 L13.38,10.63 L13.45,10.90 L13.47,11.24 L13.47,16.73 L13.44,17.15 L13.37,17.40 L13.26,17.62 L13.12,17.82 L12.95,17.99 L12.76,18.12 L12.53,18.23 L12.29,18.30 Z"
+/** Lápiz mínimo que implementan tanto `Path` (píldora) como `PathBuilder` (`ImageVector`). */
+internal interface Pen {
+    fun moveTo(x: Float, y: Float)
+    fun lineTo(x: Float, y: Float)
+    fun cubicTo(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float)
+    fun close()
 }
 
-private fun navIcon(name: String, pathData: String): ImageVector =
+private class PathPen(val p: Path) : Pen {
+    override fun moveTo(x: Float, y: Float) = p.moveTo(x, y)
+    override fun lineTo(x: Float, y: Float) = p.lineTo(x, y)
+    override fun cubicTo(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) =
+        p.cubicTo(x1, y1, x2, y2, x3, y3)
+    override fun close() = p.close()
+}
+
+private class VectorPen(val b: PathBuilder) : Pen {
+    override fun moveTo(x: Float, y: Float) = b.moveTo(x, y)
+    override fun lineTo(x: Float, y: Float) = b.lineTo(x, y)
+    override fun cubicTo(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) =
+        b.curveTo(x1, y1, x2, y2, x3, y3)
+    override fun close() = b.close()
+}
+
+private const val K = 0.5523f // control de Bézier de un cuarto de círculo
+
+private fun Pen.circle(cx: Float, cy: Float, r: Float) {
+    val k = K * r
+    moveTo(cx + r, cy)
+    cubicTo(cx + r, cy + k, cx + k, cy + r, cx, cy + r)
+    cubicTo(cx - k, cy + r, cx - r, cy + k, cx - r, cy)
+    cubicTo(cx - r, cy - k, cx - k, cy - r, cx, cy - r)
+    cubicTo(cx + k, cy - r, cx + r, cy - k, cx + r, cy)
+    close()
+}
+
+/** Rectángulo con esquinas de radio [rad] (con `rad` = mitad del lado menor es una píldora). */
+private fun Pen.roundRect(l: Float, t: Float, r: Float, b: Float, rad: Float) {
+    val k = K * rad
+    moveTo(l + rad, t)
+    lineTo(r - rad, t)
+    cubicTo(r - rad + k, t, r, t + rad - k, r, t + rad)
+    lineTo(r, b - rad)
+    cubicTo(r, b - rad + k, r - rad + k, b, r - rad, b)
+    lineTo(l + rad, b)
+    cubicTo(l + rad - k, b, l, b - rad + k, l, b - rad)
+    lineTo(l, t + rad)
+    cubicTo(l, t + rad - k, l + rad - k, t, l + rad, t)
+    close()
+}
+
+/** Puerta de la casa: arco de 4 de ancho que arranca y termina en el suelo (y = 19,4). */
+private fun Pen.door(closed: Boolean) {
+    moveTo(10f, 19.4f)
+    lineTo(10f, 15.8f)
+    cubicTo(10f, 14.6954f, 10.8954f, 13.8f, 12f, 13.8f)
+    cubicTo(13.1046f, 13.8f, 14f, 14.6954f, 14f, 15.8f)
+    lineTo(14f, 19.4f)
+    if (closed) close()
+}
+
+private fun Pen.houseBody() {
+    moveTo(12f, 4.6f); lineTo(20f, 11.8f); lineTo(20f, 19.4f); lineTo(4f, 19.4f); lineTo(4f, 11.8f); close()
+}
+
+private fun Pen.people() {
+    // Persona de delante: cabeza y hombros.
+    circle(9f, 7.9f, 3.3f)
+    moveTo(3f, 19.4f); lineTo(3f, 17.8f)
+    cubicTo(3f, 15.6f, 5.6f, 14f, 9f, 14f)
+    cubicTo(12.4f, 14f, 15f, 15.6f, 15f, 17.8f)
+    lineTo(15f, 19.4f); close()
+    // Persona de atrás, a la derecha.
+    circle(17.1f, 8.4f, 2.4f)
+    moveTo(18f, 19.4f); lineTo(18f, 14.4f)
+    cubicTo(19.8f, 14.4f, 21f, 15.6f, 21f, 17.8f)
+    lineTo(21f, 19.4f); close()
+}
+
+/** Tres filas de punto + barra; cada forma mide 5 de alto por fuera para que el vacío tenga hueco. */
+private fun Pen.list() {
+    for (y in floatArrayOf(5f, 12f, 19f)) {
+        circle(4.7f, y, 1.55f)
+        roundRect(10.15f, y - 1.55f, 21.05f, y + 1.55f, 1.55f)
+    }
+}
+
+private fun Pen.infoRing() = circle(12f, 12f, 9f)
+
+private fun Pen.infoMarks() {
+    circle(12f, 7.9f, 1.2f)
+    roundRect(10.9f, 10.7f, 13.1f, 16.9f, 1.1f)
+}
+
+/**
+ * Diseño de un icono, en dos estados:
+ * - **vacío**: [strokes] con trazo de [STROKE_WIDTH] (puntas y uniones redondas) y, si hay,
+ *   [hollowFills] rellenos (la «i» de Acerca de);
+ * - **lleno**: [solid] relleno EvenOdd (sus huecos son la puerta de la casa y la «i») más un
+ *   trazo de [solidStroke] del mismo grosor, que redondea las esquinas y deja el mismo tamaño
+ *   exterior que el estado vacío.
+ */
+internal class IconGeo(
+    val strokes: Pen.() -> Unit,
+    val solid: Pen.() -> Unit,
+    val solidStroke: Pen.() -> Unit,
+    val hollowFills: (Pen.() -> Unit)? = null
+)
+
+private val HomeGeo = IconGeo(
+    strokes = { houseBody(); door(closed = false) },
+    solid = { houseBody(); door(closed = true) },
+    solidStroke = { houseBody() }
+)
+private val ServersGeo = IconGeo(strokes = { people() }, solid = { people() }, solidStroke = { people() })
+private val LogsGeo = IconGeo(strokes = { list() }, solid = { list() }, solidStroke = { list() })
+private val AboutGeo = IconGeo(
+    strokes = { infoRing() },
+    solid = { infoRing(); infoMarks() },
+    solidStroke = { infoRing() },
+    hollowFills = { infoMarks() }
+)
+
+private fun navVector(name: String, geo: IconGeo): ImageVector =
     ImageVector.Builder(
         name = name,
         defaultWidth = 24.dp,
@@ -51,83 +165,69 @@ private fun navIcon(name: String, pathData: String): ImageVector =
         viewportWidth = 24f,
         viewportHeight = 24f
     )
-        .addPath(
-            pathData = addPathNodes(pathData),
-            pathFillType = PathFillType.EvenOdd,
-            fill = SolidColor(Color.Black)
-        )
+        .path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) { geo.solid(VectorPen(this)) }
+        .path(
+            stroke = SolidColor(Color.Black),
+            strokeLineWidth = STROKE_WIDTH,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round
+        ) { geo.solidStroke(VectorPen(this)) }
         .build()
 
+/** Iconos sólidos para `Icon(tint = ...)` fuera de la píldora. */
 object NavIcons {
-    /** Dibujos rellenables de la píldora (ver [NavFillIcon]). */
-    val HomeArt = NavIconArt(NavIconPaths.HOME)
-    val ServersArt = NavIconArt(NavIconPaths.SERVERS)
-    val LogsArt = NavIconArt(NavIconPaths.LOGS)
-    val AboutArt = NavIconArt(NavIconPaths.ABOUT_FILLED, hollowData = NavIconPaths.ABOUT)
-
     /** Casa con puerta: Inicio. */
-    val Home: ImageVector by lazy { navIcon("NavHome", NavIconPaths.HOME) }
+    val Home: ImageVector by lazy { navVector("NavHome", HomeGeo) }
 
-    /** Tres personas: Servidores. */
-    val Servers: ImageVector by lazy { navIcon("NavServers", NavIconPaths.SERVERS) }
+    /** Dos personas: Servidores. */
+    val Servers: ImageVector by lazy { navVector("NavServers", ServersGeo) }
 
-    /** Lista (tres puntos y tres barras): Logs. */
-    val Logs: ImageVector by lazy { navIcon("NavLogs", NavIconPaths.LOGS) }
+    /** Lista de tres puntos y tres barras: Logs. */
+    val Logs: ImageVector by lazy { navVector("NavLogs", LogsGeo) }
 
-    /** "i" dentro de un aro: Acerca de y avisos informativos. */
-    val About: ImageVector by lazy { navIcon("NavAbout", NavIconPaths.ABOUT) }
+    /** Aro con «i»: Acerca de y avisos informativos. */
+    val About: ImageVector by lazy { navVector("NavAbout", AboutGeo) }
 }
 
-/**
- * Versión "rellenable" de un icono de la píldora: [filled] es el icono sólido (EvenOdd) y el estado
- * vacío es su contorno, que se saca de [filled] como un trazo de [OUTLINE_WIDTH] dentro de la silueta.
- * Si el icono ya es hueco por naturaleza (el aro de Acerca de) se pasa [hollowData] y se usa tal cual.
- */
-class NavIconArt internal constructor(filledData: String, hollowData: String? = null) {
-    internal val filled: Path by lazy { polygonsToPath(filledData) }
-    internal val hollow: Path? by lazy { hollowData?.let(::polygonsToPath) }
-
-    companion object {
-        /** Grosor del contorno del estado vacío, en unidades del viewport de 24. */
-        internal const val OUTLINE_WIDTH = 0.9f
-    }
+/** Dibujo "rellenable" de un icono de la píldora (ver [NavFillIcon]). */
+class NavIconArt internal constructor(geo: IconGeo) {
+    internal val strokes: Path = geo.strokes.toPath(false)
+    internal val solid: Path = geo.solid.toPath(true)
+    internal val solidStroke: Path = geo.solidStroke.toPath(false)
+    internal val hollowFills: Path? = geo.hollowFills?.toPath(true)
 }
 
-/** Convierte el formato "M x,y L x,y ... Z" de [NavIconPaths] en un [Path] EvenOdd. */
-private fun polygonsToPath(data: String): Path {
-    val path = Path()
-    path.fillType = PathFillType.EvenOdd
-    for (seg in data.split('M')) {
-        val body = seg.trim().removeSuffix("Z").trim()
-        if (body.isEmpty()) continue
-        var first = true
-        for (pt in body.split('L')) {
-            val xy = pt.trim().split(',')
-            val x = xy[0].toFloat()
-            val y = xy[1].toFloat()
-            if (first) { path.moveTo(x, y); first = false } else path.lineTo(x, y)
-        }
-        path.close()
-    }
-    return path
+private fun (Pen.() -> Unit).toPath(evenOdd: Boolean): Path {
+    val p = Path()
+    if (evenOdd) p.fillType = PathFillType.EvenOdd
+    this(PathPen(p))
+    return p
 }
+
+object NavIconArts {
+    val Home = NavIconArt(HomeGeo)
+    val Servers = NavIconArt(ServersGeo)
+    val Logs = NavIconArt(LogsGeo)
+    val About = NavIconArt(AboutGeo)
+}
+
+private val ArtStroke = Stroke(width = STROKE_WIDTH, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
 private fun DrawScope.drawHollow(art: NavIconArt, tint: Color) {
-    val hollow = art.hollow
-    if (hollow != null) {
-        drawPath(hollow, tint)
-    } else {
-        clipPath(art.filled) {
-            drawPath(art.filled, tint, style = Stroke(width = NavIconArt.OUTLINE_WIDTH * 2f))
-        }
-    }
+    drawPath(art.strokes, tint, style = ArtStroke)
+    art.hollowFills?.let { drawPath(it, tint) }
+}
+
+private fun DrawScope.drawSolid(art: NavIconArt, tint: Color) {
+    drawPath(art.solid, tint)
+    drawPath(art.solidStroke, tint, style = ArtStroke)
 }
 
 /**
  * Icono de la píldora que se llena y se vacía. [fill] va de 0 (solo contorno) a 1 (sólido): el
  * relleno sube desde abajo y al vaciarse baja, con el borde recto entre las dos mitades (arriba
- * se dibuja el vacío, abajo el relleno, sin superponerse). Es un [State] y se lee solo al
- * dibujar, así la animación no recompone nada.
+ * se dibuja el vacío, abajo el lleno, sin superponerse: superpuestos, la «i» de Acerca de se
+ * perdería sobre el disco). Es un [State] y se lee solo al dibujar, así la animación no recompone.
  */
 @Composable
 fun NavFillIcon(
@@ -146,7 +246,7 @@ fun NavFillIcon(
         withTransform({ scale(s, s, pivot = Offset.Zero) }) {
             val edge = 24f * (1f - level)
             if (level < 1f) clipRect(0f, 0f, 24f, edge) { drawHollow(art, tint) }
-            if (level > 0f) clipRect(0f, edge, 24f, 24f) { drawPath(art.filled, tint) }
+            if (level > 0f) clipRect(0f, edge, 24f, 24f) { drawSolid(art, tint) }
         }
     }
 }
