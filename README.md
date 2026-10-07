@@ -202,7 +202,8 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 
 ### Iconos
 
-- La barra inferior (Inicio, Servidores, Logs y Acerca de) usa **iconos propios**, los mismos seleccionados o no; también aparecen donde la app nombra esas secciones (Qué hace, avisos informativos, Mostrar Logs).
+- La barra inferior (Inicio, Servidores, Logs y Acerca de) usa **iconos propios**; también aparecen donde la app nombra esas secciones (Qué hace, avisos informativos, Mostrar Logs). El de Logs es una lista (tres puntos y tres barras).
+- En la píldora los iconos van **vacíos** (solo contorno) y se **rellenan** de abajo hacia arriba al posarse el indicador en su pestaña (también mientras arrastras el dedo); al cambiar de pestaña se **vacían** hacia abajo.
 
 ### Tile de Ajustes rápidos
 

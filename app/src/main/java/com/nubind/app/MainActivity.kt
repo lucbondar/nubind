@@ -74,9 +74,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import kotlinx.coroutines.withTimeoutOrNull
+import com.nubind.app.ui.components.NavFillIcon
+import com.nubind.app.ui.components.NavIconArt
 import com.nubind.app.ui.components.NavIcons
 import com.nubind.app.ui.components.NoticeKind
 import androidx.compose.material3.MaterialTheme
@@ -96,7 +97,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -187,17 +187,18 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * Cada pestaña lleva su ícono propio ([NavIcons], trazado de las imágenes del usuario): el mismo
- * dibujo seleccionado o no; lo que cambia es el color y el indicador de la píldora.
+ * Cada pestaña lleva su ícono propio ([NavIcons], trazado de las imágenes del usuario). En la
+ * píldora el icono se dibuja con [NavFillIcon]: vacío (solo contorno) y se rellena al posarse el
+ * indicador en esa pestaña; al cambiar de pestaña se vacía.
  */
-private sealed class Screen(@StringRes val labelRes: Int, val icon: ImageVector) {
+private sealed class Screen(@StringRes val labelRes: Int, val art: NavIconArt) {
     /** Etiqueta en el idioma actual (se resuelve al leerla, no al cargar la clase). */
     val label: String get() = Strings.get(labelRes)
 
-    object Home : Screen(R.string.inicio, NavIcons.Home)
-    object Servers : Screen(R.string.servidores, NavIcons.Servers)
-    object Logs : Screen(R.string.logs, NavIcons.Logs)
-    object About : Screen(R.string.acerca_de, NavIcons.About)
+    object Home : Screen(R.string.inicio, NavIcons.HomeArt)
+    object Servers : Screen(R.string.servidores, NavIcons.ServersArt)
+    object Logs : Screen(R.string.logs, NavIcons.LogsArt)
+    object About : Screen(R.string.acerca_de, NavIcons.AboutArt)
 }
 
 /** Alto de la píldora (56 + 2×8 de relleno = 72) + separación por arriba y abajo. */
@@ -794,6 +795,13 @@ private fun PillItem(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
         label = "pillIconScale"
     )
+    // Relleno del icono: sube al posarse el indicador en la pestaña y baja al dejarla. Se guarda
+    // como State sin delegar: lo lee NavFillIcon al dibujar, sin recomponer.
+    val iconFill = animateFloatAsState(
+        if (selected) 1f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "pillIconFill"
+    )
 
     val itemModifier = modifier
         .let { if (vertical) it.size(56.dp) else it.height(56.dp).defaultMinSize(minWidth = 56.dp) }
@@ -817,10 +825,11 @@ private fun PillItem(
     // para desplegar texto al lado sin desbordar la pantalla.
     if (vertical) {
         Box(itemModifier, contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = screen.icon,
-                contentDescription = screen.label,
+            NavFillIcon(
+                art = screen.art,
                 tint = content,
+                fill = iconFill,
+                contentDescription = screen.label,
                 modifier = Modifier.size(26.dp).scale(iconScale)
             )
         }
@@ -832,10 +841,11 @@ private fun PillItem(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = screen.icon,
-            contentDescription = screen.label,
+        NavFillIcon(
+            art = screen.art,
             tint = content,
+            fill = iconFill,
+            contentDescription = screen.label,
             // Sin tamaño explícito quedan en 24dp (el default de Icon). 28dp
             // es "un poco más grande" sin desbalancear la altura de 56dp de
             // la píldora ni el texto labelLarge de al lado.
