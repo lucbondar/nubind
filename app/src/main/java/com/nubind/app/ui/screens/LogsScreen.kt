@@ -1,5 +1,6 @@
 package com.nubind.app.ui.screens
 
+import com.nubind.app.ui.components.NavIcons
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -65,7 +66,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -684,7 +684,7 @@ private fun LogEmptyState(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         CookieBadge(
-            icon = Icons.Default.Info,
+            icon = NavIcons.Logs,
             shape = MaterialShapes.Cookie9Sided.toShape(),
             background = scheme.secondaryContainer,
             glyph = scheme.onSecondaryContainer,

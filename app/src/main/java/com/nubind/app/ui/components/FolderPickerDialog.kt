@@ -44,7 +44,6 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -280,7 +279,7 @@ fun FolderPickerDialog(
                 modifier = Modifier.padding(horizontal = 4.dp)
             ) {
                 Icon(
-                    Icons.Default.Info,
+                    NavIcons.About,
                     contentDescription = null,
                     tint = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp).size(18.dp)

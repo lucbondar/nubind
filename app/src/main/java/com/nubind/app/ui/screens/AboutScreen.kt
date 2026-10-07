@@ -1,12 +1,12 @@
 package com.nubind.app.ui.screens
 
+import com.nubind.app.ui.components.NavIcons
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -37,7 +37,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -264,7 +263,7 @@ private fun HeaderCard(vm: BindViewModel, active: Boolean, modifier: Modifier = 
 private fun WhatItDoesCard() {
     SectionCard(
         title = Strings.get(R.string.que_hace),
-        icon = Icons.Default.Info,
+        icon = NavIcons.About,
         subtitle = Strings.get(R.string.monta_un_servidor_ftp_google_drive)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -377,7 +376,7 @@ private fun ShowLogsToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             CookieBadge(
-                icon = Icons.AutoMirrored.Rounded.List,
+                icon = NavIcons.Logs,
                 shape = MaterialShapes.Cookie9Sided.toShape(),
                 background = if (checked) scheme.primary else scheme.secondaryContainer,
                 glyph = if (checked) scheme.onPrimary else scheme.onSecondaryContainer,

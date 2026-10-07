@@ -72,19 +72,12 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.List
-import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.outlined.AccountBox
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.rounded.AccountBox
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import kotlinx.coroutines.withTimeoutOrNull
+import com.nubind.app.ui.components.NavIcons
 import com.nubind.app.ui.components.NoticeKind
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -194,21 +187,17 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * Cada pestaña trae un ícono en trazo (sin seleccionar) y uno relleno
- * (seleccionada) — el intercambio outlined/filled es el lenguaje que
- * Material Expressive usa en sus barras de navegación en vez de solo
- * cambiar de color. El relleno usa el set Rounded (esquinas suaves) en vez
- * del set Filled por defecto, más anguloso, para que la píldora se vea más
- * armónica con sus propias formas circulares.
+ * Cada pestaña lleva su ícono propio ([NavIcons], trazado de las imágenes del usuario): el mismo
+ * dibujo seleccionado o no; lo que cambia es el color y el indicador de la píldora.
  */
-private sealed class Screen(@StringRes val labelRes: Int, val filledIcon: ImageVector, val outlinedIcon: ImageVector) {
+private sealed class Screen(@StringRes val labelRes: Int, val icon: ImageVector) {
     /** Etiqueta en el idioma actual (se resuelve al leerla, no al cargar la clase). */
     val label: String get() = Strings.get(labelRes)
 
-    object Home : Screen(R.string.inicio, Icons.Rounded.Home, Icons.Outlined.Home)
-    object Servers : Screen(R.string.servidores, Icons.Rounded.AccountBox, Icons.Outlined.AccountBox)
-    object Logs : Screen(R.string.logs, Icons.AutoMirrored.Rounded.List, Icons.AutoMirrored.Outlined.List)
-    object About : Screen(R.string.acerca_de, Icons.Rounded.Info, Icons.Outlined.Info)
+    object Home : Screen(R.string.inicio, NavIcons.Home)
+    object Servers : Screen(R.string.servidores, NavIcons.Servers)
+    object Logs : Screen(R.string.logs, NavIcons.Logs)
+    object About : Screen(R.string.acerca_de, NavIcons.About)
 }
 
 /** Alto de la píldora (56 + 2×8 de relleno = 72) + separación por arriba y abajo. */
@@ -829,7 +818,7 @@ private fun PillItem(
     if (vertical) {
         Box(itemModifier, contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = if (selected) screen.filledIcon else screen.outlinedIcon,
+                imageVector = screen.icon,
                 contentDescription = screen.label,
                 tint = content,
                 modifier = Modifier.size(26.dp).scale(iconScale)
@@ -844,7 +833,7 @@ private fun PillItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = if (selected) screen.filledIcon else screen.outlinedIcon,
+            imageVector = screen.icon,
             contentDescription = screen.label,
             tint = content,
             // Sin tamaño explícito quedan en 24dp (el default de Icon). 28dp

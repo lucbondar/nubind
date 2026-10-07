@@ -200,6 +200,10 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 
 - Entrar a una subcarpeta desliza la página nueva desde la derecha; subir, al revés. La altura del diálogo se acomoda sin saltos y la ruta cambia con un deslizamiento corto. La caché de listados y la apertura instantánea siguen igual.
 
+### Iconos
+
+- La barra inferior (Inicio, Servidores, Logs y Acerca de) usa **iconos propios**, los mismos seleccionados o no; también aparecen donde la app nombra esas secciones (Qué hace, avisos informativos, Mostrar Logs).
+
 ### Tile de Ajustes rápidos
 
 - Un tile **Nubind** en el panel de Ajustes rápidos monta o desmonta el servidor seleccionado con un toque, sin abrir la app (hay que añadirlo desde el editor de tiles de Android).
