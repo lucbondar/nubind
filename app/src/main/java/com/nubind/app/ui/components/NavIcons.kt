@@ -43,19 +43,21 @@ internal interface Pen {
 }
 
 private class PathPen(val p: Path) : Pen {
-    override fun moveTo(x: Float, y: Float) = p.moveTo(x, y)
-    override fun lineTo(x: Float, y: Float) = p.lineTo(x, y)
-    override fun cubicTo(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) =
+    override fun moveTo(x: Float, y: Float) { p.moveTo(x, y) }
+    override fun lineTo(x: Float, y: Float) { p.lineTo(x, y) }
+    override fun cubicTo(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) {
         p.cubicTo(x1, y1, x2, y2, x3, y3)
-    override fun close() = p.close()
+    }
+    override fun close() { p.close() }
 }
 
 private class VectorPen(val b: PathBuilder) : Pen {
-    override fun moveTo(x: Float, y: Float) = b.moveTo(x, y)
-    override fun lineTo(x: Float, y: Float) = b.lineTo(x, y)
-    override fun cubicTo(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) =
+    override fun moveTo(x: Float, y: Float) { b.moveTo(x, y) }
+    override fun lineTo(x: Float, y: Float) { b.lineTo(x, y) }
+    override fun cubicTo(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) {
         b.curveTo(x1, y1, x2, y2, x3, y3)
-    override fun close() = b.close()
+    }
+    override fun close() { b.close() }
 }
 
 private const val K = 0.5523f // control de Bézier de un cuarto de círculo
