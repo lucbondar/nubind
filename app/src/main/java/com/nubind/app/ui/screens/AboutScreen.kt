@@ -104,7 +104,9 @@ private const val TELEGRAM_URL = "https://t.me/lcruz_23"
 fun AboutScreen(
     vm: BindViewModel,
     /** Mostrar/ocultar la pestaña Logs; MainActivity lo usa para conservar la pestaña actual. */
-    onLogsVisibleChange: (Boolean) -> Unit = { vm.updateLogsHidden(!it) }
+    onLogsVisibleChange: (Boolean) -> Unit = { vm.updateLogsHidden(!it) },
+    /** Esta pantalla es la página visible del pager (el cielo de la cabecera solo anima entonces). */
+    active: Boolean = true
 ) {
     val scheme = MaterialTheme.colorScheme
     val uriHandler = LocalUriHandler.current
@@ -135,7 +137,7 @@ fun AboutScreen(
         if (dualPane) {
             HeaderRow(
                 spacing = 24.dp,
-                header = { HeaderCard(vm, modifier = Modifier.fillMaxWidth()) },
+                header = { HeaderCard(vm, active, modifier = Modifier.fillMaxWidth()) },
                 side = { Column { Entrance(1) { WhatItDoesCard() } } }
             )
             Row(
@@ -146,7 +148,7 @@ fun AboutScreen(
                 Column(modifier = Modifier.weight(1f)) { Entrance(3) { LinksCard(uriHandler) } }
             }
         } else {
-            HeaderCard(vm, modifier = Modifier.fillMaxWidth())
+            HeaderCard(vm, active, modifier = Modifier.fillMaxWidth())
             Entrance(1) { WhatItDoesCard() }
             Entrance(2) { SystemCard(vm, rcloneVersion, onLogsVisibleChange) }
             Entrance(3) { LinksCard(uriHandler) }
@@ -196,7 +198,7 @@ private fun HeaderRow(
 }
 
 @Composable
-private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
+private fun HeaderCard(vm: BindViewModel, active: Boolean, modifier: Modifier = Modifier) {
     // Cielo flat según la hora; velo verde con actualización/reinicio pendiente, ámbar con el aviso de desfase (ver updateHeaderColors).
     val hour = rememberSkyHour()
     val skyContent by remember { derivedStateOf { skyAt(hour.floatValue).content } }
@@ -208,7 +210,7 @@ private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
         modifier = modifier
     ) {
         Box {
-            SkyBackground(hour)
+            SkyBackground(hour, active)
             // Velo de estado (verde/ámbar) sobre el cielo; invisible (tint 0) en reposo.
             Spacer(
                 Modifier.matchParentSize().drawBehind {

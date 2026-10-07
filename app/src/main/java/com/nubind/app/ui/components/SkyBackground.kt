@@ -245,14 +245,15 @@ private const val TWO_PI = 2.0 * PI
 
 /**
  * Dibuja el cielo ocupando todo el padre. Va como primer hijo de un `Box`; el contenido va encima.
- * [hour] es la hora local de [rememberSkyHour].
+ * [hour] es la hora local de [rememberSkyHour]; con [active] en false (la pantalla no es la página
+ * visible del pager) no corre ninguna animación.
  */
 @Composable
-fun BoxScope.SkyBackground(hour: FloatState) {
+fun BoxScope.SkyBackground(hour: FloatState, active: Boolean = true) {
     val context = LocalContext.current
     val resumed = rememberResumed()
     val animate = remember(resumed.value) { animationsOn(context) }
-    val running = resumed.value && animate
+    val running = resumed.value && animate && active
 
     // Reloj de animación (ms). Se lee solo al dibujar; ~30 fps aunque la pantalla sea de 90/120 Hz.
     val tick = remember { mutableLongStateOf(System.nanoTime() / 1_000_000L) }

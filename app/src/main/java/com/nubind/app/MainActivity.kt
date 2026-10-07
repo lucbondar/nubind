@@ -394,9 +394,14 @@ private fun AppScaffold(vm: BindViewModel) {
                 ) { page ->
                     when (items[page]) {
                         Screen.Home -> HomeScreen(vm, onOpenServers = { goTo(1) })
-                        Screen.Servers -> ServersScreen(vm)
+                        Screen.Servers -> ServersScreen(vm, onOpenHome = { goTo(0) })
                         Screen.Logs -> LogsScreen(vm)
-                        Screen.About -> AboutScreen(vm, onLogsVisibleChange = ::setLogsVisible)
+                        Screen.About -> AboutScreen(
+                            vm,
+                            onLogsVisibleChange = ::setLogsVisible,
+                            // El pager compone todas las páginas: el cielo solo anima en la que se ve.
+                            active = pagerState.currentPage == page
+                        )
                     }
                 }
             }

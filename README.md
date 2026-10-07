@@ -175,6 +175,7 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 - Tarjeta de resumen arriba: insignia que gira mientras hay algo montado y «Guardados: N».
 - Estado vacío con botón **Agregar servidor** y atajo **Importar un respaldo**.
 - Acciones de la barra como botones tonales (respaldo y «+»).
+- Tocar una tarjeta elige el servidor; **tocar de nuevo la ya elegida te lleva a Inicio**, al botón Montar.
 
 ### Pantalla Logs
 
