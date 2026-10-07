@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -76,6 +77,9 @@ import com.nubind.app.root.STORAGE_ROOT
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** Alto mínimo de la píldora de ruta (dos líneas de `labelLarge` + relleno). */
+private val PathPillMinHeight = 60.dp
 
 /** +1 al entrar a una subcarpeta (la página nueva viene de la derecha), -1 al subir o saltar a otra rama. */
 private fun folderNavDirection(from: String, to: String): Int =
@@ -203,13 +207,17 @@ fun FolderPickerDialog(
                 },
                 label = "folderPath"
             ) { shownPath ->
-                Text(
-                    shownPath,
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                )
+                // Alto mínimo de dos líneas: una ruta larga que se parte en dos no cambia el alto de
+                // la píldora (y con él el del diálogo) al entrar o salir de una carpeta.
+                Box(Modifier.heightIn(min = PathPillMinHeight), contentAlignment = Alignment.CenterStart) {
+                    Text(
+                        shownPath,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    )
+                }
             }
         }
     }
@@ -321,6 +329,9 @@ fun FolderPickerDialog(
             label = "folderPage"
         ) { path ->
             val pageAtRoot = path == STORAGE_ROOT
+            // La página que está saliendo sigue dibujada unos instantes: sin esto un segundo toque
+            // rápido caía en ella y saltaba a una carpeta hermana de la que se acababa de dejar.
+            val live = path == current
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth().then(if (landscape) Modifier.fillMaxHeight() else Modifier)
@@ -329,7 +340,8 @@ fun FolderPickerDialog(
                     item(key = "up") {
                         PickerRow(
                             onClick = { current = path.substringBeforeLast('/').ifEmpty { STORAGE_ROOT } },
-                            modifier = Modifier.animateItem()
+                            modifier = Modifier.animateItem(),
+                            enabled = live
                         ) {
                             IconTile(Icons.Default.ArrowUpward, scheme.secondaryContainer, scheme.onSecondaryContainer)
                             Text(
@@ -358,7 +370,7 @@ fun FolderPickerDialog(
                     }
                 } else {
                     items(list, key = { it }) { name ->
-                        PickerRow(onClick = { current = "$path/$name" }, modifier = Modifier.animateItem()) {
+                        PickerRow(onClick = { current = "$path/$name" }, modifier = Modifier.animateItem(), enabled = live) {
                             IconTile(Icons.Default.Folder, scheme.primaryContainer, scheme.onPrimaryContainer)
                             Text(
                                 name,
@@ -430,7 +442,7 @@ fun FolderPickerDialog(
                     header()
                     pathPill()
                     newFolder()
-                    folderList(Modifier.heightIn(max = 300.dp))
+                    folderList(Modifier.height(300.dp))
                     infoNote()
                     actions()
                 }
@@ -441,7 +453,12 @@ fun FolderPickerDialog(
 
 /** Fila-tarjeta de la lista: se aplasta con resorte al tocarla. */
 @Composable
-private fun PickerRow(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+private fun PickerRow(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit
+) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -451,6 +468,7 @@ private fun PickerRow(onClick: () -> Unit, modifier: Modifier = Modifier, conten
     )
     Surface(
         onClick = onClick,
+        enabled = enabled,
         interactionSource = source,
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
