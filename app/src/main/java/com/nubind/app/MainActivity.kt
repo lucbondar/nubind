@@ -41,9 +41,11 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.flow.first
+import androidx.compose.ui.graphics.Path
+import kotlin.math.abs
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -575,43 +577,29 @@ private fun FloatingPillNav(
         label = "pillInflate"
     )
 
-    // Gota: fuera del arrastre sobre la píldora, el indicador no salta a la pestaña elegida sino que
-    // sigue la posición real del pager (página + fracción), así que se desliza con el dedo al
-    // deslizar entre pestañas y con el viaje animado al tocar un botón. Se achica a mitad de camino
-    // entre dos pestañas y recupera su tamaño al llegar (`dropSquash`, solo geométrico). Mientras
-    // arrastras la píldora manda el dedo (`dragBlend` = 1, resorte de arriba), con el mismo achique.
+    // Gota con física. La CABEZA es el indicador de siempre: fuera del arrastre sobre la píldora
+    // sigue la posición real del pager (página + fracción) interpolando los `bounds` de las dos
+    // pestañas vecinas, o sea que se desliza con el dedo y con el viaje de `animateScrollToPage`;
+    // con el dedo sobre la píldora manda el resorte `ix/iy` (`dragBlend` = 1). La COLA es una masa
+    // atada a la cabeza con un resorte subamortiguado (`TailStiffness`/`TailDamping`, integrada por
+    // fotograma solo mientras se mueve): se queda atrás al acelerar, se estira unida por un cuello
+    // que se adelgaza y, al frenar la cabeza, la alcanza con un pequeño rebote. Se dibujan las dos
+    // formas más el cuello en el mismo color (una sola silueta de gota).
     val dragBlend by animateFloatAsState(
         if (drag != null) 1f else 0f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
         label = "pillDragBlend"
     )
-    // Pequeño rebote de "se agranda" al asentarse en la pestaña de destino.
-    val arrive = remember { Animatable(1f) }
-    LaunchedEffect(pagerState) {
-        var lastScreen: Screen? = null
-        snapshotFlow {
-            Triple(pagerState.isScrollInProgress, currentItems.getOrNull(pagerState.currentPage), currentLogsLeaving)
-        }.collectLatest { (scrolling, screen, _) ->
-            if (!scrolling && screen != null) {
-                if (lastScreen != null && screen != lastScreen) {
-                    arrive.snapTo(1f)
-                    arrive.animateTo(1.09f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh))
-                    arrive.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
-                }
-                lastScreen = screen
-            }
-        }
-    }
+    // Posición de la cola sobre el eje de la barra (NaN = aún sin medir: se dibuja pegada a la cabeza).
+    val tailA = remember { mutableStateOf(Float.NaN) }
 
-    val indicatorColor = colors.primary
-    // Todo se lee dentro del lambda de dibujo (pager, bounds, resortes): sin recomposición por fotograma.
-    val drawIndicator = Modifier.drawBehind {
+    // Rectángulo de la cabeza; solo lee estados (pager, bounds, resortes): sirve para dibujar y para la física.
+    fun computeRect(): Rect? {
         val list = currentItems
-        val vert = currentVertical
-        var px = ix
-        var py = iy
-        var pw = iw
-        var ph = ih
+        var hx = ix
+        var hy = iy
+        var hw = iw
+        var hh = ih
         val w = dragBlend
         if (list.isNotEmpty() && w < 1f) {
             val last = list.lastIndex
@@ -626,22 +614,117 @@ private fun FloatingPillNav(
                 val cy = r0.top + (r1.top - r0.top) * f
                 val cw = r0.width + (r1.width - r0.width) * f
                 val ch = r0.height + (r1.height - r0.height) * f
-                px = cx + (ix - cx) * w
-                py = cy + (iy - cy) * w
-                pw = cw + (iw - cw) * w
-                ph = ch + (ih - ch) * w
+                hx = cx + (hx - cx) * w
+                hy = cy + (hy - cy) * w
+                hw = cw + (hw - cw) * w
+                hh = ch + (hh - ch) * w
             }
         }
-        if (pw > 0f && ph > 0f) {
-            val squash = dropSquash(if (vert) py else px, list, bounds, vert)
-            val k = inflate * squash * arrive.value
-            withTransform({ scale(k, k, pivot = Offset(px + pw / 2f, py + ph / 2f)) }) {
+        if (hw <= 0f || hh <= 0f) return null
+        return Rect(Offset(hx, hy), Size(hw, hh))
+    }
+    fun headCenter(): Float {
+        val r = computeRect() ?: return Float.NaN
+        return if (currentVertical) r.center.y else r.center.x
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            // Espera a que la cabeza se aleje de la cola (o a la primera medida).
+            snapshotFlow { headCenter() }.first { h ->
+                !h.isNaN() && (tailA.value.isNaN() || abs(h - tailA.value) > 0.5f)
+            }
+            var last = withFrameNanos { it }
+            var v = 0f
+            while (true) {
+                val now = withFrameNanos { it }
+                val dt = ((now - last) / 1_000_000_000f).coerceIn(0.001f, 0.032f)
+                last = now
+                val h = headCenter()
+                if (h.isNaN()) break
+                val t0 = tailA.value
+                if (t0.isNaN()) { tailA.value = h; break }
+                v += (TailStiffness * (h - t0) - TailDamping * v) * dt
+                val t = t0 + v * dt
+                if (abs(h - t) < 0.4f && abs(v) < 8f) { tailA.value = h; break }
+                tailA.value = t
+            }
+        }
+    }
+
+    val indicatorColor = colors.primary
+    // Todo se lee dentro del lambda de dibujo: sin recomposición por fotograma.
+    val drawIndicator = Modifier.drawBehind {
+        val r = computeRect()
+        if (r != null) {
+            val vert = currentVertical
+            val la0 = if (vert) r.height else r.width
+            val lc0 = if (vert) r.width else r.height
+            val hA = if (vert) r.center.y else r.center.x
+            val cC = if (vert) r.center.x else r.center.y
+            val tRaw = tailA.value
+            val tA = if (tRaw.isNaN()) hA else tRaw
+            val dist = abs(hA - tA)
+            val ref = max(la0, 1f)
+            // 0 = cola pegada, 1 = muy estirada.
+            val s = min(dist / (1.5f * ref), 1f)
+            val squash = dropSquash(if (vert) r.top else r.left, currentItems, bounds, vert)
+            val k = inflate * squash
+            val hl = la0 * k * (1f + 0.06f * s)
+            val hc = lc0 * k * (1f + 0.06f * s)
+            val tl = la0 * k * (1f - 0.30f * s)
+            val tc = lc0 * k * (1f - 0.30f * s)
+
+            fun blob(a: Float, l: Float, c: Float) {
                 drawRoundRect(
                     color = indicatorColor,
-                    topLeft = Offset(px, py),
-                    size = Size(pw, ph),
-                    cornerRadius = CornerRadius(min(pw, ph) / 2f)
+                    topLeft = if (vert) Offset(cC - c / 2f, a - l / 2f) else Offset(a - l / 2f, cC - c / 2f),
+                    size = if (vert) Size(c, l) else Size(l, c),
+                    cornerRadius = CornerRadius(min(l, c) / 2f)
                 )
+            }
+            blob(tA, tl, tc)
+            blob(hA, hl, hc)
+
+            if (dist > 0.05f * ref) {
+                val headFront = hA >= tA
+                val aR = min(hA, tA)
+                val aF = max(hA, tA)
+                val radR = (if (headFront) min(tl, tc) else min(hl, hc)) / 2f
+                val radF = (if (headFront) min(hl, hc) else min(tl, tc)) / 2f
+                val mid = (aR + aF) / 2f
+                val d = aF - aR
+                // El cuello se adelgaza al estirarse (mínimo 25 % del radio menor).
+                val neck = 1f - 0.75f * ((dist - 0.25f * ref) / (1.2f * ref)).coerceIn(0f, 1f)
+                val pinch = min(radR, radF) * neck
+                fun ax(a: Float, c: Float) = if (vert) c else a
+                fun ay(a: Float, c: Float) = if (vert) a else c
+                val path = Path().apply {
+                    moveTo(ax(aR, cC - radR), ay(aR, cC - radR))
+                    cubicTo(
+                        ax(aR + d * 0.35f, cC - radR), ay(aR + d * 0.35f, cC - radR),
+                        ax(mid - d * 0.2f, cC - pinch), ay(mid - d * 0.2f, cC - pinch),
+                        ax(mid, cC - pinch), ay(mid, cC - pinch)
+                    )
+                    cubicTo(
+                        ax(mid + d * 0.2f, cC - pinch), ay(mid + d * 0.2f, cC - pinch),
+                        ax(aF - d * 0.35f, cC - radF), ay(aF - d * 0.35f, cC - radF),
+                        ax(aF, cC - radF), ay(aF, cC - radF)
+                    )
+                    lineTo(ax(aF, cC + radF), ay(aF, cC + radF))
+                    cubicTo(
+                        ax(aF - d * 0.35f, cC + radF), ay(aF - d * 0.35f, cC + radF),
+                        ax(mid + d * 0.2f, cC + pinch), ay(mid + d * 0.2f, cC + pinch),
+                        ax(mid, cC + pinch), ay(mid, cC + pinch)
+                    )
+                    cubicTo(
+                        ax(mid - d * 0.2f, cC + pinch), ay(mid - d * 0.2f, cC + pinch),
+                        ax(aR + d * 0.35f, cC + radR), ay(aR + d * 0.35f, cC + radR),
+                        ax(aR, cC + radR), ay(aR, cC + radR)
+                    )
+                    close()
+                }
+                drawPath(path, indicatorColor)
             }
         }
     }
@@ -794,6 +877,10 @@ private fun FloatingPillNav(
         }
     }
 }
+
+/** Física de la cola de la gota: resorte subamortiguado (ζ ≈ 0,5; sube TailDamping para menos rebote). */
+private const val TailStiffness = 420f
+private const val TailDamping = 21f
 
 /** Cuánto se achica la gota a mitad de camino entre dos pestañas (0,30 = queda al 70 %). */
 private const val DropShrink = 0.30f
