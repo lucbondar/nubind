@@ -36,6 +36,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.unit.toSize
 import kotlin.math.PI
+import kotlin.math.acos
+import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
@@ -715,46 +717,15 @@ private fun FloatingPillNav(
                     radius = rt,
                     center = if (vert) Offset(cC, tC) else Offset(tC, cC)
                 )
-                val sep = abs(capA - tC)
-                // u = 1: las dos formas se tocan; el cuello se adelgaza al separarse (mín. 20 %).
-                val u = sep / max(rh + rt, 1f)
-                val neck = 1f - 0.8f * ((u - 0.7f) / 1.5f).coerceIn(0f, 1f)
-                val pinch = min(rh, rt) * neck
-                val headFirst = capA >= tC
-                val aR = min(capA, tC)
-                val aF = max(capA, tC)
-                val radR = if (headFirst) rt else rh
-                val radF = if (headFirst) rh else rt
-                val mid = (aR + aF) / 2f
-                val d = aF - aR
-                fun ax(a: Float, c: Float) = if (vert) c else a
-                fun ay(a: Float, c: Float) = if (vert) a else c
-                val path = Path().apply {
-                    moveTo(ax(aR, cC - radR), ay(aR, cC - radR))
-                    cubicTo(
-                        ax(aR + d * 0.35f, cC - radR), ay(aR + d * 0.35f, cC - radR),
-                        ax(mid - d * 0.2f, cC - pinch), ay(mid - d * 0.2f, cC - pinch),
-                        ax(mid, cC - pinch), ay(mid, cC - pinch)
-                    )
-                    cubicTo(
-                        ax(mid + d * 0.2f, cC - pinch), ay(mid + d * 0.2f, cC - pinch),
-                        ax(aF - d * 0.35f, cC - radF), ay(aF - d * 0.35f, cC - radF),
-                        ax(aF, cC - radF), ay(aF, cC - radF)
-                    )
-                    lineTo(ax(aF, cC + radF), ay(aF, cC + radF))
-                    cubicTo(
-                        ax(aF - d * 0.35f, cC + radF), ay(aF - d * 0.35f, cC + radF),
-                        ax(mid + d * 0.2f, cC + pinch), ay(mid + d * 0.2f, cC + pinch),
-                        ax(mid, cC + pinch), ay(mid, cC + pinch)
-                    )
-                    cubicTo(
-                        ax(mid - d * 0.2f, cC + pinch), ay(mid - d * 0.2f, cC + pinch),
-                        ax(aR + d * 0.35f, cC + radR), ay(aR + d * 0.35f, cC + radR),
-                        ax(aR, cC + radR), ay(aR, cC + radR)
-                    )
-                    close()
+                // Puente de «metabolas» entre el casquete trasero de la cabeza y la burbuja: sale tangente
+                // a los dos círculos, así la silueta es una sola curva suave (sin escalones ni dientes).
+                // `v` = 1 da la envolvente convexa (tangentes exteriores: nunca deja muescas cuando las
+                // dos formas aún se solapan); baja hacia 0,5 al separarse, y entonces aparece el cuello.
+                val u = abs(tC - capA) / max(rh + rt, 1f)
+                val spread = 1f - 0.5f * ((u - 0.5f) / 0.9f).coerceIn(0f, 1f)
+                metaballBridge(capA, rh, tC, rt, cC, vert, v = spread, maxDist = (rh + rt) * 2.4f)?.let {
+                    drawPath(it, indicatorColor)
                 }
-                drawPath(path, indicatorColor)
             }
         }
     }
@@ -914,6 +885,72 @@ private const val TailDamping = 26f
 
 /** Cuánto se despega la burbuja de la cola respecto al retraso real (1 = pegada al retraso). */
 private const val TailReach = 1.3f
+
+/**
+ * Puente de metabolas entre dos círculos con centros en [a1] y [a2] sobre el eje de la barra (y
+ * [cC] sobre el eje cruzado). Los bordes del puente son tangentes a ambos círculos, por lo que la
+ * unión con ellos queda lisa. Devuelve null si un círculo contiene al otro o si están más lejos
+ * que [maxDist] (la burbuja se suelta). Algoritmo clásico de metabolas con curvas de Bézier.
+ */
+private fun metaballBridge(
+    a1: Float, r1: Float, a2: Float, r2: Float, cC: Float, vertical: Boolean,
+    v: Float = 0.5f, handleRate: Float = 2.4f, maxDist: Float
+): Path? {
+    val d = abs(a2 - a1)
+    if (r1 <= 0f || r2 <= 0f || d > maxDist || d <= abs(r1 - r2)) return null
+    val pi = PI.toFloat()
+    val u1: Float
+    val u2: Float
+    if (d < r1 + r2) {
+        u1 = acos(((r1 * r1 + d * d - r2 * r2) / (2f * r1 * d)).coerceIn(-1f, 1f))
+        u2 = acos(((r2 * r2 + d * d - r1 * r1) / (2f * r2 * d)).coerceIn(-1f, 1f))
+    } else {
+        u1 = 0f
+        u2 = 0f
+    }
+    val angle1 = if (a2 >= a1) 0f else pi
+    val angle2 = acos(((r1 - r2) / d).coerceIn(-1f, 1f))
+    val a1a = angle1 + u1 + (angle2 - u1) * v
+    val a1b = angle1 - u1 - (angle2 - u1) * v
+    val a2a = angle1 + pi - u2 - (pi - u2 - angle2) * v
+    val a2b = angle1 - pi + u2 + (pi - u2 - angle2) * v
+    // Puntos en (a = eje de la barra, c = eje cruzado).
+    val p1aA = a1 + r1 * cos(a1a); val p1aC = cC + r1 * sin(a1a)
+    val p1bA = a1 + r1 * cos(a1b); val p1bC = cC + r1 * sin(a1b)
+    val p2aA = a2 + r2 * cos(a2a); val p2aC = cC + r2 * sin(a2a)
+    val p2bA = a2 + r2 * cos(a2b); val p2bC = cC + r2 * sin(a2b)
+    val dx = p2aA - p1aA
+    val dy = p2aC - p1aC
+    var d2 = min(v * handleRate, kotlin.math.sqrt(dx * dx + dy * dy) / (r1 + r2))
+    d2 *= min(1f, d * 2f / (r1 + r2))
+    // Con v = 1 (envolvente convexa) los bordes son rectas tangentes: asas de 1/3 del largo, sin
+    // ondulaciones; hacia v = 0,5 se pasa al asa clásica de metabolas, que curva el cuello.
+    val t = ((1f - v) / 0.5f).coerceIn(0f, 1f)
+    val third = kotlin.math.sqrt(dx * dx + dy * dy) / 3f
+    val h1 = third * (1f - t) + r1 * d2 * t
+    val h2 = third * (1f - t) + r2 * d2 * t
+    fun x(a: Float, c: Float) = if (vertical) c else a
+    fun y(a: Float, c: Float) = if (vertical) a else c
+    return Path().apply {
+        moveTo(x(p1aA, p1aC), y(p1aA, p1aC))
+        cubicTo(
+            x(p1aA + h1 * cos(a1a - pi / 2f), p1aC + h1 * sin(a1a - pi / 2f)),
+            y(p1aA + h1 * cos(a1a - pi / 2f), p1aC + h1 * sin(a1a - pi / 2f)),
+            x(p2aA + h2 * cos(a2a + pi / 2f), p2aC + h2 * sin(a2a + pi / 2f)),
+            y(p2aA + h2 * cos(a2a + pi / 2f), p2aC + h2 * sin(a2a + pi / 2f)),
+            x(p2aA, p2aC), y(p2aA, p2aC)
+        )
+        lineTo(x(p2bA, p2bC), y(p2bA, p2bC))
+        cubicTo(
+            x(p2bA + h2 * cos(a2b - pi / 2f), p2bC + h2 * sin(a2b - pi / 2f)),
+            y(p2bA + h2 * cos(a2b - pi / 2f), p2bC + h2 * sin(a2b - pi / 2f)),
+            x(p1bA + h1 * cos(a1b + pi / 2f), p1bC + h1 * sin(a1b + pi / 2f)),
+            y(p1bA + h1 * cos(a1b + pi / 2f), p1bC + h1 * sin(a1b + pi / 2f)),
+            x(p1bA, p1bC), y(p1bA, p1bC)
+        )
+        close()
+    }
+}
 
 /** Cuánto se achica la gota a mitad de camino entre dos pestañas (0,30 = queda al 70 %). */
 private const val DropShrink = 0.30f
