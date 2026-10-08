@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -228,7 +227,7 @@ private fun noticeLook(kind: NoticeKind): NoticeLook {
 
         NoticeKind.Info -> NoticeLook(
             StatusPalette(scheme.secondaryContainer, scheme.onSecondaryContainer, scheme.secondary, scheme.onSecondary),
-            Icons.Filled.Info
+            NavIcons.About
         ) { MaterialShapes.Sunny.toShape() }
     }
 }

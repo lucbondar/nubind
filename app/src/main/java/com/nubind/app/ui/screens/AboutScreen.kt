@@ -1,12 +1,12 @@
 package com.nubind.app.ui.screens
 
+import com.nubind.app.ui.components.NavIcons
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -37,7 +37,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +49,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -73,6 +74,9 @@ import com.nubind.app.BuildConfig
 import com.nubind.app.root.AppUpdateState
 import com.nubind.app.root.RootShell
 import com.nubind.app.ui.components.AnimatedLogo
+import com.nubind.app.ui.components.SkyBackground
+import com.nubind.app.ui.components.rememberSkyHour
+import com.nubind.app.ui.components.skyAt
 import com.nubind.app.ui.components.Entrance
 import com.nubind.app.ui.theme.AppMotion
 import com.nubind.app.ui.components.AppIcons
@@ -99,7 +103,9 @@ private const val TELEGRAM_URL = "https://t.me/lcruz_23"
 fun AboutScreen(
     vm: BindViewModel,
     /** Mostrar/ocultar la pestaña Logs; MainActivity lo usa para conservar la pestaña actual. */
-    onLogsVisibleChange: (Boolean) -> Unit = { vm.updateLogsHidden(!it) }
+    onLogsVisibleChange: (Boolean) -> Unit = { vm.updateLogsHidden(!it) },
+    /** Esta pantalla es la página visible del pager (el cielo de la cabecera solo anima entonces). */
+    active: Boolean = true
 ) {
     val scheme = MaterialTheme.colorScheme
     val uriHandler = LocalUriHandler.current
@@ -130,7 +136,7 @@ fun AboutScreen(
         if (dualPane) {
             HeaderRow(
                 spacing = 24.dp,
-                header = { HeaderCard(vm, modifier = Modifier.fillMaxWidth()) },
+                header = { HeaderCard(vm, active, modifier = Modifier.fillMaxWidth()) },
                 side = { Column { Entrance(1) { WhatItDoesCard() } } }
             )
             Row(
@@ -141,7 +147,7 @@ fun AboutScreen(
                 Column(modifier = Modifier.weight(1f)) { Entrance(3) { LinksCard(uriHandler) } }
             }
         } else {
-            HeaderCard(vm, modifier = Modifier.fillMaxWidth())
+            HeaderCard(vm, active, modifier = Modifier.fillMaxWidth())
             Entrance(1) { WhatItDoesCard() }
             Entrance(2) { SystemCard(vm, rcloneVersion, onLogsVisibleChange) }
             Entrance(3) { LinksCard(uriHandler) }
@@ -191,16 +197,27 @@ private fun HeaderRow(
 }
 
 @Composable
-private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
-    // Degradado Monet; verde con actualización/reinicio pendiente, ámbar con el aviso de desfase (ver updateHeaderColors).
-    val colors = updateHeaderColors(vm.appUpdate, vm.showRebootCard, vm.moduleNotice != null)
+private fun HeaderCard(vm: BindViewModel, active: Boolean, modifier: Modifier = Modifier) {
+    // Cielo flat según la hora; velo verde con actualización/reinicio pendiente, ámbar con el aviso de desfase (ver updateHeaderColors).
+    val hour = rememberSkyHour()
+    val skyContent by remember { derivedStateOf { skyAt(hour.floatValue).content } }
+    val colors = updateHeaderColors(vm.appUpdate, vm.showRebootCard, vm.moduleNotice != null, skyContent)
     Surface(
         color = Color.Transparent,
         contentColor = colors.content,
         shape = MaterialTheme.shapes.extraLarge,
         modifier = modifier
     ) {
-        Box(Modifier.background(Brush.linearGradient(listOf(colors.start, colors.end)))) {
+        Box {
+            SkyBackground(hour, active)
+            // Velo de estado (verde/ámbar) sobre el cielo; invisible (tint 0) en reposo.
+            Spacer(
+                Modifier.matchParentSize().drawBehind {
+                    if (colors.tint > 0.001f) {
+                        drawRect(Brush.linearGradient(listOf(colors.start, colors.end)), alpha = colors.tint)
+                    }
+                }
+            )
             Column(
                 modifier = Modifier.padding(28.dp).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -246,7 +263,7 @@ private fun HeaderCard(vm: BindViewModel, modifier: Modifier = Modifier) {
 private fun WhatItDoesCard() {
     SectionCard(
         title = Strings.get(R.string.que_hace),
-        icon = Icons.Default.Info,
+        icon = NavIcons.About,
         subtitle = Strings.get(R.string.monta_un_servidor_ftp_google_drive)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -359,7 +376,7 @@ private fun ShowLogsToggle(checked: Boolean, onChange: (Boolean) -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             CookieBadge(
-                icon = Icons.AutoMirrored.Rounded.List,
+                icon = NavIcons.Logs,
                 shape = MaterialShapes.Cookie9Sided.toShape(),
                 background = if (checked) scheme.primary else scheme.secondaryContainer,
                 glyph = if (checked) scheme.onPrimary else scheme.onSecondaryContainer,

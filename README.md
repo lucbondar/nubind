@@ -32,7 +32,8 @@ Nubind se actualiza solo desde la propia app, a partir de `update.json` (publica
 - **Cambios:** junto al botón aparece la píldora **Cambios**, que despliega las últimas 10 entradas del changelog (el asunto de cada commit) con la versión resaltada.
 - **Módulo desfasado:** si el módulo KSU instalado trae un APK más viejo que la app, un aviso ámbar ofrece **Descargar y flashear módulo** (baja el zip, verifica `zipSha256` y lo flashea con root; no flashea si el publicado es más viejo que la app instalada). «Lo haré luego» lo pospone y deja una píldora ámbar **Módulo desfasado** para reabrirlo.
 - **Reinicio pendiente:** tras flashear, una tarjeta verde **Módulo instalado** ofrece **Reiniciar ahora**. Si se pospone, queda la píldora verde **Reinicio pendiente**, que persiste aunque salgas de la app. Nunca hay dos píldoras a la vez.
-- **Cabecera con color de estado:** la tarjeta de Acerca de pasa de los colores Monet a **verde** (actualización o reinicio pendiente) o **ámbar** (desfase), y la tarjeta del actualizador toma la misma paleta.
+- **Cabecera con cielo dinámico:** la tarjeta de Acerca de es un cielo flat que cambia con la hora (noche, madrugada, mañana, mediodía y tarde), con nubes a la deriva que a veces se despejan, estrellas que titilan de noche y alguna estrella fugaz esporádica. Sin sol ni luna. Es liviano: se pausa fuera de la app y se queda quieto si las animaciones del sistema están apagadas.
+- **Color de estado:** con una actualización o reinicio pendiente el cielo se cubre de **verde**, o de **ámbar** con el aviso de desfase, y la tarjeta del actualizador toma la misma paleta.
 - La versión del módulo instalado aparece bajo la de la app (con root y módulo presentes).
 - Los scripts de instalación (`self_update.sh`, `flash_module.sh`) reabren la app con el intent del launcher, para que no se apile una instancia nueva que arranque en Inicio.
 
@@ -149,7 +150,7 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 - Cambiar de servidor con uno ya montado se hace con un solo botón.
 - Caché de disco acotada para Drive.
 - **Rendimiento** Equilibrado o Máximo: Máximo usa caché completa en FTP, Drive y S3, lectura anticipada de 64 MB y buffers de 16 MB por archivo. Drive y S3 usan por defecto 4 streams de lectura de 16 MB si el binario admite `--vfs-read-chunk-streams`. Las subidas se mantienen en 4 transferencias y 8 verificadores; Drive usa partes de 16 MB. Solo se acelera el pacer si hay `client_id` propio; con el cliente compartido se conservan los valores de rclone. Se agrupan escrituras durante 15 s y los atributos se cachean 1 min. No se fuerza `--vfs-fast-fingerprint`, para no sacrificar detección de cambios externos.
-  **Caché**: Máximo permite 1–100 GB (10 por defecto); Equilibrado usa 1 GB e ignora cualquier tamaño personalizado residual. Todos los perfiles intentan conservar 2 GB libres. Los límites de VFS son blandos: archivos abiertos y subidas pendientes pueden superarlos. FTP Equilibrado cachea escrituras, no lecturas.
+  **Caché**: Máximo permite 1–100 GB (10 por defecto); Equilibrado usa un tope fijo de 2 GB de caché con 1 GB de reserva (ignora el tamaño de Máximo y no conserva una caché mayor: rclone la recorta al montar). Máximo intenta conservar 2 GB libres. Los límites de VFS son blandos: archivos abiertos y subidas pendientes pueden superarlos. FTP Equilibrado cachea escrituras, no lecturas.
   **Caché en RAM**: tmpfs opcional solo en Máximo. Se comprueba el tamaño elegido + 2 GB de margen VFS + una reserva para el sistema de al menos 1 GB o el 25% de MemAvailable. No se reserva físicamente toda esa RAM al montar, se consume según se llena. Si no alcanza, se usa disco y queda registrado en Logs. No acelera la red; el contenido se pierde al desmontar/reiniciar y las escrituras pendientes pueden perderse ante un corte o reinicio.
   **Precarga automática** (`scripts/preload.sh`): solo en Máximo. Descarga en segundo plano hasta el presupuesto configurado menos 512 MB (contado en bytes exactos), con límites de tiempo, empezando por los archivos más pequeños. `config/preload_max_files` permite cambiar el máximo de archivos (20000 por defecto). El progreso aparece en Inicio y se puede relanzar manualmente. Los ajustes de rendimiento S3 son globales, no por servidor, y se aplican al volver a montar.
   El botón **Probar rendimiento** abre una hoja con la prueba (`scripts/perf_test.sh`, con root): comprueba
@@ -174,6 +175,7 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 - Tarjeta de resumen arriba: insignia que gira mientras hay algo montado y «Guardados: N».
 - Estado vacío con botón **Agregar servidor** y atajo **Importar un respaldo**.
 - Acciones de la barra como botones tonales (respaldo y «+»).
+- Tocar una tarjeta elige el servidor; **tocar de nuevo la ya elegida te lleva a Inicio**, al botón Montar.
 
 ### Pantalla Logs
 
@@ -197,6 +199,11 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 ### Selector de carpetas animado
 
 - Entrar a una subcarpeta desliza la página nueva desde la derecha; subir, al revés. La altura del diálogo se acomoda sin saltos y la ruta cambia con un deslizamiento corto. La caché de listados y la apertura instantánea siguen igual.
+
+### Iconos
+
+- La barra inferior (Inicio, Servidores, Logs y Acerca de) usa **iconos propios** de trazo grueso y redondeado; son los mismos en toda la app, también donde nombra esas secciones (Qué hace, avisos informativos, selector de carpetas, Mostrar Logs, Logs vacío). El de Logs es una lista (tres puntos y tres barras).
+- En la píldora los iconos van **vacíos** (solo contorno) y se **rellenan** de abajo hacia arriba al posarse el indicador en su pestaña (también mientras arrastras el dedo); al cambiar de pestaña se **vacían** hacia abajo.
 
 ### Tile de Ajustes rápidos
 

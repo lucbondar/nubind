@@ -53,8 +53,13 @@ import com.nubind.app.R
 import com.nubind.app.Strings
 
 @Composable
-fun ServersScreen(vm: BindViewModel) {
+fun ServersScreen(vm: BindViewModel, onOpenHome: () -> Unit = {}) {
     LaunchedEffect(Unit) { vm.refreshAll() }
+
+    // Primer toque: elige el servidor. Segundo toque sobre el ya elegido: va a Inicio, al botón Montar.
+    fun tapServer(name: String) {
+        if (name == vm.activeName) onOpenHome() else vm.selectProfile(name)
+    }
 
     var showSheet by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<RemoteProfile?>(null) }
@@ -122,7 +127,7 @@ fun ServersScreen(vm: BindViewModel) {
                         emptyHint = Strings.get(R.string.agrega_un_servidor_ftp_para_montarlo),
                         profiles = ftp,
                         selected = vm.activeName,
-                        onSelect = { vm.selectProfile(it) },
+                        onSelect = { tapServer(it) },
                         onEdit = { p -> editTarget = p; showSheet = true },
                         onDelete = { deleteTarget = it },
                         cacheKbOf = cacheKbOf,
@@ -135,7 +140,7 @@ fun ServersScreen(vm: BindViewModel) {
                         emptyHint = Strings.get(R.string.conecta_tu_cuenta_de_google_drive),
                         profiles = drive,
                         selected = vm.activeName,
-                        onSelect = { vm.selectProfile(it) },
+                        onSelect = { tapServer(it) },
                         onEdit = { p -> editTarget = p; showSheet = true },
                         onDelete = { deleteTarget = it },
                         cacheKbOf = cacheKbOf,
@@ -148,7 +153,7 @@ fun ServersScreen(vm: BindViewModel) {
                         emptyHint = Strings.get(R.string.conecta_un_bucket_s3_oracle_cloud),
                         profiles = s3,
                         selected = vm.activeName,
-                        onSelect = { vm.selectProfile(it) },
+                        onSelect = { tapServer(it) },
                         onEdit = { p -> editTarget = p; showSheet = true },
                         onDelete = { deleteTarget = it },
                         cacheKbOf = cacheKbOf,
@@ -162,7 +167,7 @@ fun ServersScreen(vm: BindViewModel) {
                 ServerCardStack(
                     profiles = vm.profiles,
                     selected = vm.activeName,
-                    onSelect = { vm.selectProfile(it) },
+                    onSelect = { tapServer(it) },
                     onEdit = { p ->
                         editTarget = p
                         showSheet = true

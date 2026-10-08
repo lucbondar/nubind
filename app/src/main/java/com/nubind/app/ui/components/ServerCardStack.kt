@@ -261,8 +261,8 @@ private fun StackCard(
     val fgState = animateColorAsState(content, AppMotion.effects(), label = "cardFg")
 
     Surface(
+        // Siempre tocable: el segundo toque sobre la tarjeta elegida lleva a Inicio (ServersScreen).
         onClick = onSelect,
-        enabled = !isSelected,
         interactionSource = interaction,
         shape = MaterialTheme.shapes.extraLarge,
         color = Color.Transparent,

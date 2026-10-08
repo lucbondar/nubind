@@ -72,19 +72,13 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.List
-import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.outlined.AccountBox
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.rounded.AccountBox
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.TextButton
 import kotlinx.coroutines.withTimeoutOrNull
+import com.nubind.app.ui.components.NavFillIcon
+import com.nubind.app.ui.components.NavIconArt
+import com.nubind.app.ui.components.NavIconArts
 import com.nubind.app.ui.components.NoticeKind
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -103,7 +97,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -194,25 +187,22 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
- * Cada pestaña trae un ícono en trazo (sin seleccionar) y uno relleno
- * (seleccionada) — el intercambio outlined/filled es el lenguaje que
- * Material Expressive usa en sus barras de navegación en vez de solo
- * cambiar de color. El relleno usa el set Rounded (esquinas suaves) en vez
- * del set Filled por defecto, más anguloso, para que la píldora se vea más
- * armónica con sus propias formas circulares.
+ * Cada pestaña lleva su ícono propio ([NavIconArts], diseñados a mano). En la
+ * píldora el icono se dibuja con [NavFillIcon]: vacío (solo contorno) y se rellena al posarse el
+ * indicador en esa pestaña; al cambiar de pestaña se vacía.
  */
-private sealed class Screen(@StringRes val labelRes: Int, val filledIcon: ImageVector, val outlinedIcon: ImageVector) {
+private sealed class Screen(@StringRes val labelRes: Int, val art: NavIconArt) {
     /** Etiqueta en el idioma actual (se resuelve al leerla, no al cargar la clase). */
     val label: String get() = Strings.get(labelRes)
 
-    object Home : Screen(R.string.inicio, Icons.Rounded.Home, Icons.Outlined.Home)
-    object Servers : Screen(R.string.servidores, Icons.Rounded.AccountBox, Icons.Outlined.AccountBox)
-    object Logs : Screen(R.string.logs, Icons.AutoMirrored.Rounded.List, Icons.AutoMirrored.Outlined.List)
-    object About : Screen(R.string.acerca_de, Icons.Rounded.Info, Icons.Outlined.Info)
+    object Home : Screen(R.string.inicio, NavIconArts.Home)
+    object Servers : Screen(R.string.servidores, NavIconArts.Servers)
+    object Logs : Screen(R.string.logs, NavIconArts.Logs)
+    object About : Screen(R.string.acerca_de, NavIconArts.About)
 }
 
-/** Alto de la píldora (52 + 2×8 de relleno) + separación por arriba y abajo. */
-private val PillSpace = 88.dp
+/** Alto de la píldora (56 + 2×8 de relleno = 72) + separación por arriba y abajo. */
+private val PillSpace = 92.dp
 
 /** Cuánto tiempo se ve la etiqueta de la pestaña activa antes de esconderse (retrato). */
 private const val LabelHideDelayMs = 2000L
@@ -228,7 +218,7 @@ private const val LogsExitMs = 480L
  * Con `spacedBy` un botón plegado a tamaño 0 (Logs al ocultarse o mostrarse) seguía dejando 4 dp
  * de hueco fijo que desaparecía de golpe al quitarlo de la lista: la píldora daba un tironcito
  * (y el indicador un rebote) justo al final de la animación. [fullSize] es el tamaño a partir del
- * cual el botón cuenta como completo (52 dp, el mínimo de un botón).
+ * cual el botón cuenta como completo (56 dp, el mínimo de un botón).
  */
 private class PillArrangement(private val space: Dp, private val fullSize: Dp) : Arrangement.HorizontalOrVertical {
     override val spacing: Dp = space
@@ -257,7 +247,7 @@ private class PillArrangement(private val space: Dp, private val fullSize: Dp) :
 }
 
 /** Alto del degradado que funde el contenido con la barra del sistema (retrato). */
-private val FadeHeight = 104.dp
+private val FadeHeight = 108.dp
 
 /**
  * En apaisado la pantalla es mucho más baja: el mismo alto de degradado que
@@ -394,9 +384,14 @@ private fun AppScaffold(vm: BindViewModel) {
                 ) { page ->
                     when (items[page]) {
                         Screen.Home -> HomeScreen(vm, onOpenServers = { goTo(1) })
-                        Screen.Servers -> ServersScreen(vm)
+                        Screen.Servers -> ServersScreen(vm, onOpenHome = { goTo(0) })
                         Screen.Logs -> LogsScreen(vm)
-                        Screen.About -> AboutScreen(vm, onLogsVisibleChange = ::setLogsVisible)
+                        Screen.About -> AboutScreen(
+                            vm,
+                            onLogsVisibleChange = ::setLogsVisible,
+                            // El pager compone todas las páginas: el cielo solo anima en la que se ve.
+                            active = pagerState.currentPage == page
+                        )
                     }
                 }
             }
@@ -496,7 +491,7 @@ private fun FloatingPillNav(
     // Por pantalla (no por índice): al quitar o añadir Logs los índices se corren, pero cada
     // botón conserva su medida y el indicador no parpadea a tamaño cero.
     val bounds = remember { mutableStateMapOf<Screen, Rect>() }
-    val pillArrangement = remember { PillArrangement(4.dp, 52.dp) }
+    val pillArrangement = remember { PillArrangement(4.dp, 56.dp) }
     val currentItems by rememberUpdatedState(items)
     val currentLogsLeaving by rememberUpdatedState(logsLeaving)
     val lastTarget = remember { arrayOf(Rect.Zero) }
@@ -800,9 +795,16 @@ private fun PillItem(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
         label = "pillIconScale"
     )
+    // Relleno del icono: sube al posarse el indicador en la pestaña y baja al dejarla. Se guarda
+    // como State sin delegar: lo lee NavFillIcon al dibujar, sin recomponer.
+    val iconFill = animateFloatAsState(
+        if (selected) 1f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "pillIconFill"
+    )
 
     val itemModifier = modifier
-        .let { if (vertical) it.size(52.dp) else it.height(52.dp).defaultMinSize(minWidth = 52.dp) }
+        .let { if (vertical) it.size(56.dp) else it.height(56.dp).defaultMinSize(minWidth = 56.dp) }
         .clip(CircleShape)
         .selectable(
             selected = selected,
@@ -823,10 +825,11 @@ private fun PillItem(
     // para desplegar texto al lado sin desbordar la pantalla.
     if (vertical) {
         Box(itemModifier, contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = if (selected) screen.filledIcon else screen.outlinedIcon,
-                contentDescription = screen.label,
+            NavFillIcon(
+                art = screen.art,
                 tint = content,
+                fill = iconFill,
+                contentDescription = screen.label,
                 modifier = Modifier.size(26.dp).scale(iconScale)
             )
         }
@@ -838,12 +841,13 @@ private fun PillItem(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = if (selected) screen.filledIcon else screen.outlinedIcon,
-            contentDescription = screen.label,
+        NavFillIcon(
+            art = screen.art,
             tint = content,
+            fill = iconFill,
+            contentDescription = screen.label,
             // Sin tamaño explícito quedan en 24dp (el default de Icon). 28dp
-            // es "un poco más grande" sin desbalancear la altura de 52dp de
+            // es "un poco más grande" sin desbalancear la altura de 56dp de
             // la píldora ni el texto labelLarge de al lado.
             modifier = Modifier.size(28.dp).scale(iconScale)
         )
