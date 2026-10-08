@@ -664,39 +664,52 @@ private fun FloatingPillNav(
             val cC = if (vert) r.center.x else r.center.y
             val tRaw = tailA.value
             val tA = if (tRaw.isNaN()) hA else tRaw
-            val dist = abs(hA - tA)
-            val ref = max(la0, 1f)
-            // 0 = cola pegada, 1 = muy estirada.
-            val s = min(dist / (1.5f * ref), 1f)
+            // lag > 0: la cola va detrás de la cabeza (en la dirección del movimiento); < 0: la ha
+            // rebasado (rebote al frenar) y la burbuja asoma por delante.
+            val lag = hA - tA
+            val dist = abs(lag)
+            val dir = if (lag >= 0f) 1f else -1f
             val squash = dropSquash(if (vert) r.top else r.left, currentItems, bounds, vert)
             val k = inflate * squash
-            val hl = la0 * k * (1f + 0.06f * s)
-            val hc = lc0 * k * (1f + 0.06f * s)
-            val tl = la0 * k * (1f - 0.30f * s)
-            val tc = lc0 * k * (1f - 0.30f * s)
+            val hl = la0 * k
+            val hc = lc0 * k
+            val rh = min(hl, hc) / 2f
+            // 0 = pegada, 1 = muy estirada (se mide contra el alto de la gota, no contra su largo:
+            // con la etiqueta la cabeza es una cápsula larga y la cola quedaría tapada por ella).
+            val s = min(dist / (1.5f * hc), 1f)
+            val rt = rh * (1f - 0.35f * s)
+            // La burbuja de la cola sale del extremo trasero de la cabeza y se separa `TailReach`
+            // veces lo que se retrasa: así, aunque el retraso sea corto, se despega y se ve el cuello.
+            val capA = hA - dir * (hl / 2f - rh)
+            val tC = capA - dir * dist * TailReach
 
-            fun blob(a: Float, l: Float, c: Float) {
-                drawRoundRect(
+            fun circle(a: Float, rad: Float) {
+                drawCircle(
                     color = indicatorColor,
-                    topLeft = if (vert) Offset(cC - c / 2f, a - l / 2f) else Offset(a - l / 2f, cC - c / 2f),
-                    size = if (vert) Size(c, l) else Size(l, c),
-                    cornerRadius = CornerRadius(min(l, c) / 2f)
+                    radius = rad,
+                    center = if (vert) Offset(cC, a) else Offset(a, cC)
                 )
             }
-            blob(tA, tl, tc)
-            blob(hA, hl, hc)
-
-            if (dist > 0.05f * ref) {
-                val headFront = hA >= tA
-                val aR = min(hA, tA)
-                val aF = max(hA, tA)
-                val radR = (if (headFront) min(tl, tc) else min(hl, hc)) / 2f
-                val radF = (if (headFront) min(hl, hc) else min(tl, tc)) / 2f
+            drawRoundRect(
+                color = indicatorColor,
+                topLeft = if (vert) Offset(cC - hc / 2f, hA - hl / 2f) else Offset(hA - hl / 2f, cC - hc / 2f),
+                size = if (vert) Size(hc, hl) else Size(hl, hc),
+                cornerRadius = CornerRadius(rh)
+            )
+            if (dist > 0.5f) {
+                circle(tC, rt)
+                val sep = abs(capA - tC)
+                // u = 1: las dos formas se tocan; el cuello se adelgaza al separarse (mín. 20 %).
+                val u = sep / max(rh + rt, 1f)
+                val neck = 1f - 0.8f * ((u - 0.7f) / 1.5f).coerceIn(0f, 1f)
+                val pinch = min(rh, rt) * neck
+                val headFirst = capA >= tC
+                val aR = min(capA, tC)
+                val aF = max(capA, tC)
+                val radR = if (headFirst) rt else rh
+                val radF = if (headFirst) rh else rt
                 val mid = (aR + aF) / 2f
                 val d = aF - aR
-                // El cuello se adelgaza al estirarse (mínimo 25 % del radio menor).
-                val neck = 1f - 0.75f * ((dist - 0.25f * ref) / (1.2f * ref)).coerceIn(0f, 1f)
-                val pinch = min(radR, radF) * neck
                 fun ax(a: Float, c: Float) = if (vert) c else a
                 fun ay(a: Float, c: Float) = if (vert) a else c
                 val path = Path().apply {
@@ -878,9 +891,12 @@ private fun FloatingPillNav(
     }
 }
 
-/** Física de la cola de la gota: resorte subamortiguado (ζ ≈ 0,5; sube TailDamping para menos rebote). */
-private const val TailStiffness = 420f
-private const val TailDamping = 21f
+/** Física de la cola de la gota: resorte subamortiguado (ζ ≈ 0,45; sube TailDamping para menos rebote). */
+private const val TailStiffness = 150f
+private const val TailDamping = 11f
+
+/** Cuánto se despega la burbuja de la cola respecto al retraso real (1 = pegada al retraso). */
+private const val TailReach = 1.3f
 
 /** Cuánto se achica la gota a mitad de camino entre dos pestañas (0,30 = queda al 70 %). */
 private const val DropShrink = 0.30f
