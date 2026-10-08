@@ -203,6 +203,7 @@ Si compilas tu propia versión, define los secrets `GDRIVE_CLIENT_ID` y `GDRIVE_
 ### Iconos
 
 - La barra inferior (Inicio, Servidores, Logs y Acerca de) usa **iconos propios** de trazo grueso y redondeado; son los mismos en toda la app, también donde nombra esas secciones (Qué hace, avisos informativos, selector de carpetas, Mostrar Logs, Logs vacío). El de Logs es una lista (tres puntos y tres barras).
+- El indicador de la píldora es una **gota**: al deslizar entre pestañas se desliza suave junto con el dedo (sin saltar), se achica al pasar entre dos pestañas y se agranda con un pequeño rebote al llegar a su lugar. Lo mismo al tocar un botón o al arrastrar sobre la propia píldora.
 - En la píldora los iconos van **vacíos** (solo contorno) y se **rellenan** de abajo hacia arriba al posarse el indicador en su pestaña (también mientras arrastras el dedo); al cambiar de pestaña se **vacían** hacia abajo.
 
 ### Tile de Ajustes rápidos

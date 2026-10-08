@@ -35,9 +35,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.unit.toSize
+import kotlin.math.PI
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -569,15 +575,72 @@ private fun FloatingPillNav(
         label = "pillInflate"
     )
 
+    // Gota: fuera del arrastre sobre la píldora, el indicador no salta a la pestaña elegida sino que
+    // sigue la posición real del pager (página + fracción), así que se desliza con el dedo al
+    // deslizar entre pestañas y con el viaje animado al tocar un botón. Se achica a mitad de camino
+    // entre dos pestañas y recupera su tamaño al llegar (`dropSquash`, solo geométrico). Mientras
+    // arrastras la píldora manda el dedo (`dragBlend` = 1, resorte de arriba), con el mismo achique.
+    val dragBlend by animateFloatAsState(
+        if (drag != null) 1f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+        label = "pillDragBlend"
+    )
+    // Pequeño rebote de "se agranda" al asentarse en la pestaña de destino.
+    val arrive = remember { Animatable(1f) }
+    LaunchedEffect(pagerState) {
+        var lastScreen: Screen? = null
+        snapshotFlow {
+            Triple(pagerState.isScrollInProgress, currentItems.getOrNull(pagerState.currentPage), currentLogsLeaving)
+        }.collectLatest { (scrolling, screen, _) ->
+            if (!scrolling && screen != null) {
+                if (lastScreen != null && screen != lastScreen) {
+                    arrive.snapTo(1f)
+                    arrive.animateTo(1.09f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh))
+                    arrive.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium))
+                }
+                lastScreen = screen
+            }
+        }
+    }
+
     val indicatorColor = colors.primary
+    // Todo se lee dentro del lambda de dibujo (pager, bounds, resortes): sin recomposición por fotograma.
     val drawIndicator = Modifier.drawBehind {
-        if (iw > 0f && ih > 0f) {
-            withTransform({ scale(inflate, inflate, pivot = Offset(ix + iw / 2f, iy + ih / 2f)) }) {
+        val list = currentItems
+        val vert = currentVertical
+        var px = ix
+        var py = iy
+        var pw = iw
+        var ph = ih
+        val w = dragBlend
+        if (list.isNotEmpty() && w < 1f) {
+            val last = list.lastIndex
+            val pos = (pagerState.currentPage + pagerState.currentPageOffsetFraction).coerceIn(0f, last.toFloat())
+            val i0 = floor(pos).toInt().coerceIn(0, last)
+            val i1 = (i0 + 1).coerceAtMost(last)
+            val f = pos - i0
+            val r0 = bounds[list[i0]]
+            val r1 = bounds[list[i1]]
+            if (r0 != null && r1 != null && !r0.isEmpty && !r1.isEmpty) {
+                val cx = r0.left + (r1.left - r0.left) * f
+                val cy = r0.top + (r1.top - r0.top) * f
+                val cw = r0.width + (r1.width - r0.width) * f
+                val ch = r0.height + (r1.height - r0.height) * f
+                px = cx + (ix - cx) * w
+                py = cy + (iy - cy) * w
+                pw = cw + (iw - cw) * w
+                ph = ch + (ih - ch) * w
+            }
+        }
+        if (pw > 0f && ph > 0f) {
+            val squash = dropSquash(if (vert) py else px, list, bounds, vert)
+            val k = inflate * squash * arrive.value
+            withTransform({ scale(k, k, pivot = Offset(px + pw / 2f, py + ph / 2f)) }) {
                 drawRoundRect(
                     color = indicatorColor,
-                    topLeft = Offset(ix, iy),
-                    size = Size(iw, ih),
-                    cornerRadius = CornerRadius(min(iw, ih) / 2f)
+                    topLeft = Offset(px, py),
+                    size = Size(pw, ph),
+                    cornerRadius = CornerRadius(min(pw, ph) / 2f)
                 )
             }
         }
@@ -730,6 +793,28 @@ private fun FloatingPillNav(
             }
         }
     }
+}
+
+/** Cuánto se achica la gota a mitad de camino entre dos pestañas (0,30 = queda al 70 %). */
+private const val DropShrink = 0.30f
+
+/**
+ * Escala de la gota según su posición [coord] (borde inicial sobre el eje de la barra) respecto al
+ * borde inicial de cada pestaña: 1 sobre una pestaña, [1 - DropShrink] justo en medio de dos.
+ */
+private fun dropSquash(coord: Float, items: List<Screen>, bounds: Map<Screen, Rect>, vertical: Boolean): Float {
+    var a = Float.NaN
+    for (sc in items) {
+        val r = bounds[sc] ?: continue
+        if (r.isEmpty) continue
+        val st = if (vertical) r.top else r.left
+        if (!a.isNaN() && st > a && coord >= a && coord <= st) {
+            val f = (coord - a) / (st - a)
+            return 1f - DropShrink * sin(PI.toFloat() * f)
+        }
+        a = st
+    }
+    return 1f
 }
 
 /**

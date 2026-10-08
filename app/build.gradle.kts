@@ -33,7 +33,7 @@ android {
         // El CI pasa APP_VERSION_CODE (run_number + 100) para que cada build suba el
         // versionCode y el actualizador de la app la detecte como nueva. Local: 51.
         versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: 51
-        versionName = "2.5.89"
+        versionName = "2.5.90"
 
         // Cliente OAuth de Google Drive que trae la app: el usuario solo da su
         // consentimiento, sin pegar credenciales. Se inyecta en el build desde
