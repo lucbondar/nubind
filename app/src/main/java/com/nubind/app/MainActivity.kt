@@ -590,8 +590,12 @@ private fun FloatingPillNav(
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
         label = "pillDragBlend"
     )
-    // Posición de la cola sobre el eje de la barra (NaN = aún sin medir: se dibuja pegada a la cabeza).
-    val tailA = remember { mutableStateOf(Float.NaN) }
+    // Bordes (inicio y fin sobre el eje de la barra) de la "cola": cada borde sigue al de la cabeza con
+    // un resorte. Se siguen los bordes y no el centro: al abrirse la etiqueta de la pestaña el centro
+    // de la cabeza se corre aunque el borde trasero no se mueva, y eso despegaba la burbuja sin motivo.
+    // NaN = aún sin medir (se dibuja pegada a la cabeza).
+    val tailS = remember { mutableStateOf(Float.NaN) }
+    val tailE = remember { mutableStateOf(Float.NaN) }
 
     // Rectángulo de la cabeza; solo lee estados (pager, bounds, resortes): sirve para dibujar y para la física.
     fun computeRect(): Rect? {
@@ -623,31 +627,42 @@ private fun FloatingPillNav(
         if (hw <= 0f || hh <= 0f) return null
         return Rect(Offset(hx, hy), Size(hw, hh))
     }
-    fun headCenter(): Float {
-        val r = computeRect() ?: return Float.NaN
-        return if (currentVertical) r.center.y else r.center.x
+    fun headEdges(): Pair<Float, Float> {
+        val r = computeRect() ?: return Pair(Float.NaN, Float.NaN)
+        return if (currentVertical) Pair(r.top, r.bottom) else Pair(r.left, r.right)
     }
 
     LaunchedEffect(Unit) {
         while (true) {
             // Espera a que la cabeza se aleje de la cola (o a la primera medida).
-            snapshotFlow { headCenter() }.first { h ->
-                !h.isNaN() && (tailA.value.isNaN() || abs(h - tailA.value) > 0.5f)
+            snapshotFlow { headEdges() }.first { (a, b) ->
+                !a.isNaN() && (
+                    tailS.value.isNaN() || tailE.value.isNaN() ||
+                        abs(a - tailS.value) > 0.5f || abs(b - tailE.value) > 0.5f
+                    )
             }
             var last = withFrameNanos { it }
-            var v = 0f
+            var vs = 0f
+            var ve = 0f
             while (true) {
                 val now = withFrameNanos { it }
                 val dt = ((now - last) / 1_000_000_000f).coerceIn(0.001f, 0.032f)
                 last = now
-                val h = headCenter()
-                if (h.isNaN()) break
-                val t0 = tailA.value
-                if (t0.isNaN()) { tailA.value = h; break }
-                v += (TailStiffness * (h - t0) - TailDamping * v) * dt
-                val t = t0 + v * dt
-                if (abs(h - t) < 0.4f && abs(v) < 8f) { tailA.value = h; break }
-                tailA.value = t
+                val (a, b) = headEdges()
+                if (a.isNaN()) break
+                val s0 = tailS.value
+                val e0 = tailE.value
+                if (s0.isNaN() || e0.isNaN()) { tailS.value = a; tailE.value = b; break }
+                vs += (TailStiffness * (a - s0) - TailDamping * vs) * dt
+                ve += (TailStiffness * (b - e0) - TailDamping * ve) * dt
+                val s1 = s0 + vs * dt
+                val e1 = e0 + ve * dt
+                if (abs(a - s1) < 0.4f && abs(b - e1) < 0.4f && abs(vs) < 8f && abs(ve) < 8f) {
+                    tailS.value = a; tailE.value = b
+                    break
+                }
+                tailS.value = s1
+                tailE.value = e1
             }
         }
     }
@@ -662,42 +677,44 @@ private fun FloatingPillNav(
             val lc0 = if (vert) r.width else r.height
             val hA = if (vert) r.center.y else r.center.x
             val cC = if (vert) r.center.x else r.center.y
-            val tRaw = tailA.value
-            val tA = if (tRaw.isNaN()) hA else tRaw
-            // lag > 0: la cola va detrás de la cabeza (en la dirección del movimiento); < 0: la ha
-            // rebasado (rebote al frenar) y la burbuja asoma por delante.
-            val lag = hA - tA
-            val dist = abs(lag)
-            val dir = if (lag >= 0f) 1f else -1f
+            val hs = if (vert) r.top else r.left
+            val he = if (vert) r.bottom else r.right
+            val sRaw = tailS.value
+            val eRaw = tailE.value
+            val ts = if (sRaw.isNaN()) hs else sRaw
+            val te = if (eRaw.isNaN()) he else eRaw
+            // El borde que va detrás del movimiento se retrasa (> 0): el inicial al ir hacia el fin,
+            // el final al ir hacia el inicio. Un borde que rebasa (< 0) o crece hacia delante (se abre
+            // la etiqueta) no genera burbuja: así al llegar la silueta queda limpia.
+            val lagS = hs - ts
+            val lagE = te - he
+            val rearIsStart = lagS >= lagE
+            val lag = if (rearIsStart) lagS else lagE
             val squash = dropSquash(if (vert) r.top else r.left, currentItems, bounds, vert)
             val k = inflate * squash
             val hl = la0 * k
             val hc = lc0 * k
             val rh = min(hl, hc) / 2f
-            // 0 = pegada, 1 = muy estirada (se mide contra el alto de la gota, no contra su largo:
-            // con la etiqueta la cabeza es una cápsula larga y la cola quedaría tapada por ella).
-            val s = min(dist / (1.5f * hc), 1f)
-            val rt = rh * (1f - 0.35f * s)
-            // La burbuja de la cola sale del extremo trasero de la cabeza y se separa `TailReach`
-            // veces lo que se retrasa: así, aunque el retraso sea corto, se despega y se ve el cuello.
-            val capA = hA - dir * (hl / 2f - rh)
-            val tC = capA - dir * dist * TailReach
-
-            fun circle(a: Float, rad: Float) {
-                drawCircle(
-                    color = indicatorColor,
-                    radius = rad,
-                    center = if (vert) Offset(cC, a) else Offset(a, cC)
-                )
-            }
             drawRoundRect(
                 color = indicatorColor,
                 topLeft = if (vert) Offset(cC - hc / 2f, hA - hl / 2f) else Offset(hA - hl / 2f, cC - hc / 2f),
                 size = if (vert) Size(hc, hl) else Size(hl, hc),
                 cornerRadius = CornerRadius(rh)
             )
-            if (dist > 0.5f) {
-                circle(tC, rt)
+            if (lag > 0.5f) {
+                // 0 = pegada, 1 = muy estirada (se mide contra el alto de la gota, no contra su largo:
+                // con la etiqueta la cabeza es una cápsula larga y la cola quedaría tapada por ella).
+                val st = min(lag / (1.5f * hc), 1f)
+                val rt = rh * (1f - 0.35f * st)
+                // La burbuja sale del extremo trasero de la cabeza y se separa `TailReach` veces lo que
+                // se retrasa el borde, así aunque el retraso sea corto se despega y se ve el cuello.
+                val capA = if (rearIsStart) hA - hl / 2f + rh else hA + hl / 2f - rh
+                val tC = if (rearIsStart) capA - lag * TailReach else capA + lag * TailReach
+                drawCircle(
+                    color = indicatorColor,
+                    radius = rt,
+                    center = if (vert) Offset(cC, tC) else Offset(tC, cC)
+                )
                 val sep = abs(capA - tC)
                 // u = 1: las dos formas se tocan; el cuello se adelgaza al separarse (mín. 20 %).
                 val u = sep / max(rh + rt, 1f)
@@ -891,9 +908,9 @@ private fun FloatingPillNav(
     }
 }
 
-/** Física de la cola de la gota: resorte subamortiguado (ζ ≈ 0,45; sube TailDamping para menos rebote). */
-private const val TailStiffness = 150f
-private const val TailDamping = 11f
+/** Física de la cola de la gota: resorte subamortiguado (ζ ≈ 0,8: casi sin rebase; con ζ < 0,5 al llegar se veía una burbuja deformada por delante). */
+private const val TailStiffness = 260f
+private const val TailDamping = 26f
 
 /** Cuánto se despega la burbuja de la cola respecto al retraso real (1 = pegada al retraso). */
 private const val TailReach = 1.3f
