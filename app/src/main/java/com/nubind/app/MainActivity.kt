@@ -36,18 +36,11 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.unit.toSize
 import kotlin.math.PI
-import kotlin.math.acos
-import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
-import kotlinx.coroutines.flow.first
-import androidx.compose.ui.graphics.Path
-import kotlin.math.abs
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -579,25 +572,16 @@ private fun FloatingPillNav(
         label = "pillInflate"
     )
 
-    // Gota con física. La CABEZA es el indicador de siempre: fuera del arrastre sobre la píldora
-    // sigue la posición real del pager (página + fracción) interpolando los `bounds` de las dos
-    // pestañas vecinas, o sea que se desliza con el dedo y con el viaje de `animateScrollToPage`;
-    // con el dedo sobre la píldora manda el resorte `ix/iy` (`dragBlend` = 1). La COLA es una masa
-    // atada a la cabeza con un resorte subamortiguado (`TailStiffness`/`TailDamping`, integrada por
-    // fotograma solo mientras se mueve): se queda atrás al acelerar, se estira unida por un cuello
-    // que se adelgaza y, al frenar la cabeza, la alcanza con un pequeño rebote. Se dibujan las dos
-    // formas más el cuello en el mismo color (una sola silueta de gota).
+    // Indicador: una cápsula que sigue al dedo. Fuera del arrastre sobre la píldora sigue la posición
+    // real del pager (página + fracción) interpolando los `bounds` de las dos pestañas vecinas, o sea
+    // que se desliza con el dedo y con el viaje de `animateScrollToPage`; con el dedo sobre la píldora
+    // manda el resorte `ix/iy` (`dragBlend` = 1). Sin cola ni forma de gota: solo se desvanece un poco
+    // a mitad de camino entre dos pestañas (`indicatorFade`) y vuelve a opaco al posarse.
     val dragBlend by animateFloatAsState(
         if (drag != null) 1f else 0f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
         label = "pillDragBlend"
     )
-    // Bordes (inicio y fin sobre el eje de la barra) de la "cola": cada borde sigue al de la cabeza con
-    // un resorte. Se siguen los bordes y no el centro: al abrirse la etiqueta de la pestaña el centro
-    // de la cabeza se corre aunque el borde trasero no se mueva, y eso despegaba la burbuja sin motivo.
-    // NaN = aún sin medir (se dibuja pegada a la cabeza).
-    val tailS = remember { mutableStateOf(Float.NaN) }
-    val tailE = remember { mutableStateOf(Float.NaN) }
 
     // Rectángulo de la cabeza; solo lee estados (pager, bounds, resortes): sirve para dibujar y para la física.
     fun computeRect(): Rect? {
@@ -629,45 +613,6 @@ private fun FloatingPillNav(
         if (hw <= 0f || hh <= 0f) return null
         return Rect(Offset(hx, hy), Size(hw, hh))
     }
-    fun headEdges(): Pair<Float, Float> {
-        val r = computeRect() ?: return Pair(Float.NaN, Float.NaN)
-        return if (currentVertical) Pair(r.top, r.bottom) else Pair(r.left, r.right)
-    }
-
-    LaunchedEffect(Unit) {
-        while (true) {
-            // Espera a que la cabeza se aleje de la cola (o a la primera medida).
-            snapshotFlow { headEdges() }.first { (a, b) ->
-                !a.isNaN() && (
-                    tailS.value.isNaN() || tailE.value.isNaN() ||
-                        abs(a - tailS.value) > 0.5f || abs(b - tailE.value) > 0.5f
-                    )
-            }
-            var last = withFrameNanos { it }
-            var vs = 0f
-            var ve = 0f
-            while (true) {
-                val now = withFrameNanos { it }
-                val dt = ((now - last) / 1_000_000_000f).coerceIn(0.001f, 0.032f)
-                last = now
-                val (a, b) = headEdges()
-                if (a.isNaN()) break
-                val s0 = tailS.value
-                val e0 = tailE.value
-                if (s0.isNaN() || e0.isNaN()) { tailS.value = a; tailE.value = b; break }
-                vs += (TailStiffness * (a - s0) - TailDamping * vs) * dt
-                ve += (TailStiffness * (b - e0) - TailDamping * ve) * dt
-                val s1 = s0 + vs * dt
-                val e1 = e0 + ve * dt
-                if (abs(a - s1) < 0.4f && abs(b - e1) < 0.4f && abs(vs) < 8f && abs(ve) < 8f) {
-                    tailS.value = a; tailE.value = b
-                    break
-                }
-                tailS.value = s1
-                tailE.value = e1
-            }
-        }
-    }
 
     val indicatorColor = colors.primary
     // Todo se lee dentro del lambda de dibujo: sin recomposición por fotograma.
@@ -675,58 +620,17 @@ private fun FloatingPillNav(
         val r = computeRect()
         if (r != null) {
             val vert = currentVertical
-            val la0 = if (vert) r.height else r.width
-            val lc0 = if (vert) r.width else r.height
-            val hA = if (vert) r.center.y else r.center.x
-            val cC = if (vert) r.center.x else r.center.y
-            val hs = if (vert) r.top else r.left
-            val he = if (vert) r.bottom else r.right
-            val sRaw = tailS.value
-            val eRaw = tailE.value
-            val ts = if (sRaw.isNaN()) hs else sRaw
-            val te = if (eRaw.isNaN()) he else eRaw
-            // El borde que va detrás del movimiento se retrasa (> 0): el inicial al ir hacia el fin,
-            // el final al ir hacia el inicio. Un borde que rebasa (< 0) o crece hacia delante (se abre
-            // la etiqueta) no genera burbuja: así al llegar la silueta queda limpia.
-            val lagS = hs - ts
-            val lagE = te - he
-            val rearIsStart = lagS >= lagE
-            val lag = if (rearIsStart) lagS else lagE
-            val squash = dropSquash(if (vert) r.top else r.left, currentItems, bounds, vert)
-            val k = inflate * squash
-            val hl = la0 * k
-            val hc = lc0 * k
-            val rh = min(hl, hc) / 2f
+            val alpha = indicatorFade(if (vert) r.top else r.left, currentItems, bounds, vert)
+            val k = inflate
+            val w = r.width * k
+            val h = r.height * k
             drawRoundRect(
                 color = indicatorColor,
-                topLeft = if (vert) Offset(cC - hc / 2f, hA - hl / 2f) else Offset(hA - hl / 2f, cC - hc / 2f),
-                size = if (vert) Size(hc, hl) else Size(hl, hc),
-                cornerRadius = CornerRadius(rh)
+                topLeft = Offset(r.center.x - w / 2f, r.center.y - h / 2f),
+                size = Size(w, h),
+                cornerRadius = CornerRadius(min(w, h) / 2f),
+                alpha = alpha
             )
-            if (lag > 0.5f) {
-                // 0 = pegada, 1 = muy estirada (se mide contra el alto de la gota, no contra su largo:
-                // con la etiqueta la cabeza es una cápsula larga y la cola quedaría tapada por ella).
-                val st = min(lag / (1.5f * hc), 1f)
-                val rt = rh * (1f - 0.35f * st)
-                // La burbuja sale del extremo trasero de la cabeza y se separa `TailReach` veces lo que
-                // se retrasa el borde, así aunque el retraso sea corto se despega y se ve el cuello.
-                val capA = if (rearIsStart) hA - hl / 2f + rh else hA + hl / 2f - rh
-                val tC = if (rearIsStart) capA - lag * TailReach else capA + lag * TailReach
-                drawCircle(
-                    color = indicatorColor,
-                    radius = rt,
-                    center = if (vert) Offset(cC, tC) else Offset(tC, cC)
-                )
-                // Puente de «metabolas» entre el casquete trasero de la cabeza y la burbuja: sale tangente
-                // a los dos círculos, así la silueta es una sola curva suave (sin escalones ni dientes).
-                // `v` = 1 da la envolvente convexa (tangentes exteriores: nunca deja muescas cuando las
-                // dos formas aún se solapan); baja hacia 0,5 al separarse, y entonces aparece el cuello.
-                val u = abs(tC - capA) / max(rh + rt, 1f)
-                val spread = 1f - 0.5f * ((u - 0.5f) / 0.9f).coerceIn(0f, 1f)
-                metaballBridge(capA, rh, tC, rt, cC, vert, v = spread, maxDist = (rh + rt) * 2.4f)?.let {
-                    drawPath(it, indicatorColor)
-                }
-            }
         }
     }
 
@@ -879,87 +783,15 @@ private fun FloatingPillNav(
     }
 }
 
-/** Física de la cola de la gota: resorte subamortiguado (ζ ≈ 0,8: casi sin rebase; con ζ < 0,5 al llegar se veía una burbuja deformada por delante). */
-private const val TailStiffness = 260f
-private const val TailDamping = 26f
-
-/** Cuánto se despega la burbuja de la cola respecto al retraso real (1 = pegada al retraso). */
-private const val TailReach = 1.3f
+/** Cuánto se desvanece el indicador a mitad de camino entre dos pestañas (0,45 = queda al 55 % de opacidad). */
+private const val FadeDip = 0.45f
 
 /**
- * Puente de metabolas entre dos círculos con centros en [a1] y [a2] sobre el eje de la barra (y
- * [cC] sobre el eje cruzado). Los bordes del puente son tangentes a ambos círculos, por lo que la
- * unión con ellos queda lisa. Devuelve null si un círculo contiene al otro o si están más lejos
- * que [maxDist] (la burbuja se suelta). Algoritmo clásico de metabolas con curvas de Bézier.
+ * Opacidad del indicador según su posición [coord] (borde inicial sobre el eje de la barra) respecto
+ * al borde inicial de cada pestaña: 1 sobre una pestaña, [1 - FadeDip] justo en medio de dos. Depende
+ * solo de la posición, así que acompaña al dedo tanto al deslizar el pager como al arrastrar la píldora.
  */
-private fun metaballBridge(
-    a1: Float, r1: Float, a2: Float, r2: Float, cC: Float, vertical: Boolean,
-    v: Float = 0.5f, handleRate: Float = 2.4f, maxDist: Float
-): Path? {
-    val d = abs(a2 - a1)
-    if (r1 <= 0f || r2 <= 0f || d > maxDist || d <= abs(r1 - r2)) return null
-    val pi = PI.toFloat()
-    val u1: Float
-    val u2: Float
-    if (d < r1 + r2) {
-        u1 = acos(((r1 * r1 + d * d - r2 * r2) / (2f * r1 * d)).coerceIn(-1f, 1f))
-        u2 = acos(((r2 * r2 + d * d - r1 * r1) / (2f * r2 * d)).coerceIn(-1f, 1f))
-    } else {
-        u1 = 0f
-        u2 = 0f
-    }
-    val angle1 = if (a2 >= a1) 0f else pi
-    val angle2 = acos(((r1 - r2) / d).coerceIn(-1f, 1f))
-    val a1a = angle1 + u1 + (angle2 - u1) * v
-    val a1b = angle1 - u1 - (angle2 - u1) * v
-    val a2a = angle1 + pi - u2 - (pi - u2 - angle2) * v
-    val a2b = angle1 - pi + u2 + (pi - u2 - angle2) * v
-    // Puntos en (a = eje de la barra, c = eje cruzado).
-    val p1aA = a1 + r1 * cos(a1a); val p1aC = cC + r1 * sin(a1a)
-    val p1bA = a1 + r1 * cos(a1b); val p1bC = cC + r1 * sin(a1b)
-    val p2aA = a2 + r2 * cos(a2a); val p2aC = cC + r2 * sin(a2a)
-    val p2bA = a2 + r2 * cos(a2b); val p2bC = cC + r2 * sin(a2b)
-    val dx = p2aA - p1aA
-    val dy = p2aC - p1aC
-    var d2 = min(v * handleRate, kotlin.math.sqrt(dx * dx + dy * dy) / (r1 + r2))
-    d2 *= min(1f, d * 2f / (r1 + r2))
-    // Con v = 1 (envolvente convexa) los bordes son rectas tangentes: asas de 1/3 del largo, sin
-    // ondulaciones; hacia v = 0,5 se pasa al asa clásica de metabolas, que curva el cuello.
-    val t = ((1f - v) / 0.5f).coerceIn(0f, 1f)
-    val third = kotlin.math.sqrt(dx * dx + dy * dy) / 3f
-    val h1 = third * (1f - t) + r1 * d2 * t
-    val h2 = third * (1f - t) + r2 * d2 * t
-    fun x(a: Float, c: Float) = if (vertical) c else a
-    fun y(a: Float, c: Float) = if (vertical) a else c
-    return Path().apply {
-        moveTo(x(p1aA, p1aC), y(p1aA, p1aC))
-        cubicTo(
-            x(p1aA + h1 * cos(a1a - pi / 2f), p1aC + h1 * sin(a1a - pi / 2f)),
-            y(p1aA + h1 * cos(a1a - pi / 2f), p1aC + h1 * sin(a1a - pi / 2f)),
-            x(p2aA + h2 * cos(a2a + pi / 2f), p2aC + h2 * sin(a2a + pi / 2f)),
-            y(p2aA + h2 * cos(a2a + pi / 2f), p2aC + h2 * sin(a2a + pi / 2f)),
-            x(p2aA, p2aC), y(p2aA, p2aC)
-        )
-        lineTo(x(p2bA, p2bC), y(p2bA, p2bC))
-        cubicTo(
-            x(p2bA + h2 * cos(a2b - pi / 2f), p2bC + h2 * sin(a2b - pi / 2f)),
-            y(p2bA + h2 * cos(a2b - pi / 2f), p2bC + h2 * sin(a2b - pi / 2f)),
-            x(p1bA + h1 * cos(a1b + pi / 2f), p1bC + h1 * sin(a1b + pi / 2f)),
-            y(p1bA + h1 * cos(a1b + pi / 2f), p1bC + h1 * sin(a1b + pi / 2f)),
-            x(p1bA, p1bC), y(p1bA, p1bC)
-        )
-        close()
-    }
-}
-
-/** Cuánto se achica la gota a mitad de camino entre dos pestañas (0,30 = queda al 70 %). */
-private const val DropShrink = 0.30f
-
-/**
- * Escala de la gota según su posición [coord] (borde inicial sobre el eje de la barra) respecto al
- * borde inicial de cada pestaña: 1 sobre una pestaña, [1 - DropShrink] justo en medio de dos.
- */
-private fun dropSquash(coord: Float, items: List<Screen>, bounds: Map<Screen, Rect>, vertical: Boolean): Float {
+private fun indicatorFade(coord: Float, items: List<Screen>, bounds: Map<Screen, Rect>, vertical: Boolean): Float {
     var a = Float.NaN
     for (sc in items) {
         val r = bounds[sc] ?: continue
@@ -967,7 +799,7 @@ private fun dropSquash(coord: Float, items: List<Screen>, bounds: Map<Screen, Re
         val st = if (vertical) r.top else r.left
         if (!a.isNaN() && st > a && coord >= a && coord <= st) {
             val f = (coord - a) / (st - a)
-            return 1f - DropShrink * sin(PI.toFloat() * f)
+            return 1f - FadeDip * sin(PI.toFloat() * f)
         }
         a = st
     }
