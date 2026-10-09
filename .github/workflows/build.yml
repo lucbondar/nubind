@@ -65,17 +65,17 @@ jobs:
       - name: Fijar versionCode de la app
         run: echo "APP_VERSION_CODE=$((GITHUB_RUN_NUMBER + 100))" >> "$GITHUB_ENV"
 
-      - name: Build debug APK
+      - name: Build release APK (R8, firmado con debug.keystore)
         env:
           GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
           GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
-        run: ./gradlew assembleDebug --console=plain
+        run: ./gradlew assembleRelease --console=plain
 
       - name: Subir APK
         uses: actions/upload-artifact@v6
         with:
-          name: app-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: app-apk
+          path: app/build/outputs/apk/release/*.apk
 
   package-module:
     needs: build-app
@@ -89,7 +89,7 @@ jobs:
       - name: Descargar APK ya compilado
         uses: actions/download-artifact@v7
         with:
-          name: app-debug-apk
+          name: app-apk
           path: apk
 
       - name: Descargar binario de rclone (linux-arm64)
@@ -293,7 +293,7 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             dist/nubind-module/*.zip
-            dist/app-debug-apk/*.apk
+            dist/app-apk/*.apk
             dist/update-meta/update.json
             dist/update-meta/changelog.md
 

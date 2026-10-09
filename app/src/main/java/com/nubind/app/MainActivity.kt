@@ -276,6 +276,20 @@ private fun AppScaffold(vm: BindViewModel) {
     val scope = rememberCoroutineScope()
     val hazeState = rememberHazeState()
 
+    // Arranque escalonado del pager: las 4 páginas deben terminar compuestas (conservan scroll y
+    // estado), pero componerlas todas en el primer fotograma (Servidores, Logs y Acerca de con su
+    // cielo) hacía que la app tardara en pintar y se sintiera pesada al abrir. Empieza con la
+    // visible + la vecina y suma una página cada ~0,5 s, nunca mientras el pager se está moviendo.
+    var warmPages by remember { mutableStateOf(1) }
+    LaunchedEffect(Unit) {
+        delay(900)
+        while (warmPages < pagerState.pageCount) {
+            while (pagerState.isScrollInProgress) delay(200)
+            warmPages += 1
+            delay(500)
+        }
+    }
+
     // No es un ancho de pantalla (eso ya lo maneja cada screen con
     // BoxWithConstraints para su propio layout de dos columnas): es la
     // orientación real del teléfono, la que gira la píldora de la barra
@@ -383,7 +397,7 @@ private fun AppScaffold(vm: BindViewModel) {
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize().hazeSource(hazeState),
-                    beyondViewportPageCount = items.size
+                    beyondViewportPageCount = minOf(warmPages, items.size)
                 ) { page ->
                     when (items[page]) {
                         Screen.Home -> HomeScreen(vm, onOpenServers = { goTo(1) })

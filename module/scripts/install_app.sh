@@ -45,6 +45,11 @@ install_app() {
         _rc=$?
     fi
 
-    [ "$_rc" = "0" ] && return 0
+    if [ "$_rc" = "0" ]; then
+        # Compila la app a código nativo (AOT) en segundo plano: el siguiente arranque y el
+        # desplazamiento no dependen del JIT. No bloquea la instalación; si falla, se ignora.
+        (nohup cmd package compile -m speed -f "$APP_PKG" >/dev/null 2>&1 &)
+        return 0
+    fi
     return 1
 }
